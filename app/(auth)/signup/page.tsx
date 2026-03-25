@@ -10,10 +10,14 @@ export default function SignupPage() {
       <div className="flex w-full flex-col justify-center bg-[#F3F3F3] px-8 md:w-1/2 lg:px-24">
         <div className="mx-auto w-full max-w-sm">
           {/*placeholder for logo (later fr) */}
-          <div className="mb-8 flex justify-center md:justify-start">
-            <div className="h-20 w-48 bg-transparent flex items-center justify-center italic text-red-600 text-4xl font-bold">
-              Inspire9
-            </div>
+          <div className="mb-8 flex justify-center">
+            <Image
+              src="/images/inspire9Logo.png"
+              alt="Inspire9 Logo"
+              width={180}
+              height={60}
+              className="object-contain"
+            />
           </div>
           <form className="space-y-4">
             <div className="grid gap-2">
@@ -49,9 +53,11 @@ export default function SignupPage() {
                 className="bg-white"
               />
             </div>
-            <Button className="w-1/2 bg-[#E31E24] hover:bg-[#c1191f] text-white">
-              Create Account
-            </Button>
+            <div className="flex justify-center">
+              <Button className="w-fit bg-[#E31E24] hover:bg-[#c1191f] text-white rounded-md text-md transition-all">
+                Login Inspire9
+              </Button>
+            </div>
           </form>
           <div className="mt-6 text-center text-sm text-gray-500">
             Already have an account?{" "}
@@ -63,12 +69,13 @@ export default function SignupPage() {
           </div>
         </div>
       </div>
-
       <div className="hidden w-1/2 bg-gray-200 lg:block relative">
-        {/*Replace ts later, add a custom div for an image later (idk where I put the image ffs) */}
-        <div className="absolute inset-0 bg-zinc-900/10 flex items-center justify-center text-white text-xl">
-          A random group idk
-        </div>
+        <Image
+          src="/images/login-side.jpg"
+          alt="coworking space image"
+          fill
+          className="object-cover"
+        />
       </div>
     </div>
   );
