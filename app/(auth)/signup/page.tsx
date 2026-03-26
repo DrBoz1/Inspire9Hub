@@ -3,8 +3,16 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { signUp } from "../actions";
 
-export default function SignupPage() {
+type SearchParams = Promise<{ error?: string; message?: string }>;
+
+export default async function SignupPage(props: {
+  searchParams: SearchParams;
+}) {
+  const searchParams = (await props.searchParams) || {};
+  const error = searchParams.error;
+  const message = searchParams.message;
   return (
     <div className="flex min-h-screen w-full">
       <div className="flex w-full flex-col justify-center bg-[#F3F3F3] px-8 md:w-1/2 lg:px-24">
@@ -19,12 +27,21 @@ export default function SignupPage() {
               className="object-contain"
             />
           </div>
-          <form className="space-y-4">
+          <form action={signUp} className="space-y-4">
+            {error && (
+              <div className="text-red-500 text-sm text-center">{error}</div>
+            )}
+            {message && (
+              <div className="text-green-600 text-sm text-center">
+                {message}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="name" className="text-gray-400">
                 Name
               </Label>
               <Input
+                name="name"
                 id="name"
                 type="name"
                 placeholder="Enter your name"
@@ -36,6 +53,7 @@ export default function SignupPage() {
                 Email
               </Label>
               <Input
+                name="email"
                 id="email"
                 type="email"
                 placeholder="Enter your email"
@@ -47,6 +65,7 @@ export default function SignupPage() {
                 Password
               </Label>
               <Input
+                name="password"
                 id="password"
                 type="password"
                 placeholder="Enter your password"
@@ -55,7 +74,7 @@ export default function SignupPage() {
             </div>
             <div className="flex justify-center">
               <Button className="w-fit bg-[#E31E24] hover:bg-[#c1191f] text-white rounded-md text-md transition-all">
-                Login Inspire9
+                Create Account
               </Button>
             </div>
           </form>

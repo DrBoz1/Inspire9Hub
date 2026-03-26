@@ -35,7 +35,7 @@ export async function signUp(formData: FormData) {
 
   const { error } = await supabase.auth.signUp(data);
   if (error) {
-    return redirect("signup?error=Could not verify user");
+    return redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
   return redirect("login/message=Check email to confirm registration");
 }

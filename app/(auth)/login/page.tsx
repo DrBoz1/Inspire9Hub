@@ -3,8 +3,12 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { login } from "../actions";
 
-export default function LoginPage() {
+type SearchParams = Promise<{ error?: string }>;
+export default async function LoginPage(props: { searchParams: SearchParams }) {
+  const searchParams = (await props.searchParams) || {};
+  const error = searchParams.error;
   return (
     <div className="flex min-h-screen w-full">
       <div className="flex w-full flex-col justify-center bg-[#F3F3F3] px-8 md:w-1/2 lg:px-24">
@@ -19,12 +23,18 @@ export default function LoginPage() {
               className="object-contain"
             />
           </div>
-          <form className="space-y-4">
+          <form action={login} className="space-y-4">
+            {error && (
+              <div className="p-3 text-sm bg-red-100 border border-red-400 text-red-700 rounded text-center">
+                {error}
+              </div>
+            )}
             <div className="grid gap-2">
               <Label htmlFor="email" className="text-gray-400">
                 Email
               </Label>
               <Input
+                name="email"
                 id="email"
                 type="email"
                 placeholder="Enter your email"
@@ -36,6 +46,7 @@ export default function LoginPage() {
                 Password
               </Label>
               <Input
+                name="password"
                 id="password"
                 type="password"
                 placeholder="Enter your password"
