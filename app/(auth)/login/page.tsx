@@ -13,7 +13,6 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
     <div className="flex min-h-screen w-full">
       <div className="flex w-full flex-col justify-center bg-[#F3F3F3] px-8 md:w-1/2 lg:px-24">
         <div className="mx-auto w-full max-w-sm">
-          {/*placeholder for logo (later fr) */}
           <div className="mb-10 flex justify-center">
             <Image
               src="/images/inspire9Logo.png"
