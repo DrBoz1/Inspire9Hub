@@ -35,6 +35,8 @@ export async function updateProfile(formData: FormData) {
 
   console.log("Update Successful!");
   revalidatePath("/", "layout");
+
+  redirect("/dashboard");
 }
 
 export async function login(formData: FormData) {

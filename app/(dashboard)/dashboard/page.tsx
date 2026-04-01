@@ -3,15 +3,26 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { AlertCircle, ChevronRight } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
 
-export default function MemberDashboard() {
+export default async function MemberDashboard() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user?.id)
+    .single();
+  const firstName = profile?.full_name?.split(" ")[0] || "User";
   return (
     <div className="max-w-6xl space-y-8 font-poppins">
       <div className="flex justify-between items-end">
         <div>
           <h1 className="text-3xl font-bold text-slate-900">Dashboard</h1>
           <p className="text-slate-500 mt-1">
-            Welcome back, Yianni. Here's what's happening today.
+            Welcome back, {firstName}. Here's what's happening today.
           </p>
         </div>
         <div className="flex gap-3">
