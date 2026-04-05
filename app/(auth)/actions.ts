@@ -75,3 +75,44 @@ export async function signUp(formData: FormData) {
   }
   return redirect("/login?message=Check email to confirm registration");
 }
+
+export async function submitInduction(formData: FormData) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) return;
+
+  const inductionData = {
+    member_id: user.id,
+    full_name: formData.get("full_name") as string,
+    mobile_number: formData.get("mobile_number") as string,
+    emergency_contact: formData.get("emergency_contact") as string,
+  };
+
+  //inserting into the existing induction_records table
+  const { error: insertError } = await supabase
+    .from("induction_records")
+    .insert(inductionData);
+
+  if (insertError) {
+    console.error("Induction Insert Error:", insertError.message);
+    return;
+  }
+
+  //updating the main profile status
+  const { error: updateError } = await supabase
+    .from("profiles")
+    .update({ induction_status: true })
+    .eq("id", user.id);
+
+  if (updateError) {
+    console.error("Profile Update Error:", updateError.message);
+    return;
+  }
+
+  // For cache refresh
+  revalidatePath("/", "layout");
+  redirect("/dashboard");
+}
