@@ -53,7 +53,7 @@ export async function login(formData: FormData) {
     return redirect("/login?error=Could not authenticate user");
   }
 
-  return redirect("/dashboard"); //placeholder for when the dashboard is created
+  return redirect("/dashboard");
 }
 
 export async function signUp(formData: FormData) {
@@ -73,5 +73,5 @@ export async function signUp(formData: FormData) {
   if (error) {
     return redirect(`/signup?error=${encodeURIComponent(error.message)}`);
   }
-  return redirect("login/message=Check email to confirm registration");
+  return redirect("/login?message=Check email to confirm registration");
 }
