@@ -94,7 +94,7 @@ export async function submitInduction(formData: FormData) {
     .update({
       full_name,
       mobile_number,
-      company_name,
+      company_name: company_name,
       induction_status: "Complete",
     })
     .eq("id", user.id);
