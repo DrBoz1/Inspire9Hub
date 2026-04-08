@@ -3,6 +3,8 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { INDUCTION_STATUS } from "@/lib/constants";
+
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
@@ -20,12 +22,12 @@ export async function updateProfile(formData: FormData) {
   const full_name = formData.get("full_name") as string;
   const company = formData.get("company") as string;
 
-  console.log("Updating profile for:", user.id);
-  console.log("New Data:", { full_name, company });
-
   const { error } = await supabase
     .from("members")
-    .update({ full_name, company_name: company })
+    .update({
+      full_name,
+      company_name: company,
+    })
     .eq("id", user.id);
 
   if (error) {
@@ -33,9 +35,7 @@ export async function updateProfile(formData: FormData) {
     return;
   }
 
-  console.log("Update Successful!");
   revalidatePath("/", "layout");
-
   redirect("/dashboard");
 }
 
@@ -89,13 +89,14 @@ export async function submitInduction(formData: FormData) {
   const health_emergency_info = formData.get("health_emergency_info") as string;
   const acknowledged_terms = formData.get("acknowledged_terms") === "on";
 
+  // 1. Update existing Member record
   const { error: memberError } = await supabase
     .from("members")
     .update({
       full_name,
       mobile_number,
-      company_name: company_name,
-      induction_status: "Complete",
+      company_name,
+      induction_status: INDUCTION_STATUS.COMPLETE,
     })
     .eq("id", user.id);
 
@@ -104,6 +105,7 @@ export async function submitInduction(formData: FormData) {
       `/induction?error=${encodeURIComponent(memberError.message)}`,
     );
 
+  // 2. Insert Induction Record linked to Member
   const { error: recordError } = await supabase
     .from("induction_records")
     .insert({

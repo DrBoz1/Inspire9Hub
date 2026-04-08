@@ -6,7 +6,6 @@ import {
 } from "@/components/ui/sidebar";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
-
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default async function DashboardLayout({
@@ -15,7 +14,6 @@ export default async function DashboardLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-
   const {
     data: { user },
   } = await supabase.auth.getUser();
@@ -39,7 +37,6 @@ export default async function DashboardLayout({
                 Inspire9 Hub
               </div>
             </header>
-
             <main className="flex-1 overflow-y-auto p-8">{children}</main>
           </SidebarInset>
         </div>
