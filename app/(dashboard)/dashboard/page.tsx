@@ -5,7 +5,7 @@ import { Progress } from "@/components/ui/progress";
 import { AlertCircle } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { INDUCTION_STATUS } from "@/lib/constants";
+import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 
 export default async function MemberDashboard() {
   const supabase = await createClient();
@@ -21,6 +21,7 @@ export default async function MemberDashboard() {
 
   const firstName = profile?.full_name?.split(" ")[0] || "User";
   const isInducted = profile?.induction_status === INDUCTION_STATUS.COMPLETE;
+  const memberStatus = profile?.member_status || MEMBER_STATUS.INACTIVE;
 
   return (
     <div className="max-w-6xl space-y-8 font-poppins">
@@ -41,6 +42,7 @@ export default async function MemberDashboard() {
         </div>
       </div>
 
+      {/* Banner: Only visible if induction is not complete */}
       {!isInducted && (
         <div className="flex items-center justify-between p-6 bg-white border-l-4 border-l-red-500 border border-slate-100 rounded-xl shadow-sm">
           <div className="flex gap-4 items-start">
@@ -73,8 +75,14 @@ export default async function MemberDashboard() {
             <p className="text-xs font-bold uppercase text-slate-400 tracking-wider">
               Current Plan
             </p>
-            <Badge className="bg-emerald-50 text-emerald-600 border-none px-3">
-              Active
+            <Badge
+              className={`${
+                memberStatus === MEMBER_STATUS.ACTIVE
+                  ? "bg-emerald-50 text-emerald-600"
+                  : "bg-amber-50 text-amber-600"
+              } border-none px-3 capitalize`}
+            >
+              {memberStatus}
             </Badge>
           </CardHeader>
           <CardContent>
@@ -123,7 +131,38 @@ export default async function MemberDashboard() {
           </CardContent>
         </Card>
       </div>
-      {/* ... Recent Activity code below stays the same ... */}
+
+      <Card className="rounded-2xl border-slate-100 shadow-sm">
+        <CardHeader className="flex flex-row items-center justify-between border-b border-slate-50">
+          <CardTitle className="text-lg font-bold">Recent Activity</CardTitle>
+          <Button
+            variant="ghost"
+            className="text-xs text-slate-400 uppercase font-bold"
+          >
+            View All
+          </Button>
+        </CardHeader>
+        <CardContent className="pt-6">
+          <div className="space-y-8">
+            <ActivityItem
+              title="Membership Status"
+              desc={`Your account is currently ${memberStatus.toLowerCase()}.`}
+              time="Just now"
+              dotColor={
+                memberStatus === MEMBER_STATUS.ACTIVE
+                  ? "bg-emerald-500"
+                  : "bg-amber-500"
+              }
+            />
+            <ActivityItem
+              title="Sign Up Completed"
+              desc="Account profile created."
+              time="3 hours ago"
+              dotColor="bg-slate-300"
+            />
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

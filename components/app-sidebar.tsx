@@ -28,10 +28,11 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
   const pathname = usePathname();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
+
+  // Logic to hide the Induction tab once complete
   const isInducted =
     userProfile?.induction_status === INDUCTION_STATUS.COMPLETE;
 
-  // Filter navigation items
   const navItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
     ...(!isInducted
@@ -93,6 +94,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
               </SidebarMenuButton>
             </SidebarMenuItem>
           ))}
+
           {!isCollapsed && (
             <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-6 mb-2">
               Account
@@ -132,8 +134,11 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
                 <span className="font-bold text-gray-700 truncate">
                   {userProfile?.full_name || "New User"}
                 </span>
-                <span className="text-xs text-gray-400 capitalize">
-                  {userProfile?.member_status || "Member"}
+                {/* Dynamic Status Display */}
+                <span
+                  className={`text-xs capitalize font-medium ${userProfile?.member_status === "Active" ? "text-emerald-500" : "text-amber-500"}`}
+                >
+                  {userProfile?.member_status || "Inactive"}
                 </span>
               </div>
             )}
