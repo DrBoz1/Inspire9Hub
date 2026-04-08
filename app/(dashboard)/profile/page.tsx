@@ -17,7 +17,7 @@ export default async function ProfilePage() {
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("members")
     .select("*") // <--- YOU NEED THIS
     .eq("id", user?.id)
     .single();

@@ -22,7 +22,7 @@ export default async function DashboardLayout({
   if (!user) redirect("/login");
 
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("members")
     .select("*")
     .eq("id", user.id)
     .single();

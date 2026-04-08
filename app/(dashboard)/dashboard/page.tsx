@@ -11,7 +11,7 @@ export default async function MemberDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
   const { data: profile } = await supabase
-    .from("profiles")
+    .from("members")
     .select("*")
     .eq("id", user?.id)
     .single();

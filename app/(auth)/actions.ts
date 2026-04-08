@@ -24,8 +24,8 @@ export async function updateProfile(formData: FormData) {
   console.log("New Data:", { full_name, company });
 
   const { error } = await supabase
-    .from("profiles")
-    .update({ full_name, company })
+    .from("members")
+    .update({ full_name, company_name: company })
     .eq("id", user.id);
 
   if (error) {
@@ -81,38 +81,44 @@ export async function submitInduction(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) return;
 
-  const inductionData = {
-    member_id: user.id,
-    full_name: formData.get("full_name") as string,
-    mobile_number: formData.get("mobile_number") as string,
-    emergency_contact: formData.get("emergency_contact") as string,
-  };
+  const full_name = formData.get("full_name") as string;
+  const mobile_number = formData.get("mobile_number") as string;
+  const company_name = formData.get("company_name") as string;
+  const health_emergency_info = formData.get("health_emergency_info") as string;
+  const acknowledged_terms = formData.get("acknowledged_terms") === "on";
 
-  //inserting into the existing induction_records table
-  const { error: insertError } = await supabase
-    .from("induction_records")
-    .insert(inductionData);
-
-  if (insertError) {
-    console.error("Induction Insert Error:", insertError.message);
-    return;
-  }
-
-  //updating the main profile status
-  const { error: updateError } = await supabase
-    .from("profiles")
-    .update({ induction_status: true })
+  const { error: memberError } = await supabase
+    .from("members")
+    .update({
+      full_name,
+      mobile_number,
+      company_name,
+      induction_status: "Complete",
+    })
     .eq("id", user.id);
 
-  if (updateError) {
-    console.error("Profile Update Error:", updateError.message);
-    return;
-  }
+  if (memberError)
+    return redirect(
+      `/induction?error=${encodeURIComponent(memberError.message)}`,
+    );
 
-  // For cache refresh
+  const { error: recordError } = await supabase
+    .from("induction_records")
+    .insert({
+      member_id: user.id,
+      completion_date: new Date().toISOString().split("T")[0],
+      acknowledged_terms,
+      health_emergency_info,
+      approval_status: "Approved",
+    });
+
+  if (recordError)
+    return redirect(
+      `/induction?error=${encodeURIComponent(recordError.message)}`,
+    );
+
   revalidatePath("/", "layout");
   redirect("/dashboard");
 }
