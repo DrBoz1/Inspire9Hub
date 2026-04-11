@@ -83,21 +83,14 @@ export async function submitInduction(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const full_name = formData.get("full_name") as string;
-  const mobile_number = formData.get("mobile_number") as string;
-  const company_name = formData.get("company_name") as string;
-  const health_emergency_info = formData.get("health_emergency_info") as string;
-  const acknowledged_terms = formData.get("acknowledged_terms") === "on";
-
-  // 1. Update existing Member record
   const { error: memberError } = await supabase
     .from("members")
     .update({
-      full_name,
-      mobile_number,
-      company_name,
-      induction_status: INDUCTION_STATUS.COMPLETE,
-      member_status: MEMBER_STATUS.ACTIVE, // Now it actually updates!
+      full_name: formData.get("full_name") as string,
+      mobile_number: formData.get("mobile_number") as string,
+      company_name: formData.get("company_name") as string,
+      induction_status: INDUCTION_STATUS.SUBMITTED, // NOT Complete yet
+      member_status: MEMBER_STATUS.INACTIVE, // Still Inactive
     })
     .eq("id", user.id);
 
@@ -106,15 +99,14 @@ export async function submitInduction(formData: FormData) {
       `/induction?error=${encodeURIComponent(memberError.message)}`,
     );
 
-  // 2. Insert Induction Record linked to Member
   const { error: recordError } = await supabase
     .from("induction_records")
     .insert({
       member_id: user.id,
       completion_date: new Date().toISOString().split("T")[0],
-      acknowledged_terms,
-      health_emergency_info,
-      approval_status: "Approved",
+      acknowledged_terms: formData.get("acknowledged_terms") === "on",
+      health_emergency_info: formData.get("health_emergency_info") as string,
+      approval_status: "Pending", // Admin will change this later
     });
 
   if (recordError)
