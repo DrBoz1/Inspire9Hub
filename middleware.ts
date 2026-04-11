@@ -28,7 +28,7 @@ export async function middleware(request: NextRequest) {
 
   if (request.nextUrl.pathname.startsWith("/admin") && user) {
     const { data: profile } = await supabase
-      .from("members")
+      .from("admins")
       .select("role")
       .eq("id", user.id)
       .single();
