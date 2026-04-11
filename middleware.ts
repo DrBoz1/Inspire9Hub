@@ -1,4 +1,4 @@
-import { createServerClient, type CookieOptions } from "@supabase/ssr";
+import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -26,16 +26,35 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (request.nextUrl.pathname.startsWith("/admin") && user) {
-    const { data: profile } = await supabase
+  // Protect Admin routes
+  if (request.nextUrl.pathname.startsWith("/admin")) {
+    if (!user) {
+      return NextResponse.redirect(new URL("/login", request.url));
+    }
+
+    // CRITICAL: Check the 'admins' table, not 'members'
+    const { data: adminData } = await supabase
       .from("admins")
       .select("role")
       .eq("id", user.id)
       .single();
 
-    if (profile?.role !== "admin" && profile?.role !== "super_admin") {
+    if (
+      !adminData ||
+      (adminData.role !== "admin" && adminData.role !== "super_admin")
+    ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
   }
+
   return response;
 }
+
+export const config = {
+  matcher: [
+    "/admin/:path*",
+    "/dashboard/:path*",
+    "/induction/:path*",
+    "/profile/:path*",
+  ],
+};

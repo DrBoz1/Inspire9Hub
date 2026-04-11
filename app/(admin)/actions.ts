@@ -25,6 +25,7 @@ export async function approveInduction(formData: FormData) {
 
   if (memberError) throw new Error(memberError.message);
 
+  // Match the new folder structure
   revalidatePath("/admin/approvals");
   revalidatePath("/dashboard");
 }
@@ -44,4 +45,14 @@ export async function createAdmin(formData: FormData) {
   if (error) throw error;
 
   revalidatePath("/admin/users");
+}
+
+export async function rejectInduction(formData: FormData) {
+  const supabase = await createClient();
+  const memberId = formData.get("memberId") as string;
+
+  await supabase.from("induction_records").delete().eq("member_id", memberId);
+
+  revalidatePath("/admin/approvals");
+  revalidatePath("/dashboard");
 }

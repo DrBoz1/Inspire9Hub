@@ -24,10 +24,7 @@ export async function updateProfile(formData: FormData) {
 
   const { error } = await supabase
     .from("members")
-    .update({
-      full_name,
-      company_name: company,
-    })
+    .update({ full_name, company_name: company })
     .eq("id", user.id);
 
   if (error) {
@@ -42,15 +39,28 @@ export async function updateProfile(formData: FormData) {
 export async function login(formData: FormData) {
   const supabase = await createClient();
 
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-  };
+  const email = formData.get("email") as string;
+  const password = formData.get("password") as string;
 
-  const { error } = await supabase.auth.signInWithPassword(data);
+  const { data: authData, error: authError } =
+    await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
 
-  if (error) {
+  if (authError || !authData.user) {
     return redirect("/login?error=Could not authenticate user");
+  }
+
+  // Role-Based Redirection Check
+  const { data: adminRecord } = await supabase
+    .from("admins")
+    .select("role")
+    .eq("id", authData.user.id)
+    .single();
+
+  if (adminRecord?.role === "admin" || adminRecord?.role === "super_admin") {
+    return redirect("/admin/approvals");
   }
 
   return redirect("/dashboard");
@@ -89,8 +99,8 @@ export async function submitInduction(formData: FormData) {
       full_name: formData.get("full_name") as string,
       mobile_number: formData.get("mobile_number") as string,
       company_name: formData.get("company_name") as string,
-      induction_status: INDUCTION_STATUS.SUBMITTED, // NOT Complete yet
-      member_status: MEMBER_STATUS.INACTIVE, // Still Inactive
+      induction_status: INDUCTION_STATUS.SUBMITTED,
+      member_status: MEMBER_STATUS.INACTIVE,
     })
     .eq("id", user.id);
 
@@ -106,7 +116,7 @@ export async function submitInduction(formData: FormData) {
       completion_date: new Date().toISOString().split("T")[0],
       acknowledged_terms: formData.get("acknowledged_terms") === "on",
       health_emergency_info: formData.get("health_emergency_info") as string,
-      approval_status: "Pending", // Admin will change this later
+      approval_status: "Pending",
     });
 
   if (recordError)
@@ -116,4 +126,32 @@ export async function submitInduction(formData: FormData) {
 
   revalidatePath("/", "layout");
   redirect("/dashboard");
+}
+
+export async function approveInduction(formData: FormData) {
+  const supabase = await createClient();
+  const memberId = formData.get("memberId") as string;
+
+  await supabase
+    .from("induction_records")
+    .update({ approval_status: "Approved" })
+    .eq("member_id", memberId);
+  await supabase
+    .from("members")
+    .update({
+      induction_status: INDUCTION_STATUS.COMPLETE,
+      member_status: MEMBER_STATUS.ACTIVE,
+    })
+    .eq("id", memberId);
+
+  revalidatePath("/admin/approvals");
+  revalidatePath("/dashboard");
+}
+
+export async function rejectInduction(formData: FormData) {
+  const supabase = await createClient();
+  const memberId = formData.get("memberId") as string;
+  await supabase.from("induction_records").delete().eq("member_id", memberId);
+  revalidatePath("/admin/approvals");
+  revalidatePath("/dashboard");
 }
