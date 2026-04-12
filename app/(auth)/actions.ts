@@ -111,13 +111,16 @@ export async function submitInduction(formData: FormData) {
 
   const { error: recordError } = await supabase
     .from("induction_records")
-    .insert({
-      member_id: user.id,
-      completion_date: new Date().toISOString().split("T")[0],
-      acknowledged_terms: formData.get("acknowledged_terms") === "on",
-      health_emergency_info: formData.get("health_emergency_info") as string,
-      approval_status: "Pending",
-    });
+    .upsert(
+      {
+        member_id: user.id,
+        completion_date: new Date().toISOString().split("T")[0],
+        acknowledged_terms: formData.get("acknowledged_terms") === "on",
+        health_emergency_info: formData.get("health_emergency_info") as string,
+        approval_status: "Pending",
+      },
+      { onConflict: "member_id" },
+    );
 
   if (recordError)
     return redirect(

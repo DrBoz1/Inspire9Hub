@@ -8,16 +8,21 @@ export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  // 1. Update the record to Approved
-  const { error: recordError } = await supabase
+  // 1. Update the record
+  await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
     .eq("member_id", memberId);
 
-  if (recordError) throw new Error(recordError.message);
+  // 2. Fetch contact info
+  const { data: member } = await supabase
+    .from("members")
+    .select("mobile_number")
+    .eq("id", memberId)
+    .single();
 
-  // 2. Promote Member to Active
-  const { error: memberError } = await supabase
+  // 3. Promote Member
+  await supabase
     .from("members")
     .update({
       induction_status: INDUCTION_STATUS.COMPLETE,
@@ -25,26 +30,17 @@ export async function approveInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
-  if (memberError) throw new Error(memberError.message);
-
-  // 3. Add to Community Entries table
-  const { error: communityError } = await supabase
-    .from("community_entries")
-    .insert({
-      member_id: memberId,
-      entry_type: "Induction Approved",
-      entry_description:
-        "Member successfully completed site induction and was approved by admin.",
-    });
-
-  if (communityError)
-    console.error("Community Entry Error:", communityError.message);
+  // 4. Log to History
+  await supabase.from("community_entries").insert({
+    member_id: memberId,
+    member_contact: member?.mobile_number || "No contact",
+    tags: "Approved",
+    entry_date: new Date().toISOString().split("T")[0],
+  });
 
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/history");
-  revalidatePath("/dashboard");
 }
-
 export async function createAdmin(formData: FormData) {
   const supabase = await createClient();
 
@@ -66,8 +62,29 @@ export async function rejectInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  await supabase.from("induction_records").delete().eq("member_id", memberId);
+  // 1. Set status to Rejected instead of deleting (so it shows in history)
+  await supabase
+    .from("members")
+    .update({
+      induction_status: "Rejected",
+      member_status: "Inactive",
+    })
+    .eq("id", memberId);
+
+  // 2. Log Rejection to History
+  const { data: member } = await supabase
+    .from("members")
+    .select("mobile_number")
+    .eq("id", memberId)
+    .single();
+
+  await supabase.from("community_entries").insert({
+    member_id: memberId,
+    member_contact: member?.mobile_number || "No contact",
+    tags: "Rejected",
+    entry_date: new Date().toISOString().split("T")[0],
+  });
 
   revalidatePath("/admin/approvals");
-  revalidatePath("/dashboard");
+  revalidatePath("/admin/history");
 }
