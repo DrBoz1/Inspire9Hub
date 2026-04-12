@@ -8,6 +8,7 @@ export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
+  // 1. Update the record to Approved
   const { error: recordError } = await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
@@ -15,6 +16,7 @@ export async function approveInduction(formData: FormData) {
 
   if (recordError) throw new Error(recordError.message);
 
+  // 2. Promote Member to Active
   const { error: memberError } = await supabase
     .from("members")
     .update({
@@ -25,8 +27,21 @@ export async function approveInduction(formData: FormData) {
 
   if (memberError) throw new Error(memberError.message);
 
-  // Match the new folder structure
+  // 3. Add to Community Entries table
+  const { error: communityError } = await supabase
+    .from("community_entries")
+    .insert({
+      member_id: memberId,
+      entry_type: "Induction Approved",
+      entry_description:
+        "Member successfully completed site induction and was approved by admin.",
+    });
+
+  if (communityError)
+    console.error("Community Entry Error:", communityError.message);
+
   revalidatePath("/admin/approvals");
+  revalidatePath("/admin/history");
   revalidatePath("/dashboard");
 }
 

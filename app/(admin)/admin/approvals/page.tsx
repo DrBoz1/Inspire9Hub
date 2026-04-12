@@ -1,11 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-} from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -16,13 +10,15 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { CheckCircle2, XCircle } from "lucide-react";
-import { approveInduction, rejectInduction } from "../../actions";
+import { CheckCircle2, XCircle, Mail, Phone, Building2 } from "lucide-react";
+import { rejectInduction, approveInduction } from "../../actions";
+import { INDUCTION_STATUS } from "@/lib/constants";
 
 export default async function AdminApprovalsPage() {
   const supabase = await createClient();
 
-  const { data: pending } = await supabase
+  // Fetch members whose status is 'Submitted'
+  const { data: pending, error } = await supabase
     .from("members")
     .select(
       `
@@ -30,38 +26,38 @@ export default async function AdminApprovalsPage() {
       full_name, 
       email, 
       company_name,
-      induction_records (health_emergency_info, completion_date)
+      mobile_number,
+      induction_status,
+      induction_records!inner (
+        health_emergency_info, 
+        completion_date,
+        approval_status
+      )
     `,
     )
-    .eq("induction_status", "Submitted");
+    .eq("induction_status", INDUCTION_STATUS.SUBMITTED);
+
+  if (error) {
+    console.error("Fetch Error:", error.message);
+  }
 
   return (
-    <div className="space-y-6 font-poppins">
+    <div className="space-y-8">
       <div>
-        <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Compliance
+        <h1 className="text-4xl font-black tracking-tight text-slate-900">
+          Compliance Queue
         </h1>
-        <p className="text-muted-foreground italic text-sm mt-1">
-          Review and approve new member safety briefings.
+        <p className="text-slate-500 font-medium italic mt-2">
+          Verify member submissions to grant building access.
         </p>
       </div>
 
-      <Card className="rounded-2xl shadow-sm border-slate-100 overflow-hidden">
-        <CardHeader className="bg-slate-50/50 border-b border-slate-100">
+      <Card className="rounded-[32px] shadow-sm border-slate-100 overflow-hidden">
+        <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-8">
           <div className="flex justify-between items-center">
-            <div>
-              <CardTitle className="text-lg font-bold">
-                Pending Approvals
-              </CardTitle>
-              <CardDescription>
-                Awaiting admin verification for site access.
-              </CardDescription>
-            </div>
-            <Badge
-              variant="secondary"
-              className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-4 py-1"
-            >
-              {pending?.length || 0} Waiting
+            <CardTitle className="text-xl font-bold">Pending Reviews</CardTitle>
+            <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100 border-none px-4 py-1.5 font-black text-xs uppercase tracking-widest">
+              {pending?.length || 0} Awaiting Action
             </Badge>
           </div>
         </CardHeader>
@@ -69,16 +65,16 @@ export default async function AdminApprovalsPage() {
           <Table>
             <TableHeader className="bg-slate-50/30">
               <TableRow>
-                <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">
-                  Member
+                <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-slate-400">
+                  Resident Info
                 </TableHead>
-                <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">
-                  Company
+                <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-slate-400">
+                  Workplace
                 </TableHead>
-                <TableHead className="font-bold text-slate-400 uppercase text-[10px] tracking-widest">
-                  Submitted
+                <TableHead className="font-black uppercase text-[10px] tracking-[0.2em] p-8 text-slate-400">
+                  Emergency & Medical
                 </TableHead>
-                <TableHead className="text-right font-bold text-slate-400 uppercase text-[10px] tracking-widest">
+                <TableHead className="text-right font-black uppercase text-[10px] tracking-[0.2em] p-8 text-slate-400">
                   Decision
                 </TableHead>
               </TableRow>
@@ -86,54 +82,69 @@ export default async function AdminApprovalsPage() {
             <TableBody>
               {!pending || pending.length === 0 ? (
                 <TableRow>
-                  <TableCell
-                    colSpan={4}
-                    className="h-40 text-center text-slate-400 font-medium italic"
-                  >
-                    All clear! No pending inductions to review.
+                  <TableCell colSpan={4} className="h-64 text-center">
+                    <div className="flex flex-col items-center gap-2">
+                      <p className="text-slate-300 font-bold italic">
+                        No pending inductions found.
+                      </p>
+                      <p className="text-slate-300 text-xs">
+                        Verify your database records show induction_status =
+                        'Submitted'
+                      </p>
+                    </div>
                   </TableCell>
                 </TableRow>
               ) : (
                 pending.map((m) => (
                   <TableRow
                     key={m.id}
-                    className="hover:bg-slate-50/50 transition-colors group"
+                    className="hover:bg-slate-50/50 transition-colors"
                   >
-                    <TableCell>
-                      <div className="flex flex-col">
-                        <span className="font-bold text-slate-700 group-hover:text-[#E31E24] transition-colors">
+                    <TableCell className="p-8">
+                      <div className="space-y-1">
+                        <p className="font-black text-slate-900 text-lg">
                           {m.full_name}
-                        </span>
-                        <span className="text-xs text-slate-400">
-                          {m.email}
-                        </span>
+                        </p>
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
+                          <Mail className="w-3 h-3" /> {m.email}
+                        </div>
+                        <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
+                          <Phone className="w-3 h-3" /> {m.mobile_number}
+                        </div>
                       </div>
                     </TableCell>
-                    <TableCell className="text-slate-600 font-medium">
-                      {m.company_name}
+                    <TableCell className="p-8">
+                      <div className="flex items-center gap-2 font-bold text-slate-600">
+                        <Building2 className="w-4 h-4" /> {m.company_name}
+                      </div>
                     </TableCell>
-                    <TableCell className="text-slate-500 text-sm">
-                      {m.induction_records?.[0]?.completion_date || "Today"}
+                    <TableCell className="p-8 max-w-xs">
+                      <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100">
+                        <p className="text-xs text-slate-500 leading-relaxed italic">
+                          "
+                          {m.induction_records?.[0]?.health_emergency_info ||
+                            "No health info provided"}
+                          "
+                        </p>
+                      </div>
                     </TableCell>
-                    <TableCell className="text-right">
+                    <TableCell className="p-8 text-right">
                       <div className="flex justify-end gap-3">
                         <form action={rejectInduction}>
                           <input type="hidden" name="memberId" value={m.id} />
                           <Button
-                            size="sm"
                             variant="ghost"
-                            className="text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg h-9 w-9 p-0"
-                            title="Reject Submission"
+                            size="sm"
+                            className="text-slate-300 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all h-12 w-12"
                           >
-                            <XCircle className="w-5 h-5" />
+                            <XCircle className="w-6 h-6" />
                           </Button>
                         </form>
-
                         <form action={approveInduction}>
                           <input type="hidden" name="memberId" value={m.id} />
                           <Button
                             size="sm"
-                            className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-lg px-4 h-9 font-bold shadow-sm"
+                            className="bg-emerald-500 hover:bg-emerald-600 text-white rounded-2xl px-8 h-12 font-black shadow-md shadow-emerald-100 transition-all active:scale-95"
                           >
                             <CheckCircle2 className="w-4 h-4 mr-2" /> Approve
                           </Button>
