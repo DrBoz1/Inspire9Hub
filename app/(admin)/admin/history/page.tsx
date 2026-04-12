@@ -23,30 +23,39 @@ export default async function HistoryPage(props: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Fetch anyone who isn't 'Pending' or 'Submitted' (meaning Approved or Rejected)
-  const { data: members, count } = await supabase
-    .from("members")
+  // Query community_entries (Permanent Log) and join member/induction info
+  const { data: entries, count } = await supabase
+    .from("community_entries")
     .select(
       `
-      id, full_name, email, mobile_number, company_name, induction_status,
-      induction_records ( health_emergency_info, completion_date )
+      id,
+      tags,
+      entry_date,
+      members (
+        full_name,
+        email,
+        company_name,
+        induction_records (
+          health_emergency_info,
+          completion_date
+        )
+      )
     `,
       { count: "exact" },
     )
-    .in("induction_status", ["Complete", "Rejected"])
     .range(from, to)
-    .order("full_name");
+    .order("entry_date", { ascending: false });
 
   const totalPages = Math.ceil((count || 0) / pageSize);
 
   return (
-    <div className="space-y-8 pb-10">
+    <div className="space-y-8 pb-10 font-poppins">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight text-uppercase">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight text-uppercase uppercase">
             Audit Trail
           </h1>
-          <p className="text-slate-500 font-medium text-sm mt-1 font-poppins">
+          <p className="text-slate-500 font-medium text-sm mt-1">
             Historical log of all admin decisions.
           </p>
         </div>
@@ -78,47 +87,51 @@ export default async function HistoryPage(props: {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {members?.map((m) => (
-                <TableRow
-                  key={m.id}
-                  className="hover:bg-slate-50/30 transition-colors group"
-                >
-                  <TableCell className="p-8">
-                    <div className="flex flex-col">
-                      <span className="font-black text-slate-900 text-md group-hover:text-red-600 transition-colors">
-                        {m.full_name}
-                      </span>
-                      <span className="text-[11px] text-slate-400 font-bold">
-                        {m.email}
-                      </span>
-                    </div>
-                  </TableCell>
-                  <TableCell className="p-8 text-center">
-                    {m.induction_status === "Complete" ? (
-                      <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
-                        <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
-                      </Badge>
-                    ) : (
-                      <Badge className="bg-red-50 text-red-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
-                        <XCircle className="w-3 h-3 mr-1" /> Rejected
-                      </Badge>
-                    )}
-                  </TableCell>
-                  <TableCell className="p-8 font-black text-slate-600 text-sm">
-                    {m.company_name}
-                  </TableCell>
-                  <TableCell className="p-8">
-                    <p className="text-[11px] text-slate-500 max-w-xs italic line-clamp-2">
-                      "
-                      {m.induction_records?.[0]?.health_emergency_info || "N/A"}
-                      "
-                    </p>
-                  </TableCell>
-                  <TableCell className="p-8 text-right font-black text-slate-400 text-[10px] uppercase tracking-wider">
-                    {m.induction_records?.[0]?.completion_date || "Today"}
-                  </TableCell>
-                </TableRow>
-              ))}
+              {entries?.map((entry: any) => {
+                const member = entry.members;
+                const record = member?.induction_records?.[0];
+
+                return (
+                  <TableRow
+                    key={entry.id}
+                    className="hover:bg-slate-50/30 transition-colors group"
+                  >
+                    <TableCell className="p-8">
+                      <div className="flex flex-col">
+                        <span className="font-black text-slate-900 text-md group-hover:text-red-600 transition-colors">
+                          {member?.full_name || "Deleted Member"}
+                        </span>
+                        <span className="text-[11px] text-slate-400 font-bold">
+                          {member?.email}
+                        </span>
+                      </div>
+                    </TableCell>
+                    <TableCell className="p-8 text-center">
+                      {entry.tags === "Approved" ? (
+                        <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
+                          <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+                        </Badge>
+                      ) : (
+                        <Badge className="bg-red-50 text-red-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
+                          <XCircle className="w-3 h-3 mr-1" /> Rejected
+                        </Badge>
+                      )}
+                    </TableCell>
+                    <TableCell className="p-8 font-black text-slate-600 text-sm">
+                      {member?.company_name}
+                    </TableCell>
+                    <TableCell className="p-8">
+                      <p className="text-[11px] text-slate-500 max-w-xs italic line-clamp-2 leading-relaxed">
+                        "{record?.health_emergency_info || "N/A"}"
+                      </p>
+                    </TableCell>
+                    <TableCell className="p-8 text-right font-black text-slate-400 text-[10px] uppercase tracking-wider">
+                      {new Date(entry.entry_date).toLocaleDateString() ||
+                        "Today"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
             </TableBody>
           </Table>
         </CardContent>
@@ -133,7 +146,7 @@ export default async function HistoryPage(props: {
           <Button
             asChild
             variant="outline"
-            className="rounded-2xl border-slate-200 h-12 px-6 font-black text-xs"
+            className="rounded-2xl border-slate-200 h-12 px-6 font-black text-xs transition-all active:scale-95"
           >
             <Link href={`/admin/history?page=${Math.max(1, page - 1)}`}>
               Prev
@@ -142,7 +155,7 @@ export default async function HistoryPage(props: {
           <Button
             asChild
             variant="outline"
-            className="rounded-2xl border-slate-200 h-12 px-6 font-black text-xs"
+            className="rounded-2xl border-slate-200 h-12 px-6 font-black text-xs transition-all active:scale-95"
           >
             <Link
               href={`/admin/history?page=${Math.min(totalPages, page + 1)}`}
