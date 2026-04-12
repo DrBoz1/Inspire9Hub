@@ -32,7 +32,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    // CRITICAL: Check the 'admins' table, not 'members'
     const { data: adminData } = await supabase
       .from("admins")
       .select("role")
