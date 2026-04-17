@@ -16,29 +16,23 @@ export async function updateProfile(formData: FormData) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
-
   if (!user) return;
-
-  const full_name = formData.get("full_name") as string;
-  const company = formData.get("company") as string;
 
   const { error } = await supabase
     .from("members")
-    .update({ full_name, company_name: company })
+    .update({
+      full_name: formData.get("full_name") as string,
+      company_name: formData.get("company") as string,
+    })
     .eq("id", user.id);
 
-  if (error) {
-    console.error("Supabase Error:", error.message);
-    return;
-  }
-
+  if (error) return;
   revalidatePath("/", "layout");
   redirect("/dashboard");
 }
 
 export async function login(formData: FormData) {
   const supabase = await createClient();
-
   const email = formData.get("email") as string;
   const password = formData.get("password") as string;
 
@@ -52,7 +46,6 @@ export async function login(formData: FormData) {
     return redirect("/login?error=Could not authenticate user");
   }
 
-  // Role-Based Redirection Check
   const { data: adminRecord } = await supabase
     .from("admins")
     .select("role")
@@ -68,21 +61,17 @@ export async function login(formData: FormData) {
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
-
   const data = {
     email: formData.get("email") as string,
     password: formData.get("password") as string,
     options: {
-      data: {
-        full_name: formData.get("name") as string,
-      },
+      data: { full_name: formData.get("name") as string },
     },
   };
 
   const { error } = await supabase.auth.signUp(data);
-  if (error) {
+  if (error)
     return redirect(`/signup?error=${encodeURIComponent(error.message)}`);
-  }
   return redirect("/login?message=Check email to confirm registration");
 }
 
@@ -93,7 +82,8 @@ export async function submitInduction(formData: FormData) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  const { error: memberError } = await supabase
+  //update Member Table
+  await supabase
     .from("members")
     .update({
       full_name: formData.get("full_name") as string,
@@ -104,11 +94,7 @@ export async function submitInduction(formData: FormData) {
     })
     .eq("id", user.id);
 
-  if (memberError)
-    return redirect(
-      `/induction?error=${encodeURIComponent(memberError.message)}`,
-    );
-
+  //upsert Induction Record (Prevents Duplicate Key Errors)
   const { error: recordError } = await supabase
     .from("induction_records")
     .upsert(
@@ -135,6 +121,14 @@ export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
+  //fetch member info for the entry log
+  const { data: m } = await supabase
+    .from("members")
+    .select("mobile_number")
+    .eq("id", memberId)
+    .single();
+
+  //update status to Approved
   await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
@@ -147,14 +141,49 @@ export async function approveInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
+  //log to COMMUNITY ENTRIES (Audit Trail)
+  await supabase.from("community_entries").insert({
+    member_id: memberId,
+    member_contact: m?.mobile_number || "N/A",
+    tags: "Approved",
+    entry_date: new Date().toISOString().split("T")[0], // Dynamic Date
+  });
+
   revalidatePath("/admin/approvals");
-  revalidatePath("/dashboard");
+  revalidatePath("/admin/history");
 }
 
 export async function rejectInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
+
+  //fetch contact info
+  const { data: m } = await supabase
+    .from("members")
+    .select("mobile_number")
+    .eq("id", memberId)
+    .single();
+
+  //reset member to Pending so they can redo the form
+  await supabase
+    .from("members")
+    .update({
+      induction_status: INDUCTION_STATUS.PENDING,
+      member_status: MEMBER_STATUS.INACTIVE,
+    })
+    .eq("id", memberId);
+
+  //delete record so they start fresh (fixes resubmission spam)
   await supabase.from("induction_records").delete().eq("member_id", memberId);
+
+  //log TO COMMUNITY ENTRIES (Audit Trail)
+  await supabase.from("community_entries").insert({
+    member_id: memberId,
+    member_contact: m?.mobile_number || "N/A",
+    tags: "Rejected",
+    entry_date: new Date().toISOString().split("T")[0], // Dynamic Date
+  });
+
   revalidatePath("/admin/approvals");
-  revalidatePath("/dashboard");
+  revalidatePath("/admin/history");
 }
