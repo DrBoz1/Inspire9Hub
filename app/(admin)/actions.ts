@@ -8,20 +8,21 @@ export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  // 1. Update the record status
+  // 1. Fetch data for history before updating
+  const { data: member } = await supabase
+    .from("members")
+    .select("mobile_number, induction_records(health_emergency_info)")
+    .eq("id", memberId)
+    .single();
+
+  const medicalData =
+    member?.induction_records?.[0]?.health_emergency_info || "None provided";
+
+  // 2. Update status to Approved
   await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
     .eq("member_id", memberId);
-
-  // 2. Fetch contact info for the log
-  const { data: member } = await supabase
-    .from("members")
-    .select("mobile_number")
-    .eq("id", memberId)
-    .single();
-
-  // 3. Promote Member to Active/Complete
   await supabase
     .from("members")
     .update({
@@ -30,32 +31,34 @@ export async function approveInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
-  // 4. Log to Community Entries (History) with DYNAMIC date
+  // 3. Log to History (Saving the medical info here prevents "N/A")
   await supabase.from("community_entries").insert({
     member_id: memberId,
     member_contact: member?.mobile_number || "No contact",
     tags: "Approved",
-    entry_date: new Date().toISOString().split("T")[0], // Dynamic: Today's date
+    entry_description: medicalData,
+    entry_date: new Date().toISOString().split("T")[0],
   });
 
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/history");
-  revalidatePath("/dashboard");
 }
 
 export async function rejectInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  // 1. Fetch contact info BEFORE we start changing things
+  // 1. Fetch data for history BEFORE deleting
   const { data: m } = await supabase
     .from("members")
-    .select("mobile_number")
+    .select("mobile_number, induction_records(health_emergency_info)")
     .eq("id", memberId)
     .single();
 
-  // 2. Reset member status to Pending
-  // This makes the "Start Induction" button reappear for them
+  const medicalData =
+    m?.induction_records?.[0]?.health_emergency_info || "None provided";
+
+  // 2. Reset member to Pending so they can redo the form
   await supabase
     .from("members")
     .update({
@@ -64,20 +67,20 @@ export async function rejectInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
-  // 3. CRITICAL FIX: Delete the old induction record
+  // 3. Delete record so they can start fresh (stops spamming/errors)
   await supabase.from("induction_records").delete().eq("member_id", memberId);
 
-  // 4. Log to Audit Trail with DYNAMIC date
+  // 4. Log rejection with medical info saved in history description
   await supabase.from("community_entries").insert({
     member_id: memberId,
     member_contact: m?.mobile_number || "N/A",
     tags: "Rejected",
-    entry_date: new Date().toISOString().split("T")[0], // Dynamic: Date of rejection
+    entry_description: medicalData,
+    entry_date: new Date().toISOString().split("T")[0],
   });
 
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/history");
-  revalidatePath("/dashboard");
 }
 
 export async function createAdmin(formData: FormData) {

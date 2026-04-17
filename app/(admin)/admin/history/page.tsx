@@ -23,7 +23,7 @@ export default async function HistoryPage(props: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Query community_entries (Permanent Log) and join member/induction info
+  // Query community_entries (Permanent Log) joined with member info
   const { data: entries, count } = await supabase
     .from("community_entries")
     .select(
@@ -31,14 +31,11 @@ export default async function HistoryPage(props: {
       id,
       tags,
       entry_date,
+      entry_description,
       members (
         full_name,
         email,
-        company_name,
-        induction_records (
-          health_emergency_info,
-          completion_date
-        )
+        company_name
       )
     `,
       { count: "exact" },
@@ -52,7 +49,7 @@ export default async function HistoryPage(props: {
     <div className="space-y-8 pb-10 font-poppins">
       <div className="flex justify-between items-end">
         <div>
-          <h1 className="text-3xl font-black text-slate-900 tracking-tight text-uppercase uppercase">
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight uppercase">
             Audit Trail
           </h1>
           <p className="text-slate-500 font-medium text-sm mt-1">
@@ -87,51 +84,45 @@ export default async function HistoryPage(props: {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {entries?.map((entry: any) => {
-                const member = entry.members;
-                const record = member?.induction_records?.[0];
-
-                return (
-                  <TableRow
-                    key={entry.id}
-                    className="hover:bg-slate-50/30 transition-colors group"
-                  >
-                    <TableCell className="p-8">
-                      <div className="flex flex-col">
-                        <span className="font-black text-slate-900 text-md group-hover:text-red-600 transition-colors">
-                          {member?.full_name || "Deleted Member"}
-                        </span>
-                        <span className="text-[11px] text-slate-400 font-bold">
-                          {member?.email}
-                        </span>
-                      </div>
-                    </TableCell>
-                    <TableCell className="p-8 text-center">
-                      {entry.tags === "Approved" ? (
-                        <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
-                          <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
-                        </Badge>
-                      ) : (
-                        <Badge className="bg-red-50 text-red-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
-                          <XCircle className="w-3 h-3 mr-1" /> Rejected
-                        </Badge>
-                      )}
-                    </TableCell>
-                    <TableCell className="p-8 font-black text-slate-600 text-sm">
-                      {member?.company_name}
-                    </TableCell>
-                    <TableCell className="p-8">
-                      <p className="text-[11px] text-slate-500 max-w-xs italic line-clamp-2 leading-relaxed">
-                        "{record?.health_emergency_info || "N/A"}"
-                      </p>
-                    </TableCell>
-                    <TableCell className="p-8 text-right font-black text-slate-400 text-[10px] uppercase tracking-wider">
-                      {new Date(entry.entry_date).toLocaleDateString() ||
-                        "Today"}
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {entries?.map((entry: any) => (
+                <TableRow
+                  key={entry.id}
+                  className="hover:bg-slate-50/30 transition-colors group"
+                >
+                  <TableCell className="p-8">
+                    <div className="flex flex-col">
+                      <span className="font-black text-slate-900 text-md group-hover:text-red-600 transition-colors">
+                        {entry.members?.full_name || "Deleted Member"}
+                      </span>
+                      <span className="text-[11px] text-slate-400 font-bold">
+                        {entry.members?.email}
+                      </span>
+                    </div>
+                  </TableCell>
+                  <TableCell className="p-8 text-center">
+                    {entry.tags === "Approved" ? (
+                      <Badge className="bg-emerald-50 text-emerald-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
+                        <CheckCircle2 className="w-3 h-3 mr-1" /> Approved
+                      </Badge>
+                    ) : (
+                      <Badge className="bg-red-50 text-red-600 border-none font-black text-[10px] px-3 py-1 rounded-full uppercase">
+                        <XCircle className="w-3 h-3 mr-1" /> Rejected
+                      </Badge>
+                    )}
+                  </TableCell>
+                  <TableCell className="p-8 font-black text-slate-600 text-sm">
+                    {entry.members?.company_name}
+                  </TableCell>
+                  <TableCell className="p-8">
+                    <p className="text-[11px] text-slate-500 max-w-xs italic line-clamp-2 leading-relaxed">
+                      "{entry.entry_description || "N/A"}"
+                    </p>
+                  </TableCell>
+                  <TableCell className="p-8 text-right font-black text-slate-400 text-[10px] uppercase tracking-wider">
+                    {entry.entry_date}
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </CardContent>

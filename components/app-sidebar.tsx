@@ -29,13 +29,16 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  // Logic to hide the Induction tab once complete
-  const isInducted =
-    userProfile?.induction_status === INDUCTION_STATUS.COMPLETE;
+  // FIX: Hide if status is COMPLETE or SUBMITTED (Issue #2)
+  const status = userProfile?.induction_status;
+  const hideInduction =
+    status === INDUCTION_STATUS.COMPLETE ||
+    status === INDUCTION_STATUS.SUBMITTED;
 
   const navItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    ...(!isInducted
+    // Show induction ONLY if it's not hidden
+    ...(!hideInduction
       ? [{ title: "Induction", url: "/induction", icon: BookOpen }]
       : []),
     { title: "Bookings", url: "/bookings", icon: CalendarDays },
@@ -134,7 +137,6 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
                 <span className="font-bold text-gray-700 truncate">
                   {userProfile?.full_name || "New User"}
                 </span>
-                {/* Dynamic Status Display */}
                 <span
                   className={`text-xs capitalize font-medium ${userProfile?.member_status === "Active" ? "text-emerald-500" : "text-amber-500"}`}
                 >
