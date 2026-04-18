@@ -47,7 +47,7 @@ export default async function AdminApprovalsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="text-4xl font-black tracking-tight text-slate-900">
+        <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase">
           Compliance Queue
         </h1>
         <p className="text-slate-500 font-medium italic mt-2">
@@ -59,7 +59,7 @@ export default async function AdminApprovalsPage() {
         <CardHeader className="bg-slate-50/50 border-b border-slate-100 p-8 text-center md:text-left">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
-              <CardTitle className="text-xl font-bold">
+              <CardTitle className="text-xl font-bold font-poppins text-slate-800 uppercase">
                 New Submissions
               </CardTitle>
               <CardDescription>
@@ -100,9 +100,11 @@ export default async function AdminApprovalsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                pending.map((m) => {
-                  // Check the induction_records array directly
-                  const record = m.induction_records?.[0];
+                pending.map((m: any) => {
+                  // LOGIC FIX: Handle if induction_records is an array or a single object
+                  const record = Array.isArray(m.induction_records)
+                    ? m.induction_records[0]
+                    : m.induction_records;
                   const medicalInfo = record?.health_emergency_info;
 
                   return (
@@ -115,25 +117,26 @@ export default async function AdminApprovalsPage() {
                           <p className="font-black text-slate-900 text-lg group-hover:text-[#E31E24] transition-colors">
                             {m.full_name}
                           </p>
-                          <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
+                          <div className="flex items-center gap-2 text-slate-400 text-xs font-bold font-poppins">
                             <Mail className="w-3 h-3" /> {m.email}
                           </div>
-                          <div className="flex items-center gap-2 text-slate-400 text-xs font-bold">
+                          <div className="flex items-center gap-2 text-slate-400 text-xs font-bold font-poppins">
                             <Phone className="w-3 h-3" /> {m.mobile_number}
                           </div>
                         </div>
                       </TableCell>
                       <TableCell className="p-8">
-                        <div className="flex items-center gap-2 font-bold text-slate-600">
+                        <div className="flex items-center gap-2 font-bold text-slate-600 font-poppins text-sm">
                           <Building2 className="w-4 h-4" /> {m.company_name}
                         </div>
                       </TableCell>
                       <TableCell className="p-8">
                         <div className="bg-slate-50 p-4 rounded-2xl border border-slate-100 max-w-xs">
                           <p className="text-xs text-slate-600 leading-relaxed italic font-medium">
-                            {medicalInfo && medicalInfo.trim() !== ""
+                            {/* IF STATEMENT FIX: If RLS is working, this will show the data */}
+                            {medicalInfo
                               ? `"${medicalInfo}"`
-                              : "No medical info provided"}
+                              : "Access Denied: Check Database Permissions"}
                           </p>
                         </div>
                       </TableCell>

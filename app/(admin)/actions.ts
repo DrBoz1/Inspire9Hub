@@ -8,17 +8,21 @@ export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  //N/A issue fix (copefully)
+  //fetch directly to avoid the joiny issues
   const { data: member } = await supabase
     .from("members")
-    .select("mobile_number, induction_records(health_emergency_info)")
+    .select("mobile_number")
     .eq("id", memberId)
     .single();
 
-  const medicalData =
-    member?.induction_records?.[0]?.health_emergency_info || "None provided";
+  const { data: induction } = await supabase
+    .from("induction_records")
+    .select("health_emergency_info")
+    .eq("member_id", memberId)
+    .single();
 
-  //update approval status
+  const medicalData = induction?.health_emergency_info || "None provided";
+
   await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
@@ -32,13 +36,13 @@ export async function approveInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
-  //log to community entries
+  //log to history
   await supabase.from("community_entries").insert({
     member_id: memberId,
     member_contact: member?.mobile_number || "No contact",
     tags: "Approved",
     entry_type: "Induction",
-    entry_description: medicalData, //pls work
+    entry_description: medicalData,
     entry_date: new Date().toISOString().split("T")[0],
   });
 
@@ -51,16 +55,22 @@ export async function rejectInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  //fetching the data from the history before deleting it
-  const { data: m } = await supabase
+  //fetch the data from the source before deleting
+  const { data: member } = await supabase
     .from("members")
-    .select("mobile_number, induction_records(health_emergency_info)")
+    .select("mobile_number")
     .eq("id", memberId)
     .single();
 
-  const medicalData =
-    m?.induction_records?.[0]?.health_emergency_info || "None provided";
+  const { data: induction } = await supabase
+    .from("induction_records")
+    .select("health_emergency_info")
+    .eq("member_id", memberId)
+    .single();
 
+  const medicalData = induction?.health_emergency_info || "None provided";
+
+  //reset member status
   await supabase
     .from("members")
     .update({
@@ -69,12 +79,13 @@ export async function rejectInduction(formData: FormData) {
     })
     .eq("id", memberId);
 
+  // 3. Delete the record
   await supabase.from("induction_records").delete().eq("member_id", memberId);
 
-  //log the rejection to permanent history
+  //log rejection with persistent medical data
   await supabase.from("community_entries").insert({
     member_id: memberId,
-    member_contact: m?.mobile_number || "N/A",
+    member_contact: member?.mobile_number || "N/A",
     tags: "Rejected",
     entry_type: "Induction",
     entry_description: medicalData,
