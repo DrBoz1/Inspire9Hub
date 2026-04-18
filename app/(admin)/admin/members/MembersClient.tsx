@@ -27,7 +27,7 @@ import {
   Phone,
   Building2,
   ShieldAlert,
-  Sparkles,
+  Zap,
 } from "lucide-react";
 
 export default function MembersClient({
@@ -45,10 +45,11 @@ export default function MembersClient({
 
   return (
     <div className="space-y-6">
+      {/* Search Header */}
       <div className="relative max-w-md">
         <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
         <Input
-          placeholder="Search by name or company..."
+          placeholder="Search members or companies..."
           className="pl-11 h-12 rounded-2xl border-slate-200 shadow-sm bg-white focus-visible:ring-[#E31E24]"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -59,35 +60,39 @@ export default function MembersClient({
         <CardContent className="p-0">
           <Table>
             <TableHeader className="bg-slate-50/50">
-              <TableRow>
+              <TableRow className="hover:bg-transparent border-none">
                 <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] p-8 text-slate-400">
-                  Member
+                  Resident
                 </TableHead>
-                <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] p-8 text-slate-400 text-center">
+                <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] p-8 text-center text-slate-400">
                   Status
                 </TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] p-8 text-slate-400">
                   Workplace
                 </TableHead>
                 <TableHead className="font-black text-[10px] uppercase tracking-[0.2em] p-8 text-right text-slate-400">
-                  Actions
+                  Action
                 </TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredMembers.map((member) => {
-                const record = member.induction_records?.[0];
+                // AGGRESSIVE DATA CHECK: Handle Supabase array or single object
+                const records = member.induction_records;
+                const record = Array.isArray(records) ? records[0] : records;
+                const medicalInfo = record?.health_emergency_info;
+
                 return (
                   <TableRow
                     key={member.id}
-                    className="hover:bg-slate-50/30 transition-colors group"
+                    className="hover:bg-slate-50/30 border-slate-50 transition-colors group"
                   >
                     <TableCell className="p-8">
                       <div className="flex flex-col">
                         <span className="font-black text-slate-900 text-md group-hover:text-[#E31E24] transition-colors">
                           {member.full_name}
                         </span>
-                        <span className="text-[11px] text-slate-400 font-bold">
+                        <span className="text-[11px] text-slate-400 font-bold font-poppins">
                           {member.email}
                         </span>
                       </div>
@@ -99,95 +104,101 @@ export default function MembersClient({
                         {member.member_status}
                       </Badge>
                     </TableCell>
-                    <TableCell className="p-8 font-black text-slate-600 text-sm">
+                    <TableCell className="p-8 font-black text-slate-600 text-sm font-poppins">
                       {member.company_name}
                     </TableCell>
                     <TableCell className="p-8 text-right">
                       <Dialog>
                         <DialogTrigger asChild>
                           <Button
-                            variant="ghost"
-                            className="font-black text-[10px] uppercase tracking-widest text-slate-400 hover:text-[#E31E24] hover:bg-red-50 rounded-xl"
+                            variant="outline"
+                            className="rounded-xl border-slate-200 font-black text-[10px] uppercase tracking-widest hover:bg-slate-900 hover:text-white transition-all"
                           >
-                            Expand Profile
+                            View Profile
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="max-w-2xl rounded-[40px] p-0 overflow-hidden border-none shadow-2xl">
-                          <DialogHeader className="bg-slate-900 text-white p-10">
+                        <DialogContent className="sm:max-w-[600px] rounded-[40px] p-0 overflow-hidden border-none shadow-2xl">
+                          {/* Header Block */}
+                          <div className="bg-slate-900 text-white p-10">
                             <div className="flex items-center gap-6">
-                              <div className="h-16 w-16 bg-white/10 rounded-[22px] flex items-center justify-center text-white backdrop-blur-md">
+                              <div className="h-20 w-20 bg-white/10 rounded-[28px] flex items-center justify-center text-white border border-white/10 shadow-inner">
                                 <UserCircle2 className="w-10 h-10" />
                               </div>
-                              <div>
-                                <DialogTitle className="text-3xl font-black tracking-tight">
+                              <div className="space-y-1">
+                                <DialogTitle className="text-3xl font-black tracking-tight leading-none">
                                   {member.full_name}
                                 </DialogTitle>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <Badge className="bg-[#E31E24] text-white border-none font-black text-[9px] px-2 py-0.5 uppercase tracking-widest">
+                                <div className="flex items-center gap-2 pt-2">
+                                  <Badge className="bg-[#E31E24] text-white border-none font-black text-[9px] px-2 py-0.5 tracking-tighter uppercase">
                                     {member.induction_status}
                                   </Badge>
-                                  <p className="text-slate-400 text-[10px] font-bold uppercase tracking-widest leading-none">
-                                    Verified Community Member
+                                  <span className="text-slate-400 text-[10px] font-bold uppercase tracking-widest">
+                                    Community Resident
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Info Body */}
+                          <div className="p-10 space-y-10 bg-white">
+                            {/* Contact & Plan Row */}
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+                              <div className="space-y-6">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2">
+                                  Contact Details
+                                </p>
+                                <div className="space-y-4">
+                                  <InfoItem
+                                    icon={Mail}
+                                    label="Email"
+                                    value={member.email}
+                                  />
+                                  <InfoItem
+                                    icon={Phone}
+                                    label="Mobile"
+                                    value={member.mobile_number || "Not listed"}
+                                  />
+                                  <InfoItem
+                                    icon={Building2}
+                                    label="Company"
+                                    value={member.company_name}
+                                  />
+                                </div>
+                              </div>
+
+                              <div className="space-y-6">
+                                <p className="text-[10px] font-black uppercase text-slate-400 tracking-widest border-b pb-2">
+                                  Membership
+                                </p>
+                                <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 space-y-3">
+                                  <div className="flex items-center gap-2">
+                                    <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+                                    <span className="text-sm font-black text-slate-900">
+                                      Sync Pending
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-slate-500 leading-relaxed font-medium italic">
+                                    Full plan integration will be available
+                                    after the Booking Phase update.
                                   </p>
                                 </div>
                               </div>
                             </div>
-                          </DialogHeader>
 
-                          <div className="p-10 grid grid-cols-1 md:grid-cols-2 gap-10 bg-white">
-                            <div className="space-y-6">
-                              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                                Contact Details
-                              </h4>
-                              <div className="space-y-4">
-                                <InfoItem
-                                  icon={Mail}
-                                  label="Email Address"
-                                  value={member.email}
-                                />
-                                <InfoItem
-                                  icon={Phone}
-                                  label="Direct Mobile"
-                                  value={member.mobile_number}
-                                />
-                                <InfoItem
-                                  icon={Building2}
-                                  label="Registered Company"
-                                  value={member.company_name}
-                                />
+                            {/* Medical Block */}
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2">
+                                <ShieldAlert className="w-4 h-4 text-[#E31E24]" />
+                                <h4 className="text-[10px] font-black uppercase text-[#E31E24] tracking-widest">
+                                  Safety & Medical Briefing
+                                </h4>
                               </div>
-                            </div>
-
-                            <div className="space-y-6">
-                              <h4 className="text-[10px] font-black uppercase text-slate-400 tracking-widest">
-                                Membership Plan
-                              </h4>
-                              <div className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex items-center gap-4">
-                                <div className="h-10 w-10 bg-white rounded-xl flex items-center justify-center shadow-sm text-slate-400">
-                                  <Sparkles className="w-5 h-5" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-black text-slate-900 leading-none">
-                                    Status: {member.member_status}
-                                  </p>
-                                  <p className="text-[10px] text-slate-400 font-bold mt-1 uppercase tracking-tighter italic">
-                                    Plan details sync pending...
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="col-span-full space-y-4 pt-6 border-t border-slate-50">
-                              <h4 className="text-[10px] font-black uppercase text-[#E31E24] tracking-widest flex items-center gap-2">
-                                <ShieldAlert className="w-4 h-4" /> Safety &
-                                Emergency Briefing
-                              </h4>
-                              <div className="bg-red-50/30 p-8 rounded-[32px] border border-red-100/50">
-                                <p className="text-xs text-red-900 leading-relaxed italic font-medium">
-                                  "
-                                  {record?.health_emergency_info ||
-                                    "No medical or emergency data was provided during induction."}
-                                  "
+                              <div className="bg-red-50/50 p-8 rounded-[32px] border border-red-100/50">
+                                <p className="text-xs text-red-900 leading-relaxed italic font-bold">
+                                  {medicalInfo
+                                    ? `"${medicalInfo}"`
+                                    : "Warning: No emergency information found. Ensure user has completed induction."}
                                 </p>
                               </div>
                             </div>
@@ -209,7 +220,7 @@ export default function MembersClient({
 function InfoItem({ icon: Icon, label, value }: any) {
   return (
     <div className="flex items-center gap-4">
-      <div className="h-9 w-9 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300">
+      <div className="h-10 w-10 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-300 group-hover:text-[#E31E24] transition-colors">
         <Icon className="w-4 h-4" />
       </div>
       <div className="flex flex-col">

@@ -4,7 +4,6 @@ import MembersClient from "./MembersClient";
 export default async function AllMembersPage() {
   const supabase = await createClient();
 
-  // We only fetch members and their induction records (for the medical info)
   const { data: members, error } = await supabase
     .from("members")
     .select(
