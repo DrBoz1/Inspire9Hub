@@ -4,18 +4,12 @@ import MembersClient from "./MembersClient";
 export default async function AllMembersPage() {
   const supabase = await createClient();
 
-  // Fetch all members with their related membership and induction info
+  // We only fetch members and their induction records (for the medical info)
   const { data: members, error } = await supabase
     .from("members")
     .select(
       `
       *,
-      memberships (
-        membership_type,
-        start_date,
-        end_date,
-        payment_status
-      ),
       induction_records (
         health_emergency_info,
         completion_date
@@ -24,7 +18,9 @@ export default async function AllMembersPage() {
     )
     .order("full_name", { ascending: true });
 
-  if (error) console.error("Error fetching members:", error.message);
+  if (error) {
+    console.error("Error fetching members:", error.message);
+  }
 
   return (
     <div className="space-y-8 font-poppins">
@@ -37,7 +33,6 @@ export default async function AllMembersPage() {
         </p>
       </div>
 
-      {/* Pass the data to the Client Component for interactivity */}
       <MembersClient initialMembers={members || []} />
     </div>
   );
