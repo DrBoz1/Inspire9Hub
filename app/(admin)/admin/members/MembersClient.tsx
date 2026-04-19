@@ -117,7 +117,7 @@ export default function MembersClient({
                             View Profile
                           </Button>
                         </DialogTrigger>
-                        <DialogContent className="sm:max-w-[600px] rounded-[40px] p-0 overflow-hidden border-none shadow-2xl">
+                        <DialogContent className="sm:max-w-150 rounded-[40px] p-0 overflow-hidden border-none shadow-2xl">
                           {/* Header Block */}
                           <div className="bg-slate-900 text-white p-10">
                             <div className="flex items-center gap-6">
