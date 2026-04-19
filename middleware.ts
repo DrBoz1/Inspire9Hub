@@ -25,12 +25,11 @@ export async function middleware(request: NextRequest) {
   const {
     data: { user },
   } = await supabase.auth.getUser();
+  const pathname = request.nextUrl.pathname;
 
-  // Protect Admin routes
-  if (request.nextUrl.pathname.startsWith("/admin")) {
-    if (!user) {
-      return NextResponse.redirect(new URL("/login", request.url));
-    }
+  // Protect all Admin routes
+  if (pathname.startsWith("/admin")) {
+    if (!user) return NextResponse.redirect(new URL("/login", request.url));
 
     const { data: adminData } = await supabase
       .from("admins")
@@ -38,11 +37,20 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .single();
 
+    // If not an admin at all, kick to dashboard
     if (
       !adminData ||
       (adminData.role !== "admin" && adminData.role !== "super_admin")
     ) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    //only 'super_admin' can access /admin/management
+    if (
+      pathname.startsWith("/admin/management") &&
+      adminData.role !== "super_admin"
+    ) {
+      return NextResponse.redirect(new URL("/admin/approvals", request.url));
     }
   }
 

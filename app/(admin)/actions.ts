@@ -112,4 +112,5 @@ export async function createAdmin(formData: FormData) {
   if (error) throw error;
 
   revalidatePath("/admin/users");
+  revalidatePath("/admin/management");
 }

@@ -24,9 +24,17 @@ export default async function AdminLayout({
 
   if (!user) redirect("/login");
 
+  // Get the role to determine sidebar visibility
+  const { data: adminRecord } = await supabase
+    .from("admins")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  const isSuperAdmin = adminRecord?.role === "super_admin";
+
   return (
     <div className="flex min-h-screen bg-slate-50/50 font-poppins">
-      {/* Sidebar */}
       <aside className="w-64 border-r bg-white flex flex-col sticky top-0 h-screen">
         <div className="p-6 border-b">
           <Image
@@ -37,7 +45,7 @@ export default async function AdminLayout({
             className="object-contain"
           />
           <Badge className="mt-3 bg-amber-50 text-amber-700 border-none font-bold text-[10px] tracking-widest uppercase px-2">
-            Admin Portal
+            {isSuperAdmin ? "Super Admin Portal" : "Admin Portal"}
           </Badge>
         </div>
 
@@ -57,6 +65,15 @@ export default async function AdminLayout({
             icon={Users}
             label="All Members"
           />
+
+          {/* Only show for Super Admins */}
+          {isSuperAdmin && (
+            <AdminNavLink
+              href="/admin/management"
+              icon={ShieldCheck}
+              label="Staff Management"
+            />
+          )}
         </nav>
 
         <div className="p-4 border-t">
@@ -69,7 +86,6 @@ export default async function AdminLayout({
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="flex-1 p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto">{children}</div>
       </main>
