@@ -77,7 +77,7 @@ export default function MembersClient({
             </TableHeader>
             <TableBody>
               {filteredMembers.map((member) => {
-                // AGGRESSIVE DATA CHECK: Handle Supabase array or single object
+                //check data  Handle Supabase array or single object
                 const records = member.induction_records;
                 const record = Array.isArray(records) ? records[0] : records;
                 const medicalInfo = record?.health_emergency_info;
