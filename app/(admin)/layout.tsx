@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
+import { Toaster } from "sonner"; // 1. Import Toaster
 
 export default async function AdminLayout({
   children,
@@ -35,6 +36,7 @@ export default async function AdminLayout({
 
   return (
     <div className="flex min-h-screen bg-slate-50/50 font-poppins">
+      {/* Sidebar */}
       <aside className="w-64 border-r bg-white flex flex-col sticky top-0 h-screen">
         <div className="p-6 border-b">
           <Image
@@ -86,9 +88,13 @@ export default async function AdminLayout({
         </div>
       </aside>
 
+      {/* Main Content */}
       <main className="flex-1 p-10 overflow-y-auto">
         <div className="max-w-5xl mx-auto">{children}</div>
       </main>
+
+      {/* 2. Add Toaster here so it's accessible to all admin pages */}
+      <Toaster position="top-right" richColors closeButton />
     </div>
   );
 }
