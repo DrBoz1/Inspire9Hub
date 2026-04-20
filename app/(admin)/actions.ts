@@ -114,3 +114,14 @@ export async function createAdmin(formData: FormData) {
   revalidatePath("/admin/users");
   revalidatePath("/admin/management");
 }
+
+export async function revokeAdminAccess(formData: FormData) {
+  const supabase = await createClient();
+  const adminId = formData.get("adminId") as string;
+
+  const { error } = await supabase.from("admins").delete().eq("id", adminId);
+
+  if (error) throw error;
+
+  revalidatePath("/admin/management");
+}
