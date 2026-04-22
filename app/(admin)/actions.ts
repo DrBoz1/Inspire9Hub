@@ -99,11 +99,23 @@ export async function rejectInduction(formData: FormData) {
 
 export async function createAdmin(formData: FormData) {
   const supabase = await createClient();
+  const userId = formData.get("user_id") as string;
+  const name = formData.get("name") as string;
+
+  // 1. Automatically fetch the REAL email from the members table using the UUID
+  const { data: member } = await supabase
+    .from("members")
+    .select("email")
+    .eq("id", userId)
+    .single();
+
+  if (!member)
+    throw new Error("This UUID does not belong to a registered member.");
 
   const adminData = {
-    id: formData.get("user_id"),
-    full_name: formData.get("name"),
-    email: formData.get("email"),
+    id: userId,
+    full_name: name,
+    email: member.email, // Use the real email from the members table
     role: "admin",
     active_status: "Active",
   };
@@ -111,7 +123,6 @@ export async function createAdmin(formData: FormData) {
   const { error } = await supabase.from("admins").insert(adminData);
   if (error) throw error;
 
-  revalidatePath("/admin/users");
   revalidatePath("/admin/management");
 }
 

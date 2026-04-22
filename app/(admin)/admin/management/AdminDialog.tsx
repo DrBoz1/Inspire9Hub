@@ -12,8 +12,9 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, ShieldCheck } from "lucide-react";
+import { PlusCircle, ShieldCheck, Info } from "lucide-react";
 import { createAdmin } from "../../actions";
+import { toast } from "sonner";
 
 export function AdminDialog() {
   const [open, setOpen] = useState(false);
@@ -21,7 +22,7 @@ export function AdminDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-slate-900 text-white rounded-2xl px-6 font-bold shadow-lg hover:bg-slate-800">
+        <Button className="bg-slate-900 text-white rounded-2xl px-6 h-12 font-black shadow-lg hover:bg-slate-800 transition-all active:scale-95">
           <PlusCircle className="w-4 h-4 mr-2" /> Add New Admin
         </Button>
       </DialogTrigger>
@@ -31,61 +32,59 @@ export function AdminDialog() {
             <ShieldCheck className="w-6 h-6" />
           </div>
           <DialogTitle className="text-2xl font-black text-slate-900 uppercase tracking-tight">
-            Create Admin
+            Promote Staff
           </DialogTitle>
           <DialogDescription className="font-medium text-slate-500">
-            Assign administrative privileges to a user. They must already have a
-            valid User ID.
+            Assign administrative privileges to an existing resident using their
+            System UUID.
           </DialogDescription>
         </DialogHeader>
 
         <form
           action={async (formData) => {
-            await createAdmin(formData);
-            setOpen(false); //close it on success
+            try {
+              await createAdmin(formData);
+              setOpen(false);
+              toast.success("Admin Created", {
+                description: "The staff member has been granted access.",
+              });
+            } catch (error: any) {
+              toast.error("Promotion Failed", {
+                description: error.message,
+              });
+            }
           }}
           className="space-y-6 mt-4"
         >
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Full Name
+              Admin Name
             </Label>
             <Input
               name="name"
-              placeholder="e.g. John Smith"
+              placeholder="e.g. Staff Member Name"
               required
-              className="h-12 rounded-xl border-slate-100"
+              className="h-12 rounded-xl border-slate-100 bg-slate-50/50"
             />
           </div>
+
           <div className="space-y-2">
             <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              Email Address
-            </Label>
-            <Input
-              name="email"
-              type="email"
-              placeholder="john@company.com"
-              required
-              className="h-12 rounded-xl border-slate-100"
-            />
-          </div>
-          <div className="space-y-2">
-            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-              User UUID
+              Resident UUID
             </Label>
             <Input
               name="user_id"
-              placeholder="Paste Supabase UUID here"
+              placeholder="Paste ID from Supabase Auth"
               required
-              className="h-12 rounded-xl border-slate-100 font-mono text-xs"
+              className="h-12 rounded-xl border-slate-100 font-mono text-[10px] bg-slate-50/50"
             />
           </div>
 
           <Button
             type="submit"
-            className="w-full bg-[#E31E24] hover:bg-red-700 text-white h-12 rounded-xl font-black uppercase tracking-widest"
+            className="w-full bg-[#E31E24] hover:bg-red-700 text-white h-14 rounded-2xl font-black uppercase tracking-widest shadow-lg shadow-red-100 transition-all active:scale-95"
           >
-            Confirm Promotion
+            Grant Access →
           </Button>
         </form>
       </DialogContent>
