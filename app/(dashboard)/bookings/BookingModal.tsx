@@ -23,9 +23,9 @@ import {
   Loader2,
 } from "lucide-react";
 import { isBefore, startOfToday, format } from "date-fns";
-import { checkRoomAvailability } from "./actions"; // Import the action
+import { checkRoomAvailability, createCheckoutSession } from "./actions";
 
-import { getRoomPrice } from "@/lib/constants"; // Add import
+import { getRoomPrice } from "@/lib/constants";
 
 export default function BookingModal({ room }: { room: any }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -43,47 +43,36 @@ export default function BookingModal({ room }: { room: any }) {
   // FEATURE: Real-time availability check
   const handleBookingStart = async () => {
     if (!date) return toast.error("Please select a date");
-    if (duration <= 0)
-      return toast.error("Invalid duration", {
-        description: "Departure must be after arrival.",
-      });
 
     setIsChecking(true);
+    const dateStr = format(date, "yyyy-MM-dd");
+    const startISO = `${dateStr}T${startTime}:00Z`;
+    const endISO = `${dateStr}T${endTime}:00Z`;
 
-    // Create ISO strings for the check
-    const startISO = `${format(date, "yyyy-MM-dd")}T${startTime}:00Z`;
-    const endISO = `${format(date, "yyyy-MM-dd")}T${endTime}:00Z`;
-
+    // 1. Check availability (the logic we already built)
     const { available, error } = await checkRoomAvailability(
       room.id,
       startISO,
       endISO,
     );
 
-    if (error) {
-      toast.error("Error", { description: error });
-      setIsChecking(false);
-      return;
-    }
-
     if (!available) {
-      toast.error("Space Occupied", {
-        description:
-          "Someone else has already booked this slot. Try another time!",
-      });
+      toast.error("Space Occupied", { description: "Try another time slot." });
       setIsChecking(false);
       return;
     }
 
-    // SUCCESS: Proceed to Stripe (Next step)
-    toast.success("Room Available!", {
-      description: "Redirecting to secure payment...",
-    });
+    // 2. Room is free? Trigger Stripe!
+    toast.success("Redirecting to Stripe...");
 
-    // For now, we simulate the redirect delay
-    setTimeout(() => {
-      setIsChecking(false);
-    }, 2000);
+    await createCheckoutSession({
+      workspaceId: room.id,
+      roomName: room.name,
+      amount: totalCost,
+      date: dateStr,
+      startTime: startTime,
+      endTime: endTime,
+    });
   };
 
   return (
