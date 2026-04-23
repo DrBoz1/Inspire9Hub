@@ -1,18 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { motion, AnimatePresence, Variants } from "framer-motion"; // Add Variants type
+import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
 import { CalendarDays, LayoutGrid, Clock, ShieldCheck } from "lucide-react";
 import RoomCard from "./RoomCard";
-import { ROOMS } from "@/lib/constants";
 import { Badge } from "@/components/ui/badge";
 
+// UPDATED INTERFACE: Added 'rooms' here
 export default function BookingClient({
   initialBookings,
+  rooms,
 }: {
   initialBookings: any[];
+  rooms: any[];
 }) {
   const [view, setView] = useState("available");
 
@@ -20,10 +22,7 @@ export default function BookingClient({
     hidden: { opacity: 0 },
     show: {
       opacity: 1,
-      transition: {
-        staggerChildren: 0.1,
-        delayChildren: 0.2,
-      },
+      transition: { staggerChildren: 0.1, delayChildren: 0.2 },
     },
   };
 
@@ -32,11 +31,7 @@ export default function BookingClient({
     show: {
       y: 0,
       opacity: 1,
-      transition: {
-        type: "spring",
-        stiffness: 300,
-        damping: 24,
-      } as const,
+      transition: { type: "spring", stiffness: 300, damping: 24 } as const,
     },
   };
 
@@ -66,18 +61,29 @@ export default function BookingClient({
 
       <AnimatePresence mode="wait">
         <TabsContent value="available" key="available" className="mt-0">
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {ROOMS.map((room) => (
-              <motion.div key={room.id} variants={item} className="h-full">
-                <RoomCard room={room} />
-              </motion.div>
-            ))}
-          </motion.div>
+          {rooms.length > 0 ? (
+            <motion.div
+              variants={container}
+              initial="hidden"
+              animate="show"
+              className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
+            >
+              {rooms.map((room) => (
+                <motion.div key={room.id} variants={item} className="h-full">
+                  <RoomCard room={room} />
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <div className="h-96 flex flex-col items-center justify-center border-4 border-dashed border-slate-100 rounded-[60px] space-y-4">
+              <p className="text-slate-300 font-black uppercase tracking-widest italic text-xl">
+                No Workspaces Found
+              </p>
+              <p className="text-slate-400 text-sm font-medium">
+                Please check your database seeding or contact support.
+              </p>
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="my-bookings" key="my-bookings">

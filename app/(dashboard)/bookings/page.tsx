@@ -7,7 +7,13 @@ export default async function BookingsPage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  //Fetch only active/upcoming bookings for this member
+  // 1. Fetch real rooms from DB
+  const { data: dbRooms } = await supabase
+    .from("workspaces")
+    .select("*")
+    .order("capacity", { ascending: true });
+
+  // 2. Fetch existing bookings
   const { data: userBookings } = await supabase
     .from("bookings")
     .select(
@@ -32,8 +38,11 @@ export default async function BookingsPage() {
         </p>
       </div>
 
-      {/* Pass data to the animated Client Component */}
-      <BookingClient initialBookings={userBookings || []} />
+      {/* Pass the DB rooms here instead of ROOMS constant */}
+      <BookingClient
+        initialBookings={userBookings || []}
+        rooms={dbRooms || []}
+      />
     </div>
   );
 }

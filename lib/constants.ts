@@ -30,6 +30,12 @@ export const BOOKING_STATUS = {
   COMPLETED: "completed",
 };
 
+export const getRoomPrice = (capacity: number) => {
+  if (capacity <= 4) return 25; // Dream Room
+  if (capacity <= 5) return 45; // Elbow/Green
+  return 80; // Boiler/Pool
+};
+
 export const PRICING = {
   SMALL_ROOM: 25, // AUD per hour
   MEDIUM_ROOM: 45,

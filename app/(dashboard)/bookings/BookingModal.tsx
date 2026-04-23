@@ -20,18 +20,71 @@ import {
   ShieldCheck,
   CreditCard,
   Sparkles,
+  Loader2,
 } from "lucide-react";
-import { isBefore, startOfToday } from "date-fns";
+import { isBefore, startOfToday, format } from "date-fns";
+import { checkRoomAvailability } from "./actions"; // Import the action
+
+import { getRoomPrice } from "@/lib/constants"; // Add import
 
 export default function BookingModal({ room }: { room: any }) {
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
+  const [isChecking, setIsChecking] = useState(false);
 
+  // DYNAMIC PRICE CALCULATION
+  const hourlyRate = getRoomPrice(room.capacity);
   const startHour = parseInt(startTime.split(":")[0]);
   const endHour = parseInt(endTime.split(":")[0]);
   const duration = endHour - startHour;
-  const totalCost = duration > 0 ? duration * 25 : 0;
+  const totalCost = duration > 0 ? duration * hourlyRate : 0;
+
+  // FEATURE: Real-time availability check
+  const handleBookingStart = async () => {
+    if (!date) return toast.error("Please select a date");
+    if (duration <= 0)
+      return toast.error("Invalid duration", {
+        description: "Departure must be after arrival.",
+      });
+
+    setIsChecking(true);
+
+    // Create ISO strings for the check
+    const startISO = `${format(date, "yyyy-MM-dd")}T${startTime}:00Z`;
+    const endISO = `${format(date, "yyyy-MM-dd")}T${endTime}:00Z`;
+
+    const { available, error } = await checkRoomAvailability(
+      room.id,
+      startISO,
+      endISO,
+    );
+
+    if (error) {
+      toast.error("Error", { description: error });
+      setIsChecking(false);
+      return;
+    }
+
+    if (!available) {
+      toast.error("Space Occupied", {
+        description:
+          "Someone else has already booked this slot. Try another time!",
+      });
+      setIsChecking(false);
+      return;
+    }
+
+    // SUCCESS: Proceed to Stripe (Next step)
+    toast.success("Room Available!", {
+      description: "Redirecting to secure payment...",
+    });
+
+    // For now, we simulate the redirect delay
+    setTimeout(() => {
+      setIsChecking(false);
+    }, 2000);
+  };
 
   return (
     <Dialog>
@@ -41,17 +94,19 @@ export default function BookingModal({ room }: { room: any }) {
         </Button>
       </DialogTrigger>
 
-      {/* CRITICAL FIX: sm:max-w-[1000px] overrides the hidden default width */}
-      <DialogContent className="sm:max-w-[1000px] w-[95vw] p-0 rounded-[40px] overflow-hidden border-none shadow-2xl bg-white">
+      <DialogContent className="sm:max-w-[1100px] w-[95vw] p-0 rounded-[40px] overflow-hidden border-none shadow-2xl bg-white">
+        <DialogHeader className="sr-only">
+          <DialogTitle>Book {room.name}</DialogTitle>
+        </DialogHeader>
+
         <div className="flex flex-col md:flex-row min-h-[600px]">
-          {/* Left Pane: Selection */}
           <div className="flex-[1.2] p-12 bg-slate-50/50 border-r border-slate-100 flex flex-col justify-center">
             <div className="space-y-8">
               <div className="space-y-1">
                 <Badge className="bg-slate-900 text-white rounded-md text-[9px] font-black tracking-[0.2em] px-2 py-1">
                   RESERVATION
                 </Badge>
-                <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic">
+                <h2 className="text-5xl font-black text-slate-900 tracking-tighter uppercase italic leading-none">
                   Select <span className="text-[#E31E24]">Time.</span>
                 </h2>
               </div>
@@ -98,19 +153,17 @@ export default function BookingModal({ room }: { room: any }) {
             </div>
           </div>
 
-          {/* Right Pane: Summary */}
           <div className="flex-1 p-12 bg-white flex flex-col justify-between">
             <div className="space-y-10">
               <div className="pb-6 border-b border-slate-100">
                 <h3 className="text-3xl font-black text-slate-900 tracking-tight leading-none">
                   {room.name}
                 </h3>
-                <p className="text-slate-400 font-bold text-xs mt-3 uppercase tracking-widest leading-none">
-                  Level 1 • Inspire9 Hub
+                <p className="text-slate-400 font-bold text-xs mt-4 uppercase tracking-widest leading-none">
+                  {room.location || "Level 1"} • Inspire9 Hub
                 </p>
               </div>
 
-              {/* Total Card */}
               <div className="bg-slate-900 rounded-[40px] p-10 text-white relative overflow-hidden shadow-2xl">
                 <Sparkles className="absolute -top-4 -right-4 w-24 h-24 text-white/5" />
                 <div className="relative z-10 space-y-8">
@@ -124,7 +177,7 @@ export default function BookingModal({ room }: { room: any }) {
                     <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
                       Grand Total
                     </p>
-                    <p className="text-6xl font-black italic tracking-tighter">
+                    <p className="text-6xl font-black italic tracking-tighter leading-none">
                       ${totalCost}.00
                     </p>
                   </div>
@@ -136,16 +189,20 @@ export default function BookingModal({ room }: { room: any }) {
                   </div>
                 </div>
               </div>
-
-              <p className="text-[11px] text-slate-400 font-medium leading-relaxed px-2">
-                By proceeding, you agree to the Inspire9 Hub booking terms. Door
-                codes will be activated 5 minutes before arrival.
-              </p>
             </div>
 
-            <Button className="w-full bg-[#E31E24] hover:bg-red-700 h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-lg shadow-2xl shadow-red-200 transition-all active:scale-95 mt-10">
-              <CreditCard className="w-5 h-5 mr-3" />
-              Pay Securely
+            <Button
+              disabled={isChecking || totalCost <= 0}
+              onClick={handleBookingStart}
+              className="w-full bg-[#E31E24] hover:bg-red-700 h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-lg shadow-2xl shadow-red-200 transition-all active:scale-95 mt-10"
+            >
+              {isChecking ? (
+                <Loader2 className="w-6 h-6 animate-spin" />
+              ) : (
+                <>
+                  <CreditCard className="w-5 h-5 mr-3" /> Pay Securely
+                </>
+              )}
             </Button>
           </div>
         </div>
