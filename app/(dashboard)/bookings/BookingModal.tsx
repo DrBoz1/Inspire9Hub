@@ -40,7 +40,7 @@ export default function BookingModal({ room }: { room: any }) {
   const duration = endHour - startHour;
   const totalCost = duration > 0 ? duration * hourlyRate : 0;
 
-  // FEATURE: Real-time availability check
+  //real time availability check
   const handleBookingStart = async () => {
     if (!date) return toast.error("Please select a date");
 
@@ -49,7 +49,7 @@ export default function BookingModal({ room }: { room: any }) {
     const startISO = `${dateStr}T${startTime}:00Z`;
     const endISO = `${dateStr}T${endTime}:00Z`;
 
-    // 1. Check availability (the logic we already built)
+    //check availability
     const { available, error } = await checkRoomAvailability(
       room.id,
       startISO,
@@ -62,7 +62,7 @@ export default function BookingModal({ room }: { room: any }) {
       return;
     }
 
-    // 2. Room is free? Trigger Stripe!
+    //if the room is free trigger stripe
     toast.success("Redirecting to Stripe...");
 
     await createCheckoutSession({

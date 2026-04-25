@@ -11,7 +11,7 @@ export async function checkRoomAvailability(
 ) {
   const supabase = await createClient();
 
-  //Here I search for any existing booking that overlaps with these times
+  //here I search for any existing booking that overlaps with these times
   const { data: conflicts, error } = await supabase
     .from("bookings")
     .select("id")
@@ -54,7 +54,7 @@ export async function createCheckoutSession(bookingData: {
     line_items: [
       {
         price_data: {
-          currency: "aud", // Australia specific
+          currency: "aud",
           product_data: {
             name: `${bookingData.roomName} Booking`,
             description: `Date: ${bookingData.date} | ${bookingData.startTime} - ${bookingData.endTime}`,
