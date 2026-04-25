@@ -1,22 +1,28 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 
-export function DashboardToast() {
+function ToastHandler() {
   const searchParams = useSearchParams();
   const status = searchParams.get("status");
 
   useEffect(() => {
     if (status === "success") {
-      toast.success("Payment Confirmed!", {
-        description:
-          "Your booking has been secured. Check your email for access codes.",
-        duration: 5000,
+      toast.success("Payment Successful", {
+        description: "Your booking is confirmed. Access codes sent to email.",
       });
     }
   }, [status]);
 
   return null;
+}
+
+export default function DashboardToast() {
+  return (
+    <Suspense fallback={null}>
+      <ToastHandler />
+    </Suspense>
+  );
 }

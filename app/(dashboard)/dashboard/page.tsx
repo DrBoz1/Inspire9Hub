@@ -1,3 +1,4 @@
+// app/(dashboard)/dashboard/page.tsx
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -6,6 +7,7 @@ import { AlertCircle, ShieldCheck, ArrowRight } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import DashboardToast from "./DashboardToast";
 
 export default async function MemberDashboard() {
   const supabase = await createClient();
@@ -13,41 +15,45 @@ export default async function MemberDashboard() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 1. Fetch Member Profile
   const { data: profile } = await supabase
     .from("members")
     .select("*")
     .eq("id", user?.id)
     .single();
 
-  // 2. Check if this user is also an Admin (The "Promotion" Check)
   const { data: adminRecord } = await supabase
     .from("admins")
     .select("role")
     .eq("id", user?.id)
     .single();
 
+  const { data: history } = await supabase
+    .from("community_entries")
+    .select("*")
+    .eq("member_id", user?.id)
+    .order("entry_date", { ascending: false })
+    .limit(3);
+
   const firstName = profile?.full_name?.split(" ")[0] || "User";
   const status = profile?.induction_status;
-
   const isInducted = status === INDUCTION_STATUS.COMPLETE;
   const isSubmitted = status === INDUCTION_STATUS.SUBMITTED;
   const memberStatus = profile?.member_status || MEMBER_STATUS.INACTIVE;
 
   return (
     <div className="max-w-6xl space-y-8 font-poppins pb-10">
-      {/* Header Section */}
+      <DashboardToast />
+
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>
           <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
             Dashboard
           </h1>
           <p className="text-slate-500 mt-1 font-medium">
-            Welcome back, {firstName}. Here's the latest for your workspace.
+            Welcome back, {firstName}.
           </p>
         </div>
         <div className="flex flex-wrap gap-3">
-          {/* Admin Portal Button: Only visible if the user is promoted */}
           {adminRecord && (
             <Button
               asChild
@@ -55,8 +61,7 @@ export default async function MemberDashboard() {
               className="rounded-xl border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100 border-2 font-bold transition-all"
             >
               <Link href="/admin/approvals">
-                <ShieldCheck className="w-4 h-4 mr-2" />
-                Admin Portal
+                <ShieldCheck className="w-4 h-4 mr-2" /> Admin Portal
               </Link>
             </Button>
           )}
@@ -66,13 +71,16 @@ export default async function MemberDashboard() {
           >
             Support
           </Button>
-          <Button className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-6 font-bold shadow-lg shadow-slate-200 transition-all active:scale-95">
-            + Book a Space
+
+          <Button
+            asChild
+            className="bg-slate-900 hover:bg-slate-800 text-white rounded-xl px-6 font-bold shadow-lg transition-all active:scale-95"
+          >
+            <Link href="/bookings">+ Book a Space</Link>
           </Button>
         </div>
       </div>
 
-      {/* Dynamic Compliance Banner */}
       {!isInducted && (
         <div
           className={`flex flex-col md:flex-row items-center justify-between p-6 bg-white border-l-4 rounded-2xl shadow-sm border border-slate-100 transition-all ${isSubmitted ? "border-l-amber-500" : "border-l-[#E31E24]"}`}
@@ -93,8 +101,8 @@ export default async function MemberDashboard() {
               </h3>
               <p className="text-sm text-slate-500 max-w-lg leading-relaxed">
                 {isSubmitted
-                  ? "We've received your safety briefing! An admin will review your health information and approve your 24/7 access pass shortly."
-                  : "To unlock your 24/7 access pass and building entry, you must complete the digital safety and etiquette briefing."}
+                  ? "Final review by Hub management in progress."
+                  : "Complete the briefing to unlock 24/7 access."}
               </p>
             </div>
           </div>
@@ -111,37 +119,29 @@ export default async function MemberDashboard() {
         </div>
       )}
 
-      {/* Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="rounded-3xl border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="rounded-3xl border-slate-100 shadow-sm">
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
               Account Status
             </p>
             <Badge
-              className={`${
-                memberStatus === MEMBER_STATUS.ACTIVE
-                  ? "bg-emerald-50 text-emerald-600"
-                  : "bg-amber-50 text-amber-600"
-              } border-none px-3 py-1 rounded-full font-bold capitalize`}
+              className={`${memberStatus === MEMBER_STATUS.ACTIVE ? "bg-emerald-50 text-emerald-600" : "bg-amber-50 text-amber-600"} border-none px-3 py-1 rounded-full font-bold capitalize`}
             >
               {memberStatus}
             </Badge>
           </CardHeader>
           <CardContent className="pt-2">
             <h2 className="text-2xl font-black text-slate-800">
-              Hot Desk Unlimited
+              Standard Resident
             </h2>
-            <div className="flex items-center gap-2 mt-4">
-              <div className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
-                Active until Feb 2027
-              </p>
-            </div>
+            <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider mt-4 italic">
+              Membership Managed via Stripe
+            </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="rounded-3xl border-slate-100 shadow-sm">
           <CardHeader>
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
               Compliance Progress
@@ -155,17 +155,10 @@ export default async function MemberDashboard() {
               value={isInducted ? 100 : isSubmitted ? 75 : 25}
               className={`h-2.5 mt-4 bg-slate-100 rounded-full ${isInducted ? "[&>div]:bg-emerald-500" : isSubmitted ? "[&>div]:bg-amber-500" : "[&>div]:bg-[#E31E24]"}`}
             />
-            <p className="text-[11px] font-bold text-slate-400 mt-3 uppercase tracking-wider">
-              {isInducted
-                ? "All Access Granted"
-                : isSubmitted
-                  ? "Final Admin Review"
-                  : "1 Task Remaining"}
-            </p>
           </CardContent>
         </Card>
 
-        <Card className="rounded-3xl border-slate-100 shadow-sm hover:shadow-md transition-shadow">
+        <Card className="rounded-3xl border-slate-100 shadow-sm">
           <CardHeader>
             <p className="text-[10px] font-black uppercase text-slate-400 tracking-[0.2em]">
               Next Booking
@@ -183,7 +176,6 @@ export default async function MemberDashboard() {
         </Card>
       </div>
 
-      {/* Activity Section */}
       <Card className="rounded-3xl border-slate-100 shadow-sm overflow-hidden">
         <CardHeader className="flex flex-row items-center justify-between bg-slate-50/50 border-b border-slate-50 px-8 py-6">
           <CardTitle className="text-xl font-black text-slate-800">
@@ -191,39 +183,30 @@ export default async function MemberDashboard() {
           </CardTitle>
           <Button
             variant="ghost"
-            className="text-[10px] text-slate-400 uppercase font-black tracking-widest hover:bg-transparent hover:text-slate-600"
+            className="text-[10px] text-slate-400 uppercase font-black tracking-widest"
           >
             View History
           </Button>
         </CardHeader>
         <CardContent className="p-8">
           <div className="space-y-10 relative before:absolute before:inset-0 before:ml-1.5 before:h-full before:w-0.5 before:bg-slate-100">
-            <ActivityItem
-              title="Membership Sync"
-              desc={`Status confirmed as ${memberStatus.toLowerCase()}.`}
-              time="Just now"
-              dotColor={
-                memberStatus === MEMBER_STATUS.ACTIVE
-                  ? "bg-emerald-500"
-                  : "bg-amber-500"
-              }
-            />
-            <ActivityItem
-              title="Compliance Record Updated"
-              desc={
-                isSubmitted
-                  ? "Health & Safety briefing submitted for review."
-                  : "Induction status checked."
-              }
-              time="Today"
-              dotColor="bg-blue-500"
-            />
-            <ActivityItem
-              title="Welcome to Inspire9"
-              desc="Account registration successfully finalized."
-              time="Yesterday"
-              dotColor="bg-slate-300"
-            />
+            {history && history.length > 0 ? (
+              history.map((entry) => (
+                <ActivityItem
+                  key={entry.id}
+                  title={entry.entry_type}
+                  desc={entry.entry_description || "Update log recorded."}
+                  time={entry.entry_date}
+                  dotColor={
+                    entry.tags === "Approved" ? "bg-emerald-500" : "bg-blue-500"
+                  }
+                />
+              ))
+            ) : (
+              <p className="text-slate-400 font-medium italic text-sm">
+                No activity recorded in the hub yet.
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

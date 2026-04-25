@@ -7,6 +7,7 @@ import {
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Toaster } from "sonner"; // 1. Import the Toaster
 
 export default async function DashboardLayout({
   children,
@@ -28,12 +29,12 @@ export default async function DashboardLayout({
   return (
     <TooltipProvider>
       <SidebarProvider>
-        <div className="flex h-screen w-full bg-[#F8F9FA]">
+        <div className="flex h-screen w-full bg-[#F8F9FA] font-poppins">
           <AppSidebar userProfile={profile} />
           <SidebarInset className="flex flex-col w-full">
             <header className="flex h-14 items-center gap-4 border-b bg-white px-6">
               <SidebarTrigger />
-              <div className="flex-1 font-semibold text-gray-500">
+              <div className="flex-1 font-semibold text-gray-500 uppercase tracking-wider text-xs">
                 Inspire9 Hub
               </div>
             </header>
@@ -41,6 +42,8 @@ export default async function DashboardLayout({
           </SidebarInset>
         </div>
       </SidebarProvider>
+
+      <Toaster position="top-right" richColors closeButton />
     </TooltipProvider>
   );
 }
