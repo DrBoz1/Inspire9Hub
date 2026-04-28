@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import DashboardToast from "./DashboardToast";
+import { format, parseISO } from "date-fns";
 
 export default async function MemberDashboard() {
   const supabase = await createClient();
@@ -33,6 +34,16 @@ export default async function MemberDashboard() {
     .eq("member_id", user?.id)
     .order("entry_date", { ascending: false })
     .limit(3);
+
+  const { data: nextBooking } = await supabase
+    .from("bookings")
+    .select("*, workspaces(name)")
+    .eq("member_id", user?.id)
+    .in("booking_status", ["confirmed", "pending"])
+    .gte("start_date_time", new Date().toISOString())
+    .order("start_date_time", { ascending: true })
+    .limit(1)
+    .maybeSingle();
 
   const firstName = profile?.full_name?.split(" ")[0] || "User";
   const status = profile?.induction_status;
@@ -165,13 +176,32 @@ export default async function MemberDashboard() {
             </p>
           </CardHeader>
           <CardContent className="pt-2">
-            <h2 className="text-2xl font-black text-slate-800">No Bookings</h2>
-            <Link
-              href="/bookings"
-              className="text-[11px] text-[#E31E24] font-black mt-4 inline-block uppercase tracking-wider hover:underline decoration-2 underline-offset-4"
-            >
-              Explore Spaces →
-            </Link>
+            {nextBooking ? (
+              <>
+                <h2 className="text-2xl font-black text-slate-800">
+                  {nextBooking.workspaces?.name ?? "Meeting Room"}
+                </h2>
+                <p className="text-[11px] text-slate-500 font-bold mt-1">
+                  {format(parseISO(nextBooking.start_date_time), "EEE d MMM, h:mm a")}
+                </p>
+                <Link
+                  href="/bookings"
+                  className="text-[11px] text-[#E31E24] font-black mt-3 inline-block uppercase tracking-wider hover:underline decoration-2 underline-offset-4"
+                >
+                  View Schedule →
+                </Link>
+              </>
+            ) : (
+              <>
+                <h2 className="text-2xl font-black text-slate-800">No Bookings</h2>
+                <Link
+                  href="/bookings"
+                  className="text-[11px] text-[#E31E24] font-black mt-4 inline-block uppercase tracking-wider hover:underline decoration-2 underline-offset-4"
+                >
+                  Explore Spaces →
+                </Link>
+              </>
+            )}
           </CardContent>
         </Card>
       </div>
@@ -182,10 +212,11 @@ export default async function MemberDashboard() {
             Recent Activity
           </CardTitle>
           <Button
+            asChild
             variant="ghost"
             className="text-[10px] text-slate-400 uppercase font-black tracking-widest"
           >
-            View History
+            <Link href="/history">View History →</Link>
           </Button>
         </CardHeader>
         <CardContent className="p-8">

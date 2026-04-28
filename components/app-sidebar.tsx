@@ -6,6 +6,7 @@ import {
   CalendarDays,
   User,
   LogOut,
+  History,
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
@@ -42,6 +43,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
       ? [{ title: "Induction", url: "/induction", icon: BookOpen }]
       : []),
     { title: "Bookings", url: "/bookings", icon: CalendarDays },
+    { title: "History", url: "/history", icon: History },
   ];
 
   const initials =

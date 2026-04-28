@@ -63,5 +63,7 @@ export const config = {
     "/dashboard/:path*",
     "/induction/:path*",
     "/profile/:path*",
+    "/history/:path*",
+    "/bookings/:path*",
   ],
 };
