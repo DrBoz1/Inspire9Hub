@@ -9,6 +9,13 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 });
 
 export async function POST(request: NextRequest) {
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+
+  if (!webhookSecret) {
+    console.error("[webhook] STRIPE_WEBHOOK_SECRET is not set");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
   const text = await request.text();
   const sig = request.headers.get("stripe-signature");
 
@@ -18,27 +25,36 @@ export async function POST(request: NextRequest) {
 
   let event: Stripe.Event;
   try {
-    event = stripe.webhooks.constructEvent(
-      text,
-      sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
-    );
+    event = stripe.webhooks.constructEvent(text, sig, webhookSecret);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
-    console.error("Webhook signature verification failed:", message);
+    console.error("[webhook] Signature verification failed:", message);
     return NextResponse.json({ error: `Webhook error: ${message}` }, { status: 400 });
   }
 
-  if (event.type === "checkout.session.completed") {
-    const session = event.data.object as Stripe.Checkout.Session;
+  // Only handle the one event we care about — return 200 for all others
+  if (event.type !== "checkout.session.completed") {
+    return NextResponse.json({ received: true });
+  }
+
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    console.error("[webhook] SUPABASE_SERVICE_ROLE_KEY is not set — get it from Supabase Dashboard → Project Settings → API → service_role key (the long JWT starting with eyJ...)");
+    return NextResponse.json({ error: "Server misconfiguration" }, { status: 500 });
+  }
+
+  const session = event.data.object as Stripe.Checkout.Session;
+  {
 
     const userId = session.metadata?.userId;
     const workspaceId = session.metadata?.workspaceId;
     const startTime = session.metadata?.startTime;
     const endTime = session.metadata?.endTime;
 
+    console.log("[webhook] Metadata:", { userId, workspaceId, startTime, endTime });
+
     if (!userId || !workspaceId || !startTime || !endTime) {
-      console.error("Missing metadata in Stripe session:", session.id);
+      console.error("[webhook] Missing metadata in session:", session.id);
       return NextResponse.json({ error: "Missing booking metadata" }, { status: 400 });
     }
 
@@ -59,9 +75,10 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (bookingError || !booking) {
-      console.error("Failed to insert booking:", bookingError);
+      console.error("[webhook] Failed to insert booking:", JSON.stringify(bookingError));
       return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
     }
+    console.log("[webhook] Booking created:", booking.id);
 
     // 2. Insert payment record
     const { error: paymentError } = await supabase.from("payments").insert({
@@ -72,10 +89,7 @@ export async function POST(request: NextRequest) {
       payment_date: new Date().toISOString().split("T")[0],
       payment_status: "paid",
     });
-
-    if (paymentError) {
-      console.error("Failed to insert payment:", paymentError);
-    }
+    if (paymentError) console.error("[webhook] Payment insert error:", JSON.stringify(paymentError));
 
     // 3. Insert access pass (valid for the booking day)
     const expiryDate = new Date(endTime).toISOString().split("T")[0];
@@ -86,10 +100,7 @@ export async function POST(request: NextRequest) {
       pass_type: "room_booking",
       pass_status: "active",
     });
-
-    if (passError) {
-      console.error("Failed to insert access pass:", passError);
-    }
+    if (passError) console.error("[webhook] Access pass insert error:", JSON.stringify(passError));
 
     // 4. Fetch workspace name for the activity log
     const { data: workspace } = await supabase
@@ -113,10 +124,9 @@ export async function POST(request: NextRequest) {
       entry_date: new Date(startTime).toISOString().split("T")[0],
       tags: "Approved",
     });
+    if (entryError) console.error("[webhook] Community entry insert error:", JSON.stringify(entryError));
 
-    if (entryError) {
-      console.error("Failed to insert community entry:", entryError);
-    }
+    console.log("[webhook] All records created successfully for session:", session.id);
   }
 
   return NextResponse.json({ received: true });
