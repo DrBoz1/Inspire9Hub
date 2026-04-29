@@ -57,16 +57,9 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
       collapsible="icon"
       className="border-r border-gray-100 bg-white"
     >
-      {/* ── Header: logo / icon ─────────────────────────────── */}
-      <SidebarHeader className="flex items-center justify-center overflow-hidden border-b border-gray-100 h-18 shrink-0">
-        {/* Full logo — visible when expanded */}
-        <div
-          className={
-            isCollapsed
-              ? "hidden"
-              : "flex items-center justify-center w-full px-4"
-          }
-        >
+      {/* ── Header: logo (hidden when collapsed) ───────────── */}
+      <SidebarHeader className="flex items-center justify-center overflow-hidden border-b border-gray-100 p-4 shrink-0">
+        {!isCollapsed && (
           <Image
             src="/images/inspire9Logo.png"
             alt="Inspire9 Logo"
@@ -75,20 +68,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
             className="object-contain"
             priority
           />
-        </div>
-
-        {/* Compact icon — visible when collapsed */}
-        <div
-          className={
-            isCollapsed
-              ? "flex items-center justify-center"
-              : "hidden"
-          }
-        >
-          <div className="h-9 w-9 bg-[#E31E24] rounded-xl flex items-center justify-center text-white font-black text-lg italic shadow-sm select-none">
-            9
-          </div>
-        </div>
+        )}
       </SidebarHeader>
 
       {/* ── Nav items ───────────────────────────────────────── */}

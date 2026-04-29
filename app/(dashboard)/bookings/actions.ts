@@ -141,7 +141,9 @@ export async function cancelPendingBooking(bookingId: string) {
   } = await supabase.auth.getUser();
   if (!user) return;
 
-  await supabase
+  // Admin client bypasses the missing UPDATE RLS policy; member_id check enforces ownership
+  const adminDb = createAdminClient();
+  await adminDb
     .from("bookings")
     .update({ booking_status: "cancelled" })
     .eq("id", bookingId)
@@ -149,7 +151,7 @@ export async function cancelPendingBooking(bookingId: string) {
     .eq("booking_status", "pending");
 }
 
-// Self-service cancellation for confirmed/upcoming bookings
+// Self-service cancellation for confirmed/pending upcoming bookings
 export async function cancelConfirmedBooking(bookingId: string) {
   const supabase = await createClient();
   const {
@@ -157,24 +159,26 @@ export async function cancelConfirmedBooking(bookingId: string) {
   } = await supabase.auth.getUser();
   if (!user) return { error: "Not authenticated" };
 
-  const { data: booking } = await supabase
+  const adminDb = createAdminClient();
+
+  // Read the booking first to verify ownership and eligibility
+  const { data: booking } = await adminDb
     .from("bookings")
-    .select("start_date_time, booking_status")
+    .select("start_date_time, booking_status, member_id")
     .eq("id", bookingId)
-    .eq("member_id", user.id)
     .single();
 
   if (!booking) return { error: "Booking not found." };
+  if (booking.member_id !== user.id) return { error: "Not authorised." };
   if (new Date(booking.start_date_time) <= new Date())
     return { error: "Cannot cancel a booking that has already started or passed." };
   if (booking.booking_status === "cancelled")
     return { error: "This booking is already cancelled." };
 
-  const { error } = await supabase
+  const { error } = await adminDb
     .from("bookings")
     .update({ booking_status: "cancelled" })
-    .eq("id", bookingId)
-    .eq("member_id", user.id);
+    .eq("id", bookingId);
 
   if (error) return { error: error.message };
 
