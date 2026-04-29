@@ -1,7 +1,17 @@
 import { createClient } from "@/lib/supabase/server";
 import BookingClient from "./BookingClient";
+import { cancelPendingBooking } from "./actions";
 
-export default async function BookingsPage() {
+export default async function BookingsPage(props: {
+  searchParams: Promise<{ status?: string; bookingId?: string }>;
+}) {
+  const searchParams = await props.searchParams;
+
+  // Release the reserved slot when the user cancels Stripe checkout
+  if (searchParams.status === "cancelled" && searchParams.bookingId) {
+    await cancelPendingBooking(searchParams.bookingId);
+  }
+
   const supabase = await createClient();
   const {
     data: { user },

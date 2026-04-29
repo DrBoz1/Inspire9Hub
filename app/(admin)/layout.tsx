@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import {
+  LayoutDashboard,
   ClipboardCheck,
+  CalendarDays,
   History,
   Users,
   LogOut,
@@ -53,9 +55,19 @@ export default async function AdminLayout({
 
         <nav className="flex-1 p-4 space-y-2 mt-4">
           <AdminNavLink
+            href="/admin"
+            icon={LayoutDashboard}
+            label="Dashboard"
+          />
+          <AdminNavLink
             href="/admin/approvals"
             icon={ClipboardCheck}
             label="Pending Approvals"
+          />
+          <AdminNavLink
+            href="/admin/bookings"
+            icon={CalendarDays}
+            label="Booking Schedule"
           />
           <AdminNavLink
             href="/admin/history"

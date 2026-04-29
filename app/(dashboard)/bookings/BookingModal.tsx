@@ -24,7 +24,6 @@ import {
 } from "lucide-react";
 import { isBefore, startOfToday, format } from "date-fns";
 import { checkRoomAvailability, createCheckoutSession } from "./actions";
-
 import { getRoomPrice } from "@/lib/constants";
 
 export default function BookingModal({ room }: { room: any }) {
@@ -33,46 +32,52 @@ export default function BookingModal({ room }: { room: any }) {
   const [endTime, setEndTime] = useState("10:00");
   const [isChecking, setIsChecking] = useState(false);
 
-  // DYNAMIC PRICE CALCULATION
   const hourlyRate = getRoomPrice(room.capacity);
-  const startHour = parseInt(startTime.split(":")[0]);
-  const endHour = parseInt(endTime.split(":")[0]);
-  const duration = endHour - startHour;
-  const totalCost = duration > 0 ? duration * hourlyRate : 0;
+  const [startH, startM] = startTime.split(":").map(Number);
+  const [endH, endM] = endTime.split(":").map(Number);
+  const durationMins = endH * 60 + endM - (startH * 60 + startM);
+  const durationHours = durationMins / 60;
+  const totalCost = durationHours > 0 ? durationHours * hourlyRate : 0;
 
-  //real time availability check
   const handleBookingStart = async () => {
-    if (!date) return toast.error("Please select a date");
+    if (!date) return toast.error("Please select a date.");
+    if (durationMins <= 0) return toast.error("Departure must be after arrival.");
+    if (durationMins < 60) return toast.error("Minimum booking is 1 hour.");
 
     setIsChecking(true);
+
     const dateStr = format(date, "yyyy-MM-dd");
     const startISO = `${dateStr}T${startTime}:00Z`;
     const endISO = `${dateStr}T${endTime}:00Z`;
 
-    //check availability
-    const { available, error } = await checkRoomAvailability(
-      room.id,
-      startISO,
-      endISO,
-    );
+    const { available, error } = await checkRoomAvailability(room.id, startISO, endISO);
 
-    if (!available) {
-      toast.error("Space Occupied", { description: "Try another time slot." });
+    if (error || !available) {
+      toast.error("Space Occupied", {
+        description: "This slot is already booked. Try another time.",
+      });
       setIsChecking(false);
       return;
     }
 
-    //if the room is free trigger stripe
-    toast.success("Redirecting to Stripe...");
+    const toastId = toast.loading("Reserving your seat...");
 
-    await createCheckoutSession({
-      workspaceId: room.id,
-      roomName: room.name,
-      amount: totalCost,
-      date: dateStr,
-      startTime: startTime,
-      endTime: endTime,
-    });
+    try {
+      await createCheckoutSession({
+        workspaceId: room.id,
+        roomName: room.name,
+        amount: totalCost,
+        date: dateStr,
+        startTime,
+        endTime,
+      });
+    } catch (err: any) {
+      // NEXT_REDIRECT is not a real error — let Next.js handle it
+      if (err?.digest?.startsWith("NEXT_REDIRECT")) throw err;
+      toast.dismiss(toastId);
+      toast.error("Booking Failed", { description: err.message });
+      setIsChecking(false);
+    }
   };
 
   return (
@@ -89,6 +94,7 @@ export default function BookingModal({ room }: { room: any }) {
         </DialogHeader>
 
         <div className="flex flex-col md:flex-row min-h-[600px]">
+          {/* Left — date/time picker */}
           <div className="flex-[1.2] p-12 bg-slate-50/50 border-r border-slate-100 flex flex-col justify-center">
             <div className="space-y-8">
               <div className="space-y-1">
@@ -105,7 +111,7 @@ export default function BookingModal({ room }: { room: any }) {
                   mode="single"
                   selected={date}
                   onSelect={setDate}
-                  disabled={(date) => isBefore(date, startOfToday())}
+                  disabled={(d) => isBefore(d, startOfToday())}
                 />
               </div>
 
@@ -139,9 +145,21 @@ export default function BookingModal({ room }: { room: any }) {
                   </div>
                 </div>
               </div>
+
+              {durationMins > 0 && (
+                <p className="text-center text-xs font-black text-slate-400 uppercase tracking-widest">
+                  Duration:{" "}
+                  <span className="text-slate-700">
+                    {durationHours % 1 === 0
+                      ? `${durationHours}h`
+                      : `${Math.floor(durationHours)}h ${durationMins % 60}m`}
+                  </span>
+                </p>
+              )}
             </div>
           </div>
 
+          {/* Right — invoice + pay */}
           <div className="flex-1 p-12 bg-white flex flex-col justify-between">
             <div className="space-y-10">
               <div className="pb-6 border-b border-slate-100">
@@ -149,7 +167,7 @@ export default function BookingModal({ room }: { room: any }) {
                   {room.name}
                 </h3>
                 <p className="text-slate-400 font-bold text-xs mt-4 uppercase tracking-widest leading-none">
-                  {room.location || "Level 1"} • Inspire9 Hub
+                  {room.location || "Level 1"} · Inspire9 Hub
                 </p>
               </div>
 
@@ -167,21 +185,29 @@ export default function BookingModal({ room }: { room: any }) {
                       Grand Total
                     </p>
                     <p className="text-6xl font-black italic tracking-tighter leading-none">
-                      ${totalCost}.00
+                      ${totalCost.toFixed(0)}.00
                     </p>
                   </div>
-                  <div className="pt-6 border-t border-white/10 flex items-center gap-3">
-                    <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                    <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
-                      Price includes GST & Tech Fees
-                    </span>
+                  <div className="pt-6 border-t border-white/10 space-y-2">
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        Price includes GST & Tech Fees
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <ShieldCheck className="w-4 h-4 text-blue-400" />
+                      <span className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
+                        Slot held 30 min after checkout
+                      </span>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
 
             <Button
-              disabled={isChecking || totalCost <= 0}
+              disabled={isChecking || totalCost <= 0 || durationMins < 60}
               onClick={handleBookingStart}
               className="w-full bg-[#E31E24] hover:bg-red-700 h-20 rounded-[32px] font-black uppercase tracking-[0.2em] text-lg shadow-2xl shadow-red-200 transition-all active:scale-95 mt-10"
             >

@@ -1,14 +1,114 @@
 "use client";
 
-import { useState } from "react";
+import { useTransition } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
-import { CalendarDays, LayoutGrid, Clock, ShieldCheck } from "lucide-react";
+import {
+  CalendarDays,
+  LayoutGrid,
+  Clock,
+  ShieldCheck,
+  XCircle,
+  AlertTriangle,
+} from "lucide-react";
 import RoomCard from "./RoomCard";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { cancelConfirmedBooking } from "./actions";
+import { toast } from "sonner";
+import { format, parseISO } from "date-fns";
 
-// UPDATED INTERFACE: Added 'rooms' here
+function statusColor(status: string) {
+  switch (status?.toLowerCase()) {
+    case "confirmed":
+      return "bg-emerald-50 text-emerald-600";
+    case "pending":
+      return "bg-amber-50 text-amber-600";
+    case "cancelled":
+      return "bg-red-50 text-red-500";
+    default:
+      return "bg-slate-100 text-slate-500";
+  }
+}
+
+function CancelBookingButton({
+  bookingId,
+  roomName,
+}: {
+  bookingId: string;
+  roomName: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  const handleCancel = () => {
+    startTransition(async () => {
+      const result = await cancelConfirmedBooking(bookingId);
+      if (result?.success) {
+        toast.success("Booking Cancelled", {
+          description: `Your booking for ${roomName} has been cancelled.`,
+        });
+      } else {
+        toast.error("Could Not Cancel", {
+          description: result?.error ?? "An unexpected error occurred.",
+        });
+      }
+    });
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          className="text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all font-black text-xs uppercase tracking-wider"
+        >
+          <XCircle className="w-4 h-4 mr-1.5" /> Cancel
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="rounded-[32px] border-none shadow-2xl p-10">
+        <AlertDialogHeader>
+          <div className="h-12 w-12 bg-red-50 rounded-2xl flex items-center justify-center text-red-500 mb-4">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <AlertDialogTitle className="text-2xl font-black uppercase tracking-tight">
+            Cancel Booking?
+          </AlertDialogTitle>
+          <AlertDialogDescription className="font-medium text-slate-500">
+            This will cancel your booking for{" "}
+            <span className="font-bold text-slate-900">{roomName}</span>. Refund
+            requests must be handled separately with Hub staff.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-6">
+          <AlertDialogCancel className="rounded-xl font-bold">
+            Keep Booking
+          </AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleCancel}
+            className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest"
+          >
+            Yes, Cancel
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function BookingClient({
   initialBookings,
   rooms,
@@ -16,8 +116,6 @@ export default function BookingClient({
   initialBookings: any[];
   rooms: any[];
 }) {
-  const [view, setView] = useState("available");
-
   const container: Variants = {
     hidden: { opacity: 0 },
     show: {
@@ -35,8 +133,12 @@ export default function BookingClient({
     },
   };
 
+  const upcomingBookings = initialBookings.filter(
+    (b) => b.booking_status !== "cancelled",
+  );
+
   return (
-    <Tabs defaultValue="available" className="w-full" onValueChange={setView}>
+    <Tabs defaultValue="available" className="w-full">
       <div className="flex justify-between items-center mb-8">
         <TabsList className="bg-slate-100 p-1 rounded-2xl h-14">
           <TabsTrigger
@@ -92,32 +194,55 @@ export default function BookingClient({
             animate={{ opacity: 1, x: 0 }}
             className="space-y-4"
           >
-            {initialBookings.length > 0 ? (
-              initialBookings.map((b) => (
-                <Card
-                  key={b.id}
-                  className="rounded-3xl border-slate-100 overflow-hidden"
-                >
-                  <CardContent className="p-6 flex justify-between items-center">
-                    <div className="flex gap-4 items-center">
-                      <div className="h-12 w-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white">
-                        <CalendarDays className="w-6 h-6" />
+            {upcomingBookings.length > 0 ? (
+              upcomingBookings.map((b) => {
+                const isPast =
+                  new Date(b.start_date_time) <= new Date();
+                const isCancellable =
+                  !isPast && b.booking_status !== "cancelled";
+
+                return (
+                  <Card
+                    key={b.id}
+                    className="rounded-3xl border-slate-100 overflow-hidden"
+                  >
+                    <CardContent className="p-6 flex justify-between items-center gap-4">
+                      <div className="flex gap-4 items-center">
+                        <div className="h-12 w-12 bg-slate-900 rounded-2xl flex items-center justify-center text-white shrink-0">
+                          <CalendarDays className="w-6 h-6" />
+                        </div>
+                        <div>
+                          <p className="font-black text-slate-900">
+                            {b.workspaces?.name || "Meeting Room"}
+                          </p>
+                          <p className="text-xs text-slate-400 font-bold uppercase mt-0.5">
+                            {format(
+                              parseISO(b.start_date_time),
+                              "EEE d MMM, h:mm a",
+                            )}{" "}
+                            →{" "}
+                            {format(parseISO(b.end_date_time), "h:mm a")}
+                          </p>
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-black text-slate-900">
-                          {b.workspaces?.name || "Meeting Room"}
-                        </p>
-                        <p className="text-xs text-slate-400 font-bold uppercase">
-                          {b.start_date_time.split("T")[0]}
-                        </p>
+
+                      <div className="flex items-center gap-3 shrink-0">
+                        <Badge
+                          className={`${statusColor(b.booking_status)} border-none px-4 py-1 rounded-full font-black text-[10px] uppercase`}
+                        >
+                          {b.booking_status}
+                        </Badge>
+                        {isCancellable && (
+                          <CancelBookingButton
+                            bookingId={b.id}
+                            roomName={b.workspaces?.name || "Meeting Room"}
+                          />
+                        )}
                       </div>
-                    </div>
-                    <Badge className="bg-emerald-50 text-emerald-600 border-none px-4 py-1 rounded-full font-black text-[10px]">
-                      {b.booking_status.toUpperCase()}
-                    </Badge>
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             ) : (
               <div className="h-64 flex flex-col items-center justify-center border-2 border-dashed border-slate-100 rounded-[40px] text-slate-300 italic font-bold uppercase tracking-widest text-xs">
                 No upcoming bookings found.
