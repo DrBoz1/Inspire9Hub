@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import BookingClient from "./BookingClient";
 import { cancelPendingBooking } from "./actions";
 
@@ -17,24 +18,39 @@ export default async function BookingsPage(props: {
     data: { user },
   } = await supabase.auth.getUser();
 
-  // 1. Fetch real rooms from DB
-  const { data: dbRooms } = await supabase
-    .from("workspaces")
-    .select("*")
-    .order("capacity", { ascending: true });
+  const adminDb = createAdminClient();
+  const today = new Date().toISOString().split("T")[0];
 
-  // 2. Fetch existing bookings
-  const { data: userBookings } = await supabase
-    .from("bookings")
-    .select(
-      `
-      *,
-      workspaces (name, capacity)
-    `,
-    )
-    .eq("member_id", user?.id)
-    .neq("booking_status", "cancelled")
-    .order("start_date_time", { ascending: true });
+  const [roomsRes, bookingsRes, todayBookingsRes] = await Promise.all([
+    // All rooms
+    supabase.from("workspaces").select("*").order("capacity", { ascending: true }),
+
+    // Member's own bookings for My Schedule tab
+    supabase
+      .from("bookings")
+      .select("*, workspaces (name, capacity)")
+      .eq("member_id", user?.id)
+      .neq("booking_status", "cancelled")
+      .order("start_date_time", { ascending: true }),
+
+    // Today's bookings across all rooms (for availability badges)
+    adminDb
+      .from("bookings")
+      .select("workspace_id")
+      .neq("booking_status", "cancelled")
+      .gte("start_date_time", `${today}T00:00:00Z`)
+      .lte("start_date_time", `${today}T23:59:59Z`),
+  ]);
+
+  // Set of room IDs that have at least one booking today
+  const busyRoomIds = new Set(
+    (todayBookingsRes.data ?? []).map((b: any) => b.workspace_id),
+  );
+
+  const rooms = (roomsRes.data ?? []).map((room) => ({
+    ...room,
+    busyToday: busyRoomIds.has(room.id),
+  }));
 
   return (
     <div className="space-y-10 font-poppins pb-20">
@@ -48,10 +64,9 @@ export default async function BookingsPage(props: {
         </p>
       </div>
 
-      {/* Pass the DB rooms here instead of ROOMS constant */}
       <BookingClient
-        initialBookings={userBookings || []}
-        rooms={dbRooms || []}
+        initialBookings={bookingsRes.data || []}
+        rooms={rooms}
       />
     </div>
   );

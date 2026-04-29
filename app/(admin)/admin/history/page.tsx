@@ -23,7 +23,7 @@ export default async function HistoryPage(props: {
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  // Query community_entries (Permanent Log) joined with member info
+  // Only show induction decisions — booking entries belong in the member's own /history page
   const { data: entries, count } = await supabase
     .from("community_entries")
     .select(
@@ -40,6 +40,7 @@ export default async function HistoryPage(props: {
     `,
       { count: "exact" },
     )
+    .eq("entry_type", "Induction")
     .range(from, to)
     .order("entry_date", { ascending: false });
 

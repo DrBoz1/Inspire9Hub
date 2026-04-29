@@ -30,7 +30,6 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
 
-  // FIX: Hide if status is COMPLETE or SUBMITTED (Issue #2)
   const status = userProfile?.induction_status;
   const hideInduction =
     status === INDUCTION_STATUS.COMPLETE ||
@@ -38,7 +37,6 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
 
   const navItems = [
     { title: "Dashboard", url: "/dashboard", icon: LayoutDashboard },
-    // Show induction ONLY if it's not hidden
     ...(!hideInduction
       ? [{ title: "Induction", url: "/induction", icon: BookOpen }]
       : []),
@@ -57,99 +55,143 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
     <Sidebar
       variant="sidebar"
       collapsible="icon"
-      className="border-r border-gray-200"
+      className="border-r border-gray-100 bg-white"
     >
-      <SidebarHeader className="p-4 flex items-center justify-center">
-        {!isCollapsed ? (
+      {/* ── Header: logo / icon ─────────────────────────────── */}
+      <SidebarHeader className="flex items-center justify-center overflow-hidden border-b border-gray-100 h-18 shrink-0">
+        {/* Full logo — visible when expanded */}
+        <div
+          className={
+            isCollapsed
+              ? "hidden"
+              : "flex items-center justify-center w-full px-4"
+          }
+        >
           <Image
             src="/images/inspire9Logo.png"
             alt="Inspire9 Logo"
-            width={180}
-            height={60}
+            width={140}
+            height={48}
             className="object-contain"
+            priority
           />
-        ) : (
-          <div className="h-8 w-8 bg-[#E31E24] rounded-lg flex items-center justify-center text-white font-bold italic">
+        </div>
+
+        {/* Compact icon — visible when collapsed */}
+        <div
+          className={
+            isCollapsed
+              ? "flex items-center justify-center"
+              : "hidden"
+          }
+        >
+          <div className="h-9 w-9 bg-[#E31E24] rounded-xl flex items-center justify-center text-white font-black text-lg italic shadow-sm select-none">
             9
           </div>
-        )}
+        </div>
       </SidebarHeader>
 
-      <SidebarContent>
-        <SidebarMenu className="px-2 gap-1">
+      {/* ── Nav items ───────────────────────────────────────── */}
+      <SidebarContent className="py-4">
+        <SidebarMenu className="px-2 gap-0.5">
           {!isCollapsed && (
-            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-2 mt-4">
-              Overview
+            <p className="px-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 mt-1">
+              Navigation
             </p>
           )}
-          {navItems.map((item) => (
-            <SidebarMenuItem key={item.title}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.url}
-                tooltip={item.title}
-                className="hover:bg-red-50 hover:text-red-600 transition-colors py-6"
-              >
-                <Link href={item.url}>
-                  <item.icon className="w-5 h-5 shrink-0" />
-                  {!isCollapsed && (
-                    <span className="font-medium ml-2">{item.title}</span>
-                  )}
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+
+          {navItems.map((item) => {
+            const active = pathname === item.url;
+            return (
+              <SidebarMenuItem key={item.title}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={active}
+                  tooltip={item.title}
+                  className={`rounded-xl transition-all h-11 ${
+                    active
+                      ? "bg-red-50 text-[#E31E24] font-bold"
+                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium"
+                  }`}
+                >
+                  <Link href={item.url} className="flex items-center gap-3 px-3">
+                    <item.icon
+                      className={`w-4 h-4 shrink-0 ${active ? "text-[#E31E24]" : "text-gray-400"}`}
+                    />
+                    <span className="text-sm truncate">{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
 
           {!isCollapsed && (
-            <p className="px-4 text-[10px] font-bold uppercase tracking-widest text-gray-400 mt-6 mb-2">
+            <p className="px-3 text-[9px] font-black uppercase tracking-[0.2em] text-gray-400 mb-2 mt-5">
               Account
             </p>
           )}
+
           <SidebarMenuItem>
             <SidebarMenuButton
               asChild
               isActive={pathname === "/profile"}
               tooltip="Profile"
-              className="py-6"
+              className={`rounded-xl transition-all h-11 ${
+                pathname === "/profile"
+                  ? "bg-red-50 text-[#E31E24] font-bold"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium"
+              }`}
             >
-              <Link href="/profile">
-                <User className="w-5 h-5 shrink-0" />
-                {!isCollapsed && (
-                  <span className="font-medium ml-2">Profile</span>
-                )}
+              <Link href="/profile" className="flex items-center gap-3 px-3">
+                <User
+                  className={`w-4 h-4 shrink-0 ${pathname === "/profile" ? "text-[#E31E24]" : "text-gray-400"}`}
+                />
+                <span className="text-sm">Profile</span>
               </Link>
             </SidebarMenuButton>
           </SidebarMenuItem>
         </SidebarMenu>
       </SidebarContent>
 
-      <SidebarFooter className="p-2 border-t overflow-hidden">
+      {/* ── Footer: user info + logout ──────────────────────── */}
+      <SidebarFooter className="border-t border-gray-100 p-3">
         <div
-          className={`flex items-center ${isCollapsed ? "justify-center" : "justify-between"} w-full p-2`}
+          className={`flex items-center gap-3 ${
+            isCollapsed ? "justify-center" : "justify-between"
+          }`}
         >
-          <div className="flex items-center gap-3">
-            <Avatar className="h-8 w-8 shrink-0 rounded-lg">
+          <div className="flex items-center gap-3 min-w-0">
+            <Avatar className="h-8 w-8 shrink-0 rounded-xl border border-gray-100">
               <AvatarImage src={userProfile?.avatar_url} />
-              <AvatarFallback className="bg-red-100 text-red-600 font-bold text-xs">
+              <AvatarFallback className="bg-red-50 text-[#E31E24] font-black text-xs rounded-xl">
                 {initials}
               </AvatarFallback>
             </Avatar>
+
             {!isCollapsed && (
-              <div className="flex flex-col text-left text-sm whitespace-nowrap">
-                <span className="font-bold text-gray-700 truncate">
+              <div className="flex flex-col text-left min-w-0">
+                <span className="text-sm font-bold text-gray-700 truncate leading-tight">
                   {userProfile?.full_name || "New User"}
                 </span>
                 <span
-                  className={`text-xs capitalize font-medium ${userProfile?.member_status === "Active" ? "text-emerald-500" : "text-amber-500"}`}
+                  className={`text-xs font-semibold capitalize leading-tight ${
+                    userProfile?.member_status === "Active"
+                      ? "text-emerald-500"
+                      : "text-amber-500"
+                  }`}
                 >
                   {userProfile?.member_status || "Inactive"}
                 </span>
               </div>
             )}
           </div>
+
           {!isCollapsed && (
             <form action={logout}>
-              <button className="text-gray-400 hover:text-red-600 transition-colors p-1">
+              <button
+                type="submit"
+                className="text-gray-300 hover:text-[#E31E24] transition-colors p-1.5 rounded-lg hover:bg-red-50"
+              >
                 <LogOut className="w-4 h-4" />
               </button>
             </form>

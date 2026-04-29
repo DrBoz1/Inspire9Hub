@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import Stripe from "stripe";
@@ -64,8 +65,10 @@ export async function createCheckoutSession(bookingData: {
   if (!available) throw new Error("This time slot is no longer available.");
 
   // Cinema-style: reserve the slot with a pending booking BEFORE Stripe redirect.
-  // The DB exclusion constraint makes this atomic — if two requests race, only one succeeds.
-  const { data: booking, error: bookingError } = await supabase
+  // Uses the admin client to bypass RLS — the member_id is explicitly set to the
+  // authenticated user so this is safe and auditable.
+  const adminDb = createAdminClient();
+  const { data: booking, error: bookingError } = await adminDb
     .from("bookings")
     .insert({
       member_id: user.id,
@@ -78,8 +81,12 @@ export async function createCheckoutSession(bookingData: {
     .single();
 
   if (bookingError || !booking) {
+    // Surface the real DB error so it's debuggable, not a misleading "slot taken"
+    console.error("[booking] Insert failed:", JSON.stringify(bookingError));
     throw new Error(
-      "This slot was just taken by someone else. Please choose a different time.",
+      bookingError?.code === "23P01"
+        ? "This slot was just reserved by someone else. Pick a different time."
+        : "Could not reserve the slot. Please try again.",
     );
   }
 
@@ -175,4 +182,18 @@ export async function cancelConfirmedBooking(bookingId: string) {
   revalidatePath("/history");
   revalidatePath("/dashboard");
   return { success: true };
+}
+
+// Returns booked time ranges for a specific room+date so the modal can show them
+export async function getBookedSlotsForDate(roomId: string, dateStr: string) {
+  const adminDb = createAdminClient();
+  const { data } = await adminDb
+    .from("bookings")
+    .select("start_date_time, end_date_time")
+    .eq("workspace_id", roomId)
+    .neq("booking_status", "cancelled")
+    .gte("start_date_time", `${dateStr}T00:00:00Z`)
+    .lt("start_date_time", `${dateStr}T23:59:59Z`)
+    .order("start_date_time");
+  return data ?? [];
 }
