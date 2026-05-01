@@ -52,7 +52,7 @@ export default async function MemberDashboard() {
   const memberStatus = profile?.member_status || MEMBER_STATUS.INACTIVE;
 
   return (
-    <div className="max-w-6xl space-y-8 font-poppins pb-10">
+    <div className="w-full space-y-8 font-poppins pb-10">
       <DashboardToast />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">

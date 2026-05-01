@@ -78,7 +78,7 @@ export default async function HistoryPage() {
     .reduce((sum, p) => sum + (p.amount ?? 0), 0);
 
   return (
-    <div className="max-w-5xl space-y-10 font-poppins pb-16">
+    <div className="w-full space-y-10 font-poppins pb-16">
       <div>
         <h1 className="text-4xl font-extrabold text-slate-900 tracking-tight">
           My History
