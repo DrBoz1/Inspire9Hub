@@ -29,8 +29,8 @@ import { getRoomPrice } from "@/lib/constants";
 const ALL_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
 
 function formatHour(h: number) {
-  if (h === 12) return "12 PM";
-  if (h === 24 || h === 0) return "12 AM";
+  if (h === 12) return "12:00 PM";
+  if (h === 0 || h === 24) return "12:00 AM";
   return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
 }
 
@@ -38,16 +38,46 @@ function padTime(h: number) {
   return `${String(h).padStart(2, "0")}:00`;
 }
 
+// Build a proper UTC ISO string from a local date + local hour.
+// new Date(y, m, d, h) is constructed in the browser's local timezone,
+// so .toISOString() correctly converts it to UTC for Supabase storage.
+function makeUTCIso(date: Date, hour: number): string {
+  return new Date(
+    date.getFullYear(),
+    date.getMonth(),
+    date.getDate(),
+    hour,
+    0,
+    0,
+    0,
+  ).toISOString();
+}
+
+// A 1-hour block [hour, hour+1) is occupied if any booking overlaps it.
+// getHours() returns LOCAL hours on the client — correct for comparing against slot labels.
 function isHourOccupied(
   hour: number,
   slots: { start_date_time: string; end_date_time: string }[],
-) {
-  if (hour >= 20) return false;
+): boolean {
+  if (hour >= 20) return false; // 8 PM is only a valid end-boundary, never start
   return slots.some((s) => {
-    const sH = new Date(s.start_date_time).getUTCHours();
-    const eH = new Date(s.end_date_time).getUTCHours();
+    const sH = new Date(s.start_date_time).getHours(); // local hour
+    const eH = new Date(s.end_date_time).getHours();   // local hour
     return sH < hour + 1 && eH > hour;
   });
+}
+
+// Disable slots that have already passed today (local time).
+function isHourInPast(hour: number, selectedDate: Date | undefined): boolean {
+  if (!selectedDate) return false;
+  const now = new Date();
+  const isToday =
+    selectedDate.getFullYear() === now.getFullYear() &&
+    selectedDate.getMonth() === now.getMonth() &&
+    selectedDate.getDate() === now.getDate();
+  if (!isToday) return false;
+  // Block the current hour and anything earlier
+  return hour <= now.getHours();
 }
 
 export default function BookingModal({ room }: { room: any }) {
@@ -65,55 +95,74 @@ export default function BookingModal({ room }: { room: any }) {
     startHour !== null && endHour !== null ? endHour - startHour : 0;
   const totalCost = duration > 0 ? duration * hourlyRate : 0;
 
+  // Reload availability whenever date changes.
+  // Pass UTC day boundaries computed in the browser so the query is timezone-correct.
   useEffect(() => {
     if (!date) return;
     setLoadingSlots(true);
     setStartHour(null);
     setEndHour(null);
-    getBookedSlotsForDate(room.id, format(date, "yyyy-MM-dd")).then((slots) => {
+
+    // Day start/end in local timezone → UTC for the Supabase query
+    const dayStart = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      0, 0, 0, 0,
+    ).toISOString();
+    const dayEnd = new Date(
+      date.getFullYear(),
+      date.getMonth(),
+      date.getDate(),
+      23, 59, 59, 999,
+    ).toISOString();
+
+    getBookedSlotsForDate(room.id, dayStart, dayEnd).then((slots) => {
       setBookedSlots(slots);
       setLoadingSlots(false);
     });
   }, [date, room.id]);
 
-  function handleSlotClick(hour: number) {
-    const occupied = isHourOccupied(hour, bookedSlots);
+  function isSlotDisabled(hour: number): boolean {
+    return (
+      isHourOccupied(hour, bookedSlots) ||
+      isHourInPast(hour, date) ||
+      (hour === 20 && startHour === null) // 8 PM can't be a start time
+    );
+  }
 
-    // ── No start yet (or resetting) ─────────────────────────
+  function handleSlotClick(hour: number) {
+    if (isSlotDisabled(hour)) return;
+
+    // ── No start set yet (or resetting) ────────────────────────
     if (startHour === null || endHour !== null) {
-      if (hour >= 20) return; // can't start at 8 PM
-      if (occupied) {
-        toast.error("That hour is already booked.");
-        return;
-      }
+      if (hour >= 20) return;
       setStartHour(hour);
       setEndHour(null);
       return;
     }
 
-    // ── Start set, picking end ───────────────────────────────
+    // ── Deselect current start ──────────────────────────────────
     if (hour === startHour) {
-      // Deselect
       setStartHour(null);
       return;
     }
 
+    // ── Clicked before start — restart ─────────────────────────
     if (hour < startHour) {
-      // Clicked before start — restart
-      if (hour >= 20 || occupied) return;
       setStartHour(hour);
       setEndHour(null);
       return;
     }
 
-    // hour > startHour — validate no booked slots inside the range
+    // ── hour > startHour — validate the range ──────────────────
     const rangeBlocked = ALL_HOURS.filter(
       (h) => h >= startHour! && h < hour,
-    ).some((h) => isHourOccupied(h, bookedSlots));
+    ).some((h) => isHourOccupied(h, bookedSlots) || isHourInPast(h, date));
 
     if (rangeBlocked) {
-      toast.error("A booked slot falls inside that range.", {
-        description: "Choose an end time before the first blocked slot.",
+      toast.error("A blocked slot falls inside that range.", {
+        description: "Choose an end time before the first unavailable slot.",
       });
       return;
     }
@@ -121,8 +170,8 @@ export default function BookingModal({ room }: { room: any }) {
     setEndHour(hour);
   }
 
-  function slotClass(hour: number) {
-    const occupied = isHourOccupied(hour, bookedSlots);
+  function slotClass(hour: number): string {
+    const disabled = isSlotDisabled(hour);
     const isStart = hour === startHour;
     const isEnd = hour === endHour;
     const inRange =
@@ -130,19 +179,15 @@ export default function BookingModal({ room }: { room: any }) {
       endHour !== null &&
       hour > startHour &&
       hour < endHour;
-    const isEndOnly = hour === 20 && startHour === null;
 
-    if (occupied) {
-      return "bg-slate-100 text-slate-300 cursor-not-allowed select-none line-through text-xs";
+    if (disabled) {
+      return "bg-slate-100 text-slate-300 cursor-not-allowed select-none";
     }
     if (isStart || isEnd) {
       return "bg-[#E31E24] text-white font-black shadow-md shadow-red-200 ring-2 ring-[#E31E24]";
     }
     if (inRange) {
       return "bg-red-50 text-[#E31E24] font-bold ring-1 ring-red-200";
-    }
-    if (isEndOnly) {
-      return "bg-slate-50 text-slate-300 cursor-not-allowed text-xs";
     }
     return "bg-white border border-slate-200 text-slate-600 hover:border-[#E31E24] hover:text-[#E31E24] font-semibold cursor-pointer transition-colors";
   }
@@ -154,9 +199,11 @@ export default function BookingModal({ room }: { room: any }) {
     if (duration < 1) return toast.error("Minimum booking is 1 hour.");
 
     setIsChecking(true);
+
+    // Build correct UTC ISO strings from local date + local hours
+    const startISO = makeUTCIso(date, startHour);
+    const endISO = makeUTCIso(date, endHour);
     const dateStr = format(date, "yyyy-MM-dd");
-    const startISO = `${dateStr}T${padTime(startHour)}:00Z`;
-    const endISO = `${dateStr}T${padTime(endHour)}:00Z`;
 
     const { available, error } = await checkRoomAvailability(
       room.id,
@@ -180,6 +227,8 @@ export default function BookingModal({ room }: { room: any }) {
         date: dateStr,
         startTime: padTime(startHour),
         endTime: padTime(endHour),
+        startISO,
+        endISO,
       });
     } catch (err: any) {
       if (err?.digest?.startsWith("NEXT_REDIRECT")) throw err;
@@ -211,6 +260,7 @@ export default function BookingModal({ room }: { room: any }) {
         </DialogHeader>
 
         <div className="flex flex-col lg:flex-row">
+          {/* ── Left: calendar + time grid ──────────────────── */}
           <div className="flex-[1.3] p-8 bg-slate-50 border-r border-slate-100 flex flex-col gap-6">
             <div>
               <p className="text-[10px] font-black uppercase tracking-[0.25em] text-slate-400">
@@ -224,7 +274,6 @@ export default function BookingModal({ room }: { room: any }) {
               </p>
             </div>
 
-            {/* Calendar */}
             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-3 w-fit">
               <Calendar
                 mode="single"
@@ -234,10 +283,12 @@ export default function BookingModal({ room }: { room: any }) {
               />
             </div>
 
+            {/* Time slot grid */}
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-                  {date ? format(date, "d MMM") : "Select a date"} — pick times
+                  {date ? format(date, "d MMM") : "Select a date"} — pick
+                  times
                 </p>
                 {(startHour !== null || endHour !== null) && (
                   <button
@@ -262,26 +313,36 @@ export default function BookingModal({ room }: { room: any }) {
                 </div>
               ) : (
                 <div className="grid grid-cols-4 gap-2">
-                  {ALL_HOURS.map((h) => (
-                    <button
-                      key={h}
-                      type="button"
-                      disabled={
-                        isHourOccupied(h, bookedSlots) ||
-                        (h === 20 && startHour === null)
-                      }
-                      onClick={() => handleSlotClick(h)}
-                      className={`py-2.5 rounded-xl text-xs text-center transition-all ${slotClass(h)}`}
-                    >
-                      {isHourOccupied(h, bookedSlots) ? (
-                        <span className="line-through opacity-50">
-                          {formatHour(h)}
-                        </span>
-                      ) : (
-                        formatHour(h)
-                      )}
-                    </button>
-                  ))}
+                  {ALL_HOURS.map((h) => {
+                    const disabled = isSlotDisabled(h);
+                    const past = isHourInPast(h, date);
+                    return (
+                      <button
+                        key={h}
+                        type="button"
+                        disabled={disabled}
+                        onClick={() => handleSlotClick(h)}
+                        title={
+                          past
+                            ? "This time has already passed"
+                            : isHourOccupied(h, bookedSlots)
+                              ? "Already booked"
+                              : undefined
+                        }
+                        className={`py-2.5 rounded-xl text-xs text-center transition-all ${slotClass(h)}`}
+                      >
+                        {isHourOccupied(h, bookedSlots) ? (
+                          <span className="line-through opacity-60">
+                            {formatHour(h)}
+                          </span>
+                        ) : past ? (
+                          <span className="opacity-40">{formatHour(h)}</span>
+                        ) : (
+                          formatHour(h)
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
 
@@ -292,7 +353,7 @@ export default function BookingModal({ room }: { room: any }) {
               <div className="flex gap-4">
                 <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold">
                   <span className="w-3 h-3 rounded-sm bg-slate-100 inline-block" />
-                  Unavailable
+                  Booked / past
                 </span>
                 <span className="flex items-center gap-1.5 text-[10px] text-slate-400 font-bold">
                   <span className="w-3 h-3 rounded-sm bg-[#E31E24] inline-block" />
@@ -302,6 +363,7 @@ export default function BookingModal({ room }: { room: any }) {
             </div>
           </div>
 
+          {/* ── Right: invoice + pay ─────────────────────────── */}
           <div className="flex-1 p-8 flex flex-col gap-6">
             <div className="bg-slate-900 rounded-2xl p-8 text-white flex flex-col gap-5 relative overflow-hidden flex-1">
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full pointer-events-none" />

@@ -35,6 +35,8 @@ export async function createCheckoutSession(bookingData: {
   date: string;
   startTime: string;
   endTime: string;
+  startISO: string; // pre-computed UTC ISO from the browser (timezone-correct)
+  endISO: string;
 }) {
   const supabase = await createClient();
   const {
@@ -42,19 +44,15 @@ export async function createCheckoutSession(bookingData: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Please log in to book a room.");
 
-  const startISO = `${bookingData.date}T${bookingData.startTime}:00Z`;
-  const endISO = `${bookingData.date}T${bookingData.endTime}:00Z`;
+  // Use the timezone-correct UTC ISOs built by the browser
+  const { startISO, endISO } = bookingData;
 
   // Server-side validation
   const startMs = new Date(startISO).getTime();
   const endMs = new Date(endISO).getTime();
   if (startMs >= endMs) throw new Error("Start time must be before end time.");
   if (endMs - startMs < 3600000) throw new Error("Minimum booking is 1 hour.");
-
-  const bookingDay = new Date(bookingData.date);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  if (bookingDay < today) throw new Error("Cannot book dates in the past.");
+  if (startMs < Date.now()) throw new Error("Cannot book a time that has already passed.");
 
   // Final server-side conflict check
   const { available } = await checkRoomAvailability(
@@ -188,16 +186,21 @@ export async function cancelConfirmedBooking(bookingId: string) {
   return { success: true };
 }
 
-// Returns booked time ranges for a specific room+date so the modal can show them
-export async function getBookedSlotsForDate(roomId: string, dateStr: string) {
+// Returns booked time ranges for a room within a UTC day window.
+// dayStartUTC and dayEndUTC are computed in the browser so they're timezone-correct.
+export async function getBookedSlotsForDate(
+  roomId: string,
+  dayStartUTC: string,
+  dayEndUTC: string,
+) {
   const adminDb = createAdminClient();
   const { data } = await adminDb
     .from("bookings")
     .select("start_date_time, end_date_time")
     .eq("workspace_id", roomId)
     .neq("booking_status", "cancelled")
-    .gte("start_date_time", `${dateStr}T00:00:00Z`)
-    .lt("start_date_time", `${dateStr}T23:59:59Z`)
+    .gte("start_date_time", dayStartUTC)
+    .lte("start_date_time", dayEndUTC)
     .order("start_date_time");
   return data ?? [];
 }
