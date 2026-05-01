@@ -41,3 +41,24 @@ export const PRICING = {
   MEDIUM_ROOM: 45,
   LARGE_ROOM: 80,
 };
+
+// Every room card shows this full list — rooms without a feature get a strikethrough
+export const ALL_AMENITIES = [
+  { key: "whiteboard",   label: "Whiteboard" },
+  { key: "tv",           label: "TV Screen" },
+  { key: "projector",    label: "Projector" },
+  { key: "ac",           label: "Air Conditioning" },
+  { key: "wifi",         label: "High-Speed WiFi" },
+  { key: "video_conf",   label: "Video Conferencing" },
+  { key: "conf_phone",   label: "Conference Phone" },
+  { key: "catering",     label: "Catering Access" },
+] as const;
+
+// Update these to match the actual equipment in each room
+export const ROOM_AMENITIES: Record<string, string[]> = {
+  "Dream Room":  ["whiteboard", "tv", "ac", "wifi"],
+  "Elbow Room":  ["whiteboard", "ac", "wifi", "conf_phone"],
+  "Green Room":  ["whiteboard", "projector", "ac", "wifi"],
+  "Boiler Room": ["whiteboard", "tv", "ac", "wifi", "video_conf", "conf_phone"],
+  "Pool Room":   ["whiteboard", "tv", "projector", "ac", "wifi", "video_conf", "conf_phone", "catering"],
+};
