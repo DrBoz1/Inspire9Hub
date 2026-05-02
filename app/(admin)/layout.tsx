@@ -6,7 +6,6 @@ import {
   LayoutDashboard,
   ClipboardCheck,
   CalendarDays,
-  History,
   Users,
   LogOut,
   ShieldCheck,
@@ -62,17 +61,12 @@ export default async function AdminLayout({
           <AdminNavLink
             href="/admin/approvals"
             icon={ClipboardCheck}
-            label="Pending Approvals"
+            label="Compliance"
           />
           <AdminNavLink
             href="/admin/bookings"
             icon={CalendarDays}
             label="Booking Schedule"
-          />
-          <AdminNavLink
-            href="/admin/history"
-            icon={History}
-            label="Approval History"
           />
           <AdminNavLink
             href="/admin/members"
