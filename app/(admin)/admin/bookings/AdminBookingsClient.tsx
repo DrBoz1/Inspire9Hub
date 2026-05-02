@@ -14,8 +14,8 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { XCircle, AlertTriangle, RotateCcw } from "lucide-react";
-import { cancelBookingAsAdmin, issueRefund } from "./actions";
+import { XCircle, AlertTriangle, RotateCcw, Ban } from "lucide-react";
+import { cancelBookingAsAdmin, cancelAndRefundBooking, issueRefund } from "./actions";
 import { getRefundPolicy } from "@/lib/refund-policy";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
@@ -166,6 +166,86 @@ function RefundButton({
   );
 }
 
+// One-click: cancel the booking AND issue a full Stripe refund.
+// Used for admin-initiated cancellations — the venue cancelling always warrants 100% back.
+function CancelAndRefundButton({
+  bookingId,
+  label,
+}: {
+  bookingId: string;
+  label: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+
+  const handle = () => {
+    startTransition(async () => {
+      const result = await cancelAndRefundBooking(bookingId);
+      if (result?.success) {
+        if (result.refunded) {
+          toast.success("Cancelled & Refunded", {
+            description: `Full refund issued to the member via Stripe for ${label}.`,
+          });
+        } else {
+          toast.warning("Cancelled", {
+            description: result.message ?? result.error ?? "Booking cancelled but no refund was processed.",
+          });
+        }
+      } else {
+        toast.error("Failed", { description: result?.error ?? "Unknown error." });
+      }
+    });
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          className="text-slate-300 hover:text-orange-600 hover:bg-orange-50 rounded-xl font-black text-xs uppercase tracking-wider"
+        >
+          <Ban className="w-4 h-4 mr-1" /> Cancel & Refund
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="rounded-[32px] border-none shadow-2xl p-10">
+        <AlertDialogHeader>
+          <div className="h-12 w-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-600 mb-4">
+            <Ban className="w-6 h-6" />
+          </div>
+          <AlertDialogTitle className="text-2xl font-black uppercase">
+            Cancel & Refund?
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 mt-1">
+              <p className="font-medium text-slate-500">
+                This will cancel{" "}
+                <span className="font-bold text-slate-900">{label}</span> and
+                immediately issue a{" "}
+                <span className="font-bold text-slate-900">full 100% refund</span>{" "}
+                via Stripe.
+              </p>
+              <div className="bg-orange-50 rounded-xl px-4 py-3 text-xs font-bold text-orange-700">
+                Admin-initiated cancellations always return the full amount — the
+                member did nothing wrong.
+              </div>
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-6">
+          <AlertDialogCancel className="rounded-xl font-bold">Keep It</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handle}
+            className="bg-orange-600 hover:bg-orange-700 text-white rounded-xl font-black uppercase tracking-widest"
+          >
+            Confirm Cancel & Refund
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function AdminBookingsClient({
   bookings,
   refundableIds,
@@ -213,8 +293,20 @@ export default function AdminBookingsClient({
                 >
                   {b.booking_status}
                 </Badge>
+                {/* Cancel only — for cases where no refund applies */}
                 {canCancel && <CancelButton bookingId={b.id} label={label} />}
-                {canRefund && <RefundButton bookingId={b.id} label={label} startDateTime={b.start_date_time} />}
+                {/* Cancel + full refund — one click for admin-initiated cancellations */}
+                {canCancel && (
+                  <CancelAndRefundButton bookingId={b.id} label={label} />
+                )}
+                {/* Standalone refund — for already-cancelled bookings that still need refunding */}
+                {canRefund && (
+                  <RefundButton
+                    bookingId={b.id}
+                    label={label}
+                    startDateTime={b.start_date_time}
+                  />
+                )}
               </div>
             </div>
           );

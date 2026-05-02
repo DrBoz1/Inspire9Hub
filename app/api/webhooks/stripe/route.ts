@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { sendEmail } from "@/lib/email/send";
+import BookingConfirmation from "@/lib/email/templates/booking-confirmation";
+import { generateInvoicePDF } from "@/lib/email/pdf/generate";
+import { getLogoDataUrl } from "@/lib/email/logo";
+import { getRoomPrice } from "@/lib/constants";
+import { createElement } from "react";
 
 export const dynamic = "force-dynamic";
 
@@ -165,5 +171,111 @@ export async function POST(request: NextRequest) {
     console.error("[webhook] Community entry error:", JSON.stringify(entryError));
 
   console.log("[webhook] All records created for session:", session.id);
+
+  // 6. Send booking confirmation email with PDF invoice
+  // Non-blocking — email failure must never fail the webhook response
+  try {
+    const { data: member } = await supabase
+      .from("members")
+      .select("full_name, email")
+      .eq("id", userId)
+      .single();
+
+    if (member?.email) {
+      const start = new Date(startTime);
+      const end = new Date(endTime);
+      const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
+      const roomName = workspace?.name ?? "Meeting Room";
+      const location = "Inspire9 Hub · Richmond";
+      const hourlyRate = getRoomPrice(
+        (() => {
+          // derive capacity from room name via known mapping
+          const cap: Record<string, number> = {
+            "Dream Room": 4,
+            "Elbow Room": 5,
+            "Green Room": 5,
+            "Boiler Room": 10,
+            "Pool Room": 20,
+          };
+          return cap[roomName] ?? 5;
+        })(),
+      );
+
+      const bookingDateFormatted = start.toLocaleDateString("en-AU", {
+        weekday: "long",
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+      const startTimeFormatted = start.toLocaleTimeString("en-AU", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const endTimeFormatted = end.toLocaleTimeString("en-AU", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+      });
+      const invoiceDate = new Date().toLocaleDateString("en-AU", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      });
+
+      // Short booking reference shown to the user
+      const shortRef = `INV-${confirmedBooking?.id?.slice(0, 8).toUpperCase()}`;
+
+      const logoDataUrl = getLogoDataUrl();
+
+      const emailData = {
+        memberName: member.full_name ?? "Member",
+        memberEmail: member.email,
+        roomName,
+        location,
+        bookingDate: bookingDateFormatted,
+        startTime: startTimeFormatted,
+        endTime: endTimeFormatted,
+        durationHours,
+        totalAUD: amount,
+        bookingRef: shortRef,
+        dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings`,
+        logoDataUrl,
+      };
+
+      // Generate PDF invoice — if this fails, email still sends without attachment
+      let pdfAttachment:
+        | { filename: string; content: Buffer }
+        | undefined;
+      try {
+        const pdfBuffer = await generateInvoicePDF({
+          ...emailData,
+          bookingRef: shortRef,
+          invoiceDate,
+          hourlyRate,
+        });
+        pdfAttachment = {
+          filename: `inspire9-invoice-${shortRef}.pdf`,
+          content: pdfBuffer,
+        };
+      } catch (pdfErr) {
+        console.error("[webhook] PDF generation failed (email will still send without attachment):", pdfErr);
+      }
+
+      // Send confirmation email — always attempted whether or not PDF succeeded
+      await sendEmail({
+        to: member.email,
+        subject: `Booking Confirmed — ${roomName} · ${bookingDateFormatted}`,
+        react: createElement(BookingConfirmation, emailData),
+        attachments: pdfAttachment ? [pdfAttachment] : undefined,
+      });
+
+      console.log("[webhook] Confirmation email sent to:", member.email);
+    }
+  } catch (emailErr) {
+    // Log but never throw — email failure must never roll back the booking
+    console.error("[webhook] Email send failed:", emailErr);
+  }
+
   return NextResponse.json({ received: true });
 }

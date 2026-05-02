@@ -199,7 +199,10 @@ export async function cancelConfirmedBooking(bookingId: string) {
         });
         await adminDb
           .from("payments")
-          .update({ payment_status: "refunded" })
+          .update({
+            payment_status: "refunded",
+            refunded_amount: refundCents / 100,
+          })
           .eq("id", payment.id);
       } catch (err) {
         // Refund attempt failed — log but don't block the cancellation
