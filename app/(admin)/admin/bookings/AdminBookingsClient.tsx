@@ -14,8 +14,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { XCircle, AlertTriangle } from "lucide-react";
-import { cancelBookingAsAdmin } from "../../actions";
+import { XCircle, AlertTriangle, RotateCcw } from "lucide-react";
+import { cancelBookingAsAdmin, issueRefund } from "./actions";
+import { getRefundPolicy } from "@/lib/refund-policy";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -36,7 +37,7 @@ function CancelButton({ bookingId, label }: { bookingId: string; label: string }
     startTransition(async () => {
       const result = await cancelBookingAsAdmin(bookingId);
       if (result?.success) {
-        toast.success("Booking Cancelled", { description: `${label} cancelled.` });
+        toast.success("Booking Cancelled", { description: `${label} has been cancelled.` });
       } else {
         toast.error("Failed", { description: result?.error ?? "Unknown error." });
       }
@@ -65,14 +66,12 @@ function CancelButton({ bookingId, label }: { bookingId: string; label: string }
           </AlertDialogTitle>
           <AlertDialogDescription className="font-medium text-slate-500">
             This cancels{" "}
-            <span className="font-bold text-slate-900">{label}</span>. Refunds
-            must be handled manually via Stripe Dashboard.
+            <span className="font-bold text-slate-900">{label}</span>. Use the
+            Refund button afterward to return the member's payment.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-6">
-          <AlertDialogCancel className="rounded-xl font-bold">
-            Keep It
-          </AlertDialogCancel>
+          <AlertDialogCancel className="rounded-xl font-bold">Keep It</AlertDialogCancel>
           <AlertDialogAction
             onClick={handleCancel}
             className="bg-red-600 hover:bg-red-700 text-white rounded-xl font-black uppercase tracking-widest"
@@ -85,11 +84,97 @@ function CancelButton({ bookingId, label }: { bookingId: string; label: string }
   );
 }
 
+function RefundButton({
+  bookingId,
+  label,
+  startDateTime,
+}: {
+  bookingId: string;
+  label: string;
+  startDateTime: string;
+}) {
+  const [isPending, startTransition] = useTransition();
+  const policy = getRefundPolicy(startDateTime);
+
+  const handleRefund = () => {
+    startTransition(async () => {
+      const result = await issueRefund(bookingId);
+      if (result?.success) {
+        toast.success("Refund Issued", {
+          description: `${policy.label} processed via Stripe for ${label}.`,
+        });
+      } else {
+        toast.error("Refund Failed", { description: result?.error ?? "Unknown error." });
+      }
+    });
+  };
+
+  return (
+    <AlertDialog>
+      <AlertDialogTrigger asChild>
+        <Button
+          variant="ghost"
+          size="sm"
+          disabled={isPending}
+          className="text-slate-300 hover:text-violet-600 hover:bg-violet-50 rounded-xl font-black text-xs uppercase tracking-wider"
+        >
+          <RotateCcw className="w-4 h-4 mr-1" /> Refund
+        </Button>
+      </AlertDialogTrigger>
+      <AlertDialogContent className="rounded-[32px] border-none shadow-2xl p-10">
+        <AlertDialogHeader>
+          <div className="h-12 w-12 bg-violet-50 rounded-2xl flex items-center justify-center text-violet-600 mb-4">
+            <RotateCcw className="w-6 h-6" />
+          </div>
+          <AlertDialogTitle className="text-2xl font-black uppercase">
+            Issue Refund?
+          </AlertDialogTitle>
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 mt-1">
+              <p className="font-medium text-slate-500">
+                Refund for{" "}
+                <span className="font-bold text-slate-900">{label}</span>.
+                This action cannot be undone.
+              </p>
+              <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider ${policy.color}`}>
+                {policy.label}
+              </div>
+              <p className="text-xs text-slate-400 font-medium">
+                {policy.description}
+              </p>
+              {policy.percent === 0 && (
+                <p className="text-xs text-amber-600 font-bold">
+                  Policy says no refund. Proceeding will return nothing — use
+                  the Stripe Dashboard to override.
+                </p>
+              )}
+            </div>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="mt-6">
+          <AlertDialogCancel className="rounded-xl font-bold">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={handleRefund}
+            disabled={policy.percent === 0}
+            className="bg-violet-600 hover:bg-violet-700 text-white rounded-xl font-black uppercase tracking-widest disabled:opacity-40"
+          >
+            Confirm Refund
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export default function AdminBookingsClient({
   bookings,
+  refundableIds,
 }: {
   bookings: any[];
+  refundableIds: string[];
 }) {
+  const refundableSet = new Set(refundableIds);
+
   return (
     <div className="divide-y divide-slate-50">
       {bookings.length === 0 ? (
@@ -100,6 +185,8 @@ export default function AdminBookingsClient({
         bookings.map((b) => {
           const isPast = new Date(b.start_date_time) <= new Date();
           const canCancel = b.booking_status !== "cancelled" && !isPast;
+          const canRefund =
+            b.booking_status === "cancelled" && refundableSet.has(b.id);
           const label = `${b.members?.full_name ?? "Member"} — ${b.workspaces?.name ?? "Room"}`;
 
           return (
@@ -120,15 +207,14 @@ export default function AdminBookingsClient({
                 </span>
               </div>
 
-              <div className="flex items-center gap-3 shrink-0">
+              <div className="flex items-center gap-2 shrink-0">
                 <Badge
                   className={`${statusColor(b.booking_status)} border-none px-3 py-1 rounded-full font-black text-[10px] uppercase`}
                 >
                   {b.booking_status}
                 </Badge>
-                {canCancel && (
-                  <CancelButton bookingId={b.id} label={label} />
-                )}
+                {canCancel && <CancelButton bookingId={b.id} label={label} />}
+                {canRefund && <RefundButton bookingId={b.id} label={label} startDateTime={b.start_date_time} />}
               </div>
             </div>
           );

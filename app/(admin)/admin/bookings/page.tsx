@@ -31,6 +31,23 @@ export default async function AdminBookingsPage(props: {
 
   const { data: bookings } = await query.limit(50);
 
+  // Fetch which cancelled bookings have a refundable (paid) payment with a payment intent on record
+  const cancelledIds = (bookings ?? [])
+    .filter((b) => b.booking_status === "cancelled")
+    .map((b) => b.id);
+
+  const { data: refundablePayments } =
+    cancelledIds.length > 0
+      ? await supabase
+          .from("payments")
+          .select("booking_id")
+          .in("booking_id", cancelledIds)
+          .eq("payment_status", "paid")
+          .not("stripe_payment_intent_id", "is", null)
+      : { data: [] };
+
+  const refundableIds = (refundablePayments ?? []).map((p: any) => p.booking_id);
+
   const filters = [
     { key: "upcoming", label: "Upcoming" },
     { key: "past",     label: "Past" },
@@ -79,7 +96,7 @@ export default async function AdminBookingsPage(props: {
           </CardTitle>
         </CardHeader>
         <CardContent className="p-0">
-          <AdminBookingsClient bookings={bookings ?? []} />
+          <AdminBookingsClient bookings={bookings ?? []} refundableIds={refundableIds} />
         </CardContent>
       </Card>
     </div>

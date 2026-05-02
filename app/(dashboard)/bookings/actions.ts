@@ -4,7 +4,9 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import Stripe from "stripe";
+import type Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
+import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
 
 export async function checkRoomAvailability(
   workspaceId: string,
@@ -23,10 +25,6 @@ export async function checkRoomAvailability(
   if (error) return { error: "Database error during availability check." };
   return { available: conflicts.length === 0 };
 }
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
 
 export async function createCheckoutSession(bookingData: {
   workspaceId: string;
@@ -149,7 +147,8 @@ export async function cancelPendingBooking(bookingId: string) {
     .eq("booking_status", "pending");
 }
 
-// Self-service cancellation for confirmed/pending upcoming bookings
+// Self-service cancellation — cancels the booking and automatically processes
+// whatever Stripe refund the policy entitles the member to.
 export async function cancelConfirmedBooking(bookingId: string) {
   const supabase = await createClient();
   const {
@@ -159,7 +158,6 @@ export async function cancelConfirmedBooking(bookingId: string) {
 
   const adminDb = createAdminClient();
 
-  // Read the booking first to verify ownership and eligibility
   const { data: booking } = await adminDb
     .from("bookings")
     .select("start_date_time, booking_status, member_id")
@@ -173,17 +171,47 @@ export async function cancelConfirmedBooking(bookingId: string) {
   if (booking.booking_status === "cancelled")
     return { error: "This booking is already cancelled." };
 
-  const { error } = await adminDb
+  // Determine refund amount from policy BEFORE cancelling
+  const policy = getRefundPolicy(booking.start_date_time);
+
+  const { error: cancelErr } = await adminDb
     .from("bookings")
     .update({ booking_status: "cancelled" })
     .eq("id", bookingId);
 
-  if (error) return { error: error.message };
+  if (cancelErr) return { error: cancelErr.message };
+
+  // Auto-process Stripe refund if the policy entitles the member to one
+  if (policy.percent > 0) {
+    const { data: payment } = await adminDb
+      .from("payments")
+      .select("id, amount, payment_status, stripe_payment_intent_id")
+      .eq("booking_id", bookingId)
+      .eq("payment_status", "paid")
+      .maybeSingle();
+
+    if (payment?.stripe_payment_intent_id) {
+      const refundCents = calcRefundCents(payment.amount, policy.percent);
+      try {
+        await stripe.refunds.create({
+          payment_intent: payment.stripe_payment_intent_id,
+          amount: refundCents,
+        });
+        await adminDb
+          .from("payments")
+          .update({ payment_status: "refunded" })
+          .eq("id", payment.id);
+      } catch (err) {
+        // Refund attempt failed — log but don't block the cancellation
+        console.error("[cancel] Stripe refund error:", err);
+      }
+    }
+  }
 
   revalidatePath("/bookings");
   revalidatePath("/history");
   revalidatePath("/dashboard");
-  return { success: true };
+  return { success: true, refundPolicy: policy };
 }
 
 // Returns booked time ranges for a room within a UTC day window.

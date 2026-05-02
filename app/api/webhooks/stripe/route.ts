@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
+import type Stripe from "stripe";
+import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export const dynamic = "force-dynamic";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: "2026-03-25.dahlia",
-});
 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -112,7 +109,12 @@ export async function POST(request: NextRequest) {
     console.log("[webhook] Booking created (fallback):", confirmedBooking?.id);
   }
 
-  // 2. Payment record
+  // 2. Payment record — store payment_intent_id so admins can issue Stripe refunds later
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
+
   const { error: paymentError } = await supabase.from("payments").insert({
     member_id: userId,
     booking_id: confirmedBooking?.id,
@@ -120,6 +122,7 @@ export async function POST(request: NextRequest) {
     payment_method: "card",
     payment_date: new Date().toISOString().split("T")[0],
     payment_status: "paid",
+    stripe_payment_intent_id: paymentIntentId,
   });
   if (paymentError)
     console.error("[webhook] Payment insert error:", JSON.stringify(paymentError));

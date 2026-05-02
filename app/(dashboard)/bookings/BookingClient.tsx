@@ -27,6 +27,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cancelConfirmedBooking } from "./actions";
+import { getRefundPolicy } from "@/lib/refund-policy";
 import { toast } from "sonner";
 import { format, parseISO } from "date-fns";
 
@@ -46,19 +47,26 @@ function statusColor(status: string) {
 function CancelBookingButton({
   bookingId,
   roomName,
+  startDateTime,
 }: {
   bookingId: string;
   roomName: string;
+  startDateTime: string;
 }) {
   const [isPending, startTransition] = useTransition();
+  const policy = getRefundPolicy(startDateTime);
 
   const handleCancel = () => {
     startTransition(async () => {
       const result = await cancelConfirmedBooking(bookingId);
       if (result?.success) {
-        toast.success("Booking Cancelled", {
-          description: `Your booking for ${roomName} has been cancelled.`,
-        });
+        const refundMsg =
+          policy.percent === 100
+            ? "A full refund has been processed to your card."
+            : policy.percent === 50
+              ? "A 50% refund has been processed to your card."
+              : "No refund applies per our cancellation policy.";
+        toast.success("Booking Cancelled", { description: refundMsg });
       } else {
         toast.error("Could Not Cancel", {
           description: result?.error ?? "An unexpected error occurred.",
@@ -87,10 +95,20 @@ function CancelBookingButton({
           <AlertDialogTitle className="text-2xl font-black uppercase tracking-tight">
             Cancel Booking?
           </AlertDialogTitle>
-          <AlertDialogDescription className="font-medium text-slate-500">
-            This will cancel your booking for{" "}
-            <span className="font-bold text-slate-900">{roomName}</span>. Refund
-            requests must be handled separately with Hub staff.
+          <AlertDialogDescription asChild>
+            <div className="space-y-3 mt-1">
+              <p className="font-medium text-slate-500">
+                You are about to cancel your booking for{" "}
+                <span className="font-bold text-slate-900">{roomName}</span>.
+              </p>
+              {/* Refund policy badge */}
+              <div className={`inline-flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-black uppercase tracking-wider ${policy.color}`}>
+                <span>{policy.label}</span>
+              </div>
+              <p className="text-xs text-slate-400 font-medium">
+                {policy.description}
+              </p>
+            </div>
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter className="mt-6">
@@ -236,6 +254,7 @@ export default function BookingClient({
                           <CancelBookingButton
                             bookingId={b.id}
                             roomName={b.workspaces?.name || "Meeting Room"}
+                            startDateTime={b.start_date_time}
                           />
                         )}
                       </div>

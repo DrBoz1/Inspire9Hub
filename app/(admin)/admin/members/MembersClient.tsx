@@ -33,7 +33,7 @@ import {
   KeyRound,
   Loader2,
 } from "lucide-react";
-import { getMemberDetails } from "../../actions";
+import { getMemberDetails } from "./actions";
 import { format, parseISO } from "date-fns";
 
 function statusBadge(status: string) {
