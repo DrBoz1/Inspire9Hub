@@ -32,9 +32,23 @@ import {
   CreditCard,
   KeyRound,
   Loader2,
+  Star,
+  Send,
+  CheckCircle2,
 } from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { getMemberDetails } from "./actions";
 import { format, parseISO } from "date-fns";
+import { toast } from "sonner";
 
 function statusBadge(status: string) {
   const s = status?.toLowerCase();
@@ -297,6 +311,141 @@ function MemberProfileDialog({ member }: { member: any }) {
   );
 }
 
+// ── Review Reminder Button ───────────────────────────────────────────────────
+
+type PreviewMember = { name: string; email: string };
+
+function ReviewReminderButton() {
+  const [isPending, startTransition] = useTransition();
+  const [preview, setPreview] = useState<PreviewMember[] | null>(null);
+  const [dialogOpen, setDialogOpen] = useState(false);
+
+  const handlePreview = () => {
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/cron/review-reminder?dryRun=true", {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to preview");
+        setPreview(data.eligible ?? []);
+        setDialogOpen(true);
+      } catch (err: any) {
+        toast.error("Preview Failed", { description: err.message });
+      }
+    });
+  };
+
+  const handleSend = () => {
+    startTransition(async () => {
+      try {
+        const res = await fetch("/api/cron/review-reminder", {
+          method: "POST",
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to send");
+        setPreview(null);
+        toast.success("Review Reminders Sent", {
+          description: data.message,
+        });
+        setDialogOpen(false);
+      } catch (err: any) {
+        toast.error("Send Failed", { description: err.message });
+      }
+    });
+  };
+
+  return (
+    <>
+      <Button
+        onClick={handlePreview}
+        disabled={isPending}
+        className="bg-amber-500 hover:bg-amber-600 text-white rounded-2xl px-5 h-12 font-black shadow-md shadow-amber-100 transition-all active:scale-95 flex items-center gap-2"
+      >
+        {isPending ? (
+          <Loader2 className="w-4 h-4 animate-spin" />
+        ) : (
+          <Star className="w-4 h-4 fill-white" />
+        )}
+        Send Review Reminders
+      </Button>
+
+      <AlertDialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <AlertDialogContent className="rounded-[32px] border-none shadow-2xl p-10 max-w-lg">
+          <AlertDialogHeader>
+            <div className="h-12 w-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mb-4">
+              <Star className="w-6 h-6 fill-amber-500" />
+            </div>
+            <AlertDialogTitle className="text-2xl font-black uppercase">
+              Send Review Reminders?
+            </AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-4 mt-2">
+                {preview && preview.length === 0 ? (
+                  <p className="text-sm text-slate-500 font-medium">
+                    All active members have already received a reminder within
+                    the last 30 days. No emails will be sent.
+                  </p>
+                ) : (
+                  <>
+                    <p className="text-sm text-slate-500 font-medium">
+                      A Google Review request will be sent to the following{" "}
+                      <span className="font-bold text-slate-900">
+                        {preview?.length}
+                      </span>{" "}
+                      active member{preview?.length !== 1 ? "s" : ""} who
+                      haven&apos;t been contacted in the last 30 days:
+                    </p>
+                    <div className="max-h-48 overflow-y-auto space-y-1.5 bg-slate-50 rounded-2xl p-4">
+                      {preview?.map((m) => (
+                        <div
+                          key={m.email}
+                          className="flex items-center gap-2 text-xs"
+                        >
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                          <span className="font-bold text-slate-800">
+                            {m.name}
+                          </span>
+                          <span className="text-slate-400">{m.email}</span>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-xs text-slate-400 font-medium">
+                      Each email includes a direct link to Inspire9&apos;s
+                      Google Reviews page.
+                    </p>
+                  </>
+                )}
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6">
+            <AlertDialogCancel className="rounded-xl font-bold">
+              Cancel
+            </AlertDialogCancel>
+            {preview && preview.length > 0 && (
+              <AlertDialogAction
+                onClick={handleSend}
+                disabled={isPending}
+                className="bg-amber-500 hover:bg-amber-600 text-white rounded-xl font-black uppercase tracking-widest flex items-center gap-2"
+              >
+                {isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Send className="w-4 h-4" />
+                )}
+                Confirm Send
+              </AlertDialogAction>
+            )}
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
+  );
+}
+
+// ── Main component ───────────────────────────────────────────────────────────
+
 export default function MembersClient({
   initialMembers,
 }: {
@@ -312,14 +461,17 @@ export default function MembersClient({
 
   return (
     <div className="space-y-6">
-      <div className="relative max-w-md">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
-        <Input
-          placeholder="Search members or companies..."
-          className="pl-11 h-12 rounded-2xl border-slate-200 shadow-sm bg-white focus-visible:ring-[#E31E24]"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-        />
+      <div className="flex items-center gap-4">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+          <Input
+            placeholder="Search members or companies..."
+            className="pl-11 h-12 rounded-2xl border-slate-200 shadow-sm bg-white focus-visible:ring-[#E31E24]"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
+        </div>
+        <ReviewReminderButton />
       </div>
 
       <Card className="rounded-[32px] border-slate-100 shadow-sm overflow-hidden bg-white">
