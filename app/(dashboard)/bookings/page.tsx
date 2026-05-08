@@ -55,7 +55,7 @@ export default async function BookingsPage(props: {
   return (
     <div className="space-y-10 font-poppins pb-20">
       <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase italic">
+        <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase">
           Reserve <span className="text-[#E31E24]">Space</span>
         </h1>
         <p className="text-slate-500 font-medium max-w-xl">
