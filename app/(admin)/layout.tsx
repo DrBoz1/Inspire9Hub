@@ -9,6 +9,7 @@ import {
   Users,
   LogOut,
   ShieldCheck,
+  Megaphone,
 } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
@@ -72,6 +73,11 @@ export default async function AdminLayout({
             href="/admin/members"
             icon={Users}
             label="All Members"
+          />
+          <AdminNavLink
+            href="/admin/announcements"
+            icon={Megaphone}
+            label="Announcements"
           />
 
           {/* Only show for Super Admins */}

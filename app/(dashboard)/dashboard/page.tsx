@@ -3,12 +3,32 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { AlertCircle, ShieldCheck, ArrowRight } from "lucide-react";
+import {
+  AlertCircle,
+  ShieldCheck,
+  ArrowRight,
+  Megaphone,
+  CalendarDays,
+  Wrench,
+  AlertTriangle,
+  Clock,
+  Bell,
+} from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { getAnnouncementType } from "@/lib/announcement-types";
 import DashboardToast from "./DashboardToast";
 import { format, parseISO } from "date-fns";
+
+const ANNOUNCEMENT_ICONS: Record<string, React.ElementType> = {
+  general: Megaphone,
+  event: CalendarDays,
+  maintenance: Wrench,
+  alert: AlertTriangle,
+  hours: Clock,
+  reminder: Bell,
+};
 
 export default async function MemberDashboard() {
   const supabase = await createClient();
@@ -44,6 +64,13 @@ export default async function MemberDashboard() {
     .order("start_date_time", { ascending: true })
     .limit(1)
     .maybeSingle();
+
+  // Active hub announcements — RLS ensures only non-expired active ones are returned
+  const { data: announcements } = await supabase
+    .from("announcements")
+    .select("id, title, message, type, created_at")
+    .order("created_at", { ascending: false })
+    .limit(5);
 
   const firstName = profile?.full_name?.split(" ")[0] || "User";
   const status = profile?.induction_status;
@@ -127,6 +154,45 @@ export default async function MemberDashboard() {
               </Link>
             </Button>
           )}
+        </div>
+      )}
+
+      {/* Hub Announcements — only rendered when there are active ones */}
+      {announcements && announcements.length > 0 && (
+        <div className="space-y-3">
+          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5">
+            <Megaphone className="w-3.5 h-3.5" /> Hub Announcements
+          </p>
+          {announcements.map((a) => {
+            const t = getAnnouncementType(a.type);
+            const Icon = ANNOUNCEMENT_ICONS[a.type] ?? Megaphone;
+            return (
+              <div
+                key={a.id}
+                className={`flex items-start gap-4 p-5 bg-white rounded-2xl border border-slate-100 shadow-sm border-l-4 ${t.border}`}
+              >
+                <div className={`p-2 rounded-xl shrink-0 ${t.badge}`}>
+                  <Icon className="w-4 h-4" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <p className="font-black text-slate-900 text-sm">{a.title}</p>
+                    <Badge
+                      className={`${t.badge} border-none font-black text-[9px] uppercase tracking-widest px-2 py-0.5 rounded-full`}
+                    >
+                      {t.label}
+                    </Badge>
+                  </div>
+                  <p className="text-sm text-slate-500 font-medium mt-0.5 leading-relaxed">
+                    {a.message}
+                  </p>
+                </div>
+                <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight shrink-0">
+                  {format(parseISO(a.created_at), "d MMM")}
+                </span>
+              </div>
+            );
+          })}
         </div>
       )}
 
