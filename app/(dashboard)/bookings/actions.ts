@@ -42,6 +42,21 @@ export async function createCheckoutSession(bookingData: {
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Please log in to book a room.");
 
+  // Server-side induction gate — blocks API-level bypass attempts
+  const { data: member } = await supabase
+    .from("members")
+    .select("induction_status")
+    .eq("id", user.id)
+    .single();
+
+  if (member?.induction_status !== "Complete") {
+    throw new Error(
+      member?.induction_status === "Submitted"
+        ? "Your induction is still under review. Booking will unlock once approved."
+        : "Complete your safety induction before booking a space.",
+    );
+  }
+
   // Use the timezone-correct UTC ISOs built by the browser
   const { startISO, endISO } = bookingData;
 
