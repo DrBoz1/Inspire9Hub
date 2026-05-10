@@ -75,6 +75,45 @@ export async function signUp(formData: FormData) {
   return redirect("/login?message=Check email to confirm registration");
 }
 
+export async function sendPasswordReset(formData: FormData) {
+  const email = (formData.get("email") as string)?.trim();
+  if (!email)
+    return redirect("/forgot-password?error=Please enter your email address.");
+
+  const supabase = await createClient();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${process.env.NEXT_PUBLIC_BASE_URL}/auth/callback?next=/reset-password`,
+  });
+
+  // Always redirect to success — never reveal whether an email exists in our DB
+  return redirect("/forgot-password?sent=true");
+}
+
+export async function updatePassword(formData: FormData) {
+  const password = formData.get("password") as string;
+  const confirm = formData.get("confirm_password") as string;
+
+  if (!password || password.length < 8)
+    return redirect(
+      "/reset-password?error=Password must be at least 8 characters.",
+    );
+  if (password !== confirm)
+    return redirect("/reset-password?error=Passwords do not match.");
+
+  const supabase = await createClient();
+  const { error } = await supabase.auth.updateUser({ password });
+
+  if (error)
+    return redirect(
+      `/reset-password?error=${encodeURIComponent(error.message)}`,
+    );
+
+  await supabase.auth.signOut();
+  return redirect(
+    "/login?message=Password updated successfully. Please sign in.",
+  );
+}
+
 export async function submitInduction(formData: FormData) {
   const supabase = await createClient();
   const {

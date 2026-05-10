@@ -5,10 +5,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { login } from "../actions";
 
-type SearchParams = Promise<{ error?: string }>;
+type SearchParams = Promise<{ error?: string; message?: string }>;
 export default async function LoginPage(props: { searchParams: SearchParams }) {
   const searchParams = (await props.searchParams) || {};
   const error = searchParams.error;
+  const message = searchParams.message;
   return (
     <div className="flex min-h-screen w-full">
       <div className="flex w-full flex-col justify-center bg-[#F3F3F3] px-8 md:w-1/2 lg:px-24">
@@ -23,8 +24,13 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
             />
           </div>
           <form action={login} className="space-y-4">
+            {message && (
+              <div className="p-3 text-sm bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl text-center font-medium">
+                {message}
+              </div>
+            )}
             {error && (
-              <div className="p-3 text-sm bg-red-100 border border-red-400 text-red-700 rounded text-center">
+              <div className="p-3 text-sm bg-red-50 border border-red-200 text-red-700 rounded-xl text-center">
                 {error}
               </div>
             )}
@@ -65,8 +71,11 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
             </Link>
           </div>
           <div className="mt-2 text-center text-sm">
-            <Link href="#" className="text-gray-400 hover:text-gray-600">
-              Forget Password? Click Here
+            <Link
+              href="/forgot-password"
+              className="text-gray-400 hover:text-[#E31E24] transition-colors"
+            >
+              Forgot your password?
             </Link>
           </div>
         </div>
