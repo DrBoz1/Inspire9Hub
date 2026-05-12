@@ -52,7 +52,7 @@ export default async function MemberDashboard() {
     .from("community_entries")
     .select("*")
     .eq("member_id", user?.id)
-    .order("entry_date", { ascending: false })
+    .order("added_date", { ascending: false })
     .limit(3);
 
   const { data: nextBooking } = await supabase
