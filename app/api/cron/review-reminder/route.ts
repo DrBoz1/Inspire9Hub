@@ -101,12 +101,21 @@ async function runReviewReminders(dryRun = false) {
       });
 
       // Record the notification so we respect the cooldown
-      await supabase.from("notifications").insert({
+      const { error: notifErr } = await supabase.from("notifications").insert({
         member_id: member.id,
         type: "review_reminder",
         status: "sent",
         sent_date: new Date().toISOString(),
       });
+
+      if (notifErr) {
+        // If this fails, the cooldown won't work next time — log so we can diagnose
+        console.error(
+          `[review-reminder] ⚠️ Cooldown record FAILED for ${member.email}:`,
+          JSON.stringify(notifErr),
+          "— Email was sent but this person will be eligible again next run.",
+        );
+      }
 
       sent++;
       console.log(`[review-reminder] Sent to: ${member.email}`);
@@ -173,6 +182,24 @@ export async function POST(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const dryRun = searchParams.get("dryRun") === "true";
+  const resetCooldowns = searchParams.get("reset") === "true";
+
+  // Dev/demo helper — wipes all review_reminder cooldown records so everyone is eligible again
+  if (resetCooldowns) {
+    const adminDb = createAdminClient();
+    const { error } = await adminDb
+      .from("notifications")
+      .delete()
+      .eq("type", "review_reminder");
+    console.log("[review-reminder] Cooldowns reset by admin:", user.id);
+    return NextResponse.json({
+      reset: true,
+      error: error?.message ?? null,
+      message: error
+        ? `Reset failed: ${error.message}`
+        : "All review reminder cooldowns cleared. Everyone is eligible for the next send.",
+    });
+  }
 
   console.log(
     `[review-reminder] Manual trigger by admin ${user.id} (dryRun=${dryRun})`,
