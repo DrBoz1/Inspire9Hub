@@ -4,6 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { sendEmail } from "@/lib/email/send";
+import { getLogoDataUrl } from "@/lib/email/logo";
+import InductionSubmitted from "@/lib/email/templates/induction-submitted";
+import { createElement } from "react";
 
 export async function logout() {
   const supabase = await createClient();
@@ -151,6 +155,25 @@ export async function submitInduction(formData: FormData) {
     return redirect(
       `/induction?error=${encodeURIComponent(recordError.message)}`,
     );
+
+  // Send confirmation email — non-blocking
+  try {
+    const fullName = formData.get("full_name") as string;
+    if (user.email) {
+      await sendEmail({
+        to: user.email,
+        subject: "We've received your induction — Inspire9 Hub",
+        react: createElement(InductionSubmitted, {
+          memberName: fullName || "Member",
+          memberEmail: user.email,
+          dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
+          logoDataUrl: getLogoDataUrl(),
+        }),
+      });
+    }
+  } catch (emailErr) {
+    console.error("[induction] Submitted confirmation email failed:", emailErr);
+  }
 
   revalidatePath("/", "layout");
   redirect("/dashboard");

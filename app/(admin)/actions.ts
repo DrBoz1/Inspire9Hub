@@ -3,15 +3,20 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { sendEmail } from "@/lib/email/send";
+import { getLogoDataUrl } from "@/lib/email/logo";
+import InductionApproved from "@/lib/email/templates/induction-approved";
+import InductionRejected from "@/lib/email/templates/induction-rejected";
+import { createElement } from "react";
 
 export async function approveInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  //fetch directly to avoid the joiny issues
+  //fetch directly to avoid the joiny issues — include email + name for notification
   const { data: member } = await supabase
     .from("members")
-    .select("mobile_number")
+    .select("mobile_number, email, full_name")
     .eq("id", memberId)
     .single();
 
@@ -46,6 +51,24 @@ export async function approveInduction(formData: FormData) {
     entry_date: new Date().toISOString().split("T")[0],
   });
 
+  // Send approval email — non-blocking
+  try {
+    if (member?.email) {
+      await sendEmail({
+        to: member.email,
+        subject: "You're approved — welcome to the Hub! ✓",
+        react: createElement(InductionApproved, {
+          memberName: member.full_name || "Member",
+          memberEmail: member.email,
+          bookingsUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings`,
+          logoDataUrl: getLogoDataUrl(),
+        }),
+      });
+    }
+  } catch (emailErr) {
+    console.error("[induction] Approval email failed:", emailErr);
+  }
+
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/history");
   revalidatePath("/dashboard");
@@ -55,10 +78,10 @@ export async function rejectInduction(formData: FormData) {
   const supabase = await createClient();
   const memberId = formData.get("memberId") as string;
 
-  //fetch the data from the source before deleting
+  //fetch the data from the source before deleting — include email + name for notification
   const { data: member } = await supabase
     .from("members")
-    .select("mobile_number")
+    .select("mobile_number, email, full_name")
     .eq("id", memberId)
     .single();
 
@@ -91,6 +114,24 @@ export async function rejectInduction(formData: FormData) {
     entry_description: medicalData,
     entry_date: new Date().toISOString().split("T")[0],
   });
+
+  // Send rejection email — non-blocking
+  try {
+    if (member?.email) {
+      await sendEmail({
+        to: member.email,
+        subject: "Your induction needs attention — Inspire9 Hub",
+        react: createElement(InductionRejected, {
+          memberName: member.full_name || "Member",
+          memberEmail: member.email,
+          inductionUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/induction`,
+          logoDataUrl: getLogoDataUrl(),
+        }),
+      });
+    }
+  } catch (emailErr) {
+    console.error("[induction] Rejection email failed:", emailErr);
+  }
 
   revalidatePath("/admin/approvals");
   revalidatePath("/admin/history");
@@ -139,6 +180,3 @@ export async function revokeAdminAccess(adminId: string) {
   revalidatePath("/admin/management");
   return { success: true };
 }
-
-// cancelBookingAsAdmin → app/(admin)/admin/bookings/actions.ts
-// getMemberDetails     → app/(admin)/admin/members/actions.ts
