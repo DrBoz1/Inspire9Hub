@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
-import { getLogoDataUrl } from "@/lib/email/logo";
+import { getLogoUrl } from "@/lib/email/logo";
 import ReviewReminder from "@/lib/email/templates/review-reminder";
 import { createElement } from "react";
 
@@ -81,7 +81,7 @@ async function runReviewReminders(dryRun = false) {
   }
 
   // 4. Send emails and record in notifications table
-  const logoDataUrl = getLogoDataUrl();
+  const logoDataUrl = getLogoUrl();
   let sent = 0;
   const errors: string[] = [];
 

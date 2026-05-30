@@ -65,10 +65,10 @@ export default async function MemberDashboard() {
     .limit(1)
     .maybeSingle();
 
-  // Active hub announcements — RLS ensures only non-expired active ones are returned
   const { data: announcements } = await supabase
     .from("announcements")
     .select("id, title, message, type, created_at")
+    .eq("status", "active")
     .order("created_at", { ascending: false })
     .limit(5);
 

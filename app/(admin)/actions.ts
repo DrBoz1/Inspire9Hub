@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import { sendEmail } from "@/lib/email/send";
-import { getLogoDataUrl } from "@/lib/email/logo";
+import { getLogoUrl } from "@/lib/email/logo";
 import InductionApproved from "@/lib/email/templates/induction-approved";
 import InductionRejected from "@/lib/email/templates/induction-rejected";
 import { createElement } from "react";
@@ -61,7 +61,7 @@ export async function approveInduction(formData: FormData) {
           memberName: member.full_name || "Member",
           memberEmail: member.email,
           bookingsUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings`,
-          logoDataUrl: getLogoDataUrl(),
+          logoDataUrl: getLogoUrl(),
         }),
       });
     }
@@ -125,7 +125,7 @@ export async function rejectInduction(formData: FormData) {
           memberName: member.full_name || "Member",
           memberEmail: member.email,
           inductionUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/induction`,
-          logoDataUrl: getLogoDataUrl(),
+          logoDataUrl: getLogoUrl(),
         }),
       });
     }
@@ -142,8 +142,11 @@ export async function createAdmin(formData: FormData) {
   const supabase = await createClient();
   const userId = formData.get("user_id") as string;
   const name = formData.get("name") as string;
+  const role = formData.get("role") as string;
 
-  // 1. Automatically fetch the REAL email from the members table using the UUID
+  if (role !== "admin" && role !== "super_admin")
+    throw new Error("Invalid role selected.");
+
   const { data: member } = await supabase
     .from("members")
     .select("email")
@@ -153,15 +156,13 @@ export async function createAdmin(formData: FormData) {
   if (!member)
     throw new Error("This UUID does not belong to a registered member.");
 
-  const adminData = {
+  const { error } = await supabase.from("admins").insert({
     id: userId,
     full_name: name,
-    email: member.email, // Use the real email from the members table
-    role: "admin",
+    email: member.email,
+    role,
     active_status: "Active",
-  };
-
-  const { error } = await supabase.from("admins").insert(adminData);
+  });
   if (error) throw error;
 
   revalidatePath("/admin/management");

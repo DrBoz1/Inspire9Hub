@@ -1,14 +1,18 @@
 import fs from "fs";
 import path from "path";
 
-// Cache so the file is only read once per server process
-let cached: string | null = null;
+let cachedBase64: string | null = null;
 
-// Returns the Inspire9 logo as a base64 data URL.
-// This embeds the image directly in emails and PDFs so it works in any
-// environment (localhost dev, Vercel, email clients) without needing a public URL.
+// For emails — returns a hosted HTTPS URL that email clients can fetch.
+// data: URLs are stripped by Gmail and most clients, so we use the public URL instead.
+export function getLogoUrl(): string {
+  const base = process.env.NEXT_PUBLIC_BASE_URL ?? "";
+  return `${base}/images/inspire9Logo.png`;
+}
+
+// For PDFs only — base64 so the PDF renderer can embed it server-side.
 export function getLogoDataUrl(): string {
-  if (cached) return cached;
+  if (cachedBase64) return cachedBase64;
 
   try {
     const filePath = path.join(
@@ -18,10 +22,9 @@ export function getLogoDataUrl(): string {
       "inspire9Logo.png",
     );
     const buffer = fs.readFileSync(filePath);
-    cached = `data:image/png;base64,${buffer.toString("base64")}`;
-    return cached;
+    cachedBase64 = `data:image/png;base64,${buffer.toString("base64")}`;
+    return cachedBase64;
   } catch {
-    // Fallback — logo file missing or unreadable
     console.warn("[email] inspire9Logo.png not found in public/images/");
     return "";
   }

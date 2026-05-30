@@ -5,7 +5,7 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import { sendEmail } from "@/lib/email/send";
-import { getLogoDataUrl } from "@/lib/email/logo";
+import { getLogoUrl } from "@/lib/email/logo";
 import InductionSubmitted from "@/lib/email/templates/induction-submitted";
 import { createElement } from "react";
 
@@ -167,7 +167,7 @@ export async function submitInduction(formData: FormData) {
           memberName: fullName || "Member",
           memberEmail: user.email,
           dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
-          logoDataUrl: getLogoDataUrl(),
+          logoDataUrl: getLogoUrl(),
         }),
       });
     }

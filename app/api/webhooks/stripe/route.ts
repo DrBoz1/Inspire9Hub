@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { sendEmail } from "@/lib/email/send";
 import BookingConfirmation from "@/lib/email/templates/booking-confirmation";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
-import { getLogoDataUrl } from "@/lib/email/logo";
+import { getLogoUrl, getLogoDataUrl } from "@/lib/email/logo";
 import { getRoomPrice } from "@/lib/constants";
 import { createElement } from "react";
 
@@ -226,8 +226,6 @@ export async function POST(request: NextRequest) {
       // Short booking reference shown to the user
       const shortRef = `INV-${confirmedBooking?.id?.slice(0, 8).toUpperCase()}`;
 
-      const logoDataUrl = getLogoDataUrl();
-
       const emailData = {
         memberName: member.full_name ?? "Member",
         memberEmail: member.email,
@@ -240,7 +238,7 @@ export async function POST(request: NextRequest) {
         totalAUD: amount,
         bookingRef: shortRef,
         dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings`,
-        logoDataUrl,
+        logoDataUrl: getLogoUrl(),
       };
 
       // Generate PDF invoice — if this fails, email still sends without attachment
@@ -253,6 +251,7 @@ export async function POST(request: NextRequest) {
           bookingRef: shortRef,
           invoiceDate,
           hourlyRate,
+          logoDataUrl: getLogoDataUrl(),
         });
         pdfAttachment = {
           filename: `inspire9-invoice-${shortRef}.pdf`,

@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { PlusCircle, ShieldCheck, Info } from "lucide-react";
+import { PlusCircle, ShieldCheck } from "lucide-react";
 import { createAdmin } from "../../actions";
 import { toast } from "sonner";
 
@@ -78,6 +78,20 @@ export function AdminDialog() {
               required
               className="h-12 rounded-xl border-slate-100 font-mono text-[10px] bg-slate-50/50"
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+              Role
+            </Label>
+            <select
+              name="role"
+              defaultValue="admin"
+              className="w-full h-12 rounded-xl border border-slate-100 bg-slate-50/50 px-3 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-slate-200"
+            >
+              <option value="admin">Admin</option>
+              <option value="super_admin">Super Admin</option>
+            </select>
           </div>
 
           <Button
