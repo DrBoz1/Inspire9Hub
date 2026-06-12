@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
+import { getRoomPrice } from "@/lib/constants";
 
 export async function checkRoomAvailability(
   workspaceId: string,
@@ -14,11 +15,15 @@ export async function checkRoomAvailability(
   endISO: string,
 ) {
   const supabase = await createClient();
+  // Pending holds older than 35 min are treated as expired — covers the case
+  // where the checkout.session.expired webhook was never delivered.
+  const staleCutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString();
   const { data: conflicts, error } = await supabase
     .from("bookings")
     .select("id")
     .eq("workspace_id", workspaceId)
     .neq("booking_status", "cancelled")
+    .or(`booking_status.neq.pending,created_at.gte.${staleCutoff}`)
     .lt("start_date_time", endISO)
     .gt("end_date_time", startISO);
 
@@ -67,6 +72,18 @@ export async function createCheckoutSession(bookingData: {
   if (endMs - startMs < 3600000) throw new Error("Minimum booking is 1 hour.");
   if (startMs < Date.now()) throw new Error("Cannot book a time that has already passed.");
 
+  // Price is computed server-side from the workspace record — the client's
+  // amount is display-only and never trusted for the actual charge.
+  const { data: workspace } = await supabase
+    .from("workspaces")
+    .select("capacity")
+    .eq("id", bookingData.workspaceId)
+    .single();
+  if (!workspace) throw new Error("Workspace not found.");
+
+  const durationHours = (endMs - startMs) / 3600000;
+  const serverAmount = getRoomPrice(workspace.capacity) * durationHours;
+
   // Final server-side conflict check
   const { available } = await checkRoomAvailability(
     bookingData.workspaceId,
@@ -101,7 +118,7 @@ export async function createCheckoutSession(bookingData: {
     );
   }
 
-  const unitAmount = Math.round(bookingData.amount * 100);
+  const unitAmount = Math.round(serverAmount * 100);
 
   let session: Stripe.Checkout.Session;
   try {
@@ -220,8 +237,13 @@ export async function cancelConfirmedBooking(bookingId: string) {
           })
           .eq("id", payment.id);
       } catch (err) {
-        // Refund attempt failed — log but don't block the cancellation
+        // Refund failed — flag the payment so it surfaces in the admin
+        // bookings page, where the Issue Refund button can retry it.
         console.error("[cancel] Stripe refund error:", err);
+        await adminDb
+          .from("payments")
+          .update({ payment_status: "refund_failed" })
+          .eq("id", payment.id);
       }
     }
   }
@@ -240,11 +262,13 @@ export async function getBookedSlotsForDate(
   dayEndUTC: string,
 ) {
   const adminDb = createAdminClient();
+  const staleCutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString();
   const { data } = await adminDb
     .from("bookings")
     .select("start_date_time, end_date_time")
     .eq("workspace_id", roomId)
     .neq("booking_status", "cancelled")
+    .or(`booking_status.neq.pending,created_at.gte.${staleCutoff}`)
     .gte("start_date_time", dayStartUTC)
     .lte("start_date_time", dayEndUTC)
     .order("start_date_time");

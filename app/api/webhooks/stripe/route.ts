@@ -76,6 +76,27 @@ export async function POST(request: NextRequest) {
   const amount = (session.amount_total ?? 0) / 100;
   const supabase = createAdminClient();
 
+  const paymentIntentId =
+    typeof session.payment_intent === "string"
+      ? session.payment_intent
+      : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
+
+  // Idempotency guard — Stripe retries webhooks on timeout. If this payment
+  // intent is already recorded, the event was fully processed before; ack and
+  // skip so we never create duplicate payments, passes, or emails.
+  if (paymentIntentId) {
+    const { data: alreadyProcessed } = await supabase
+      .from("payments")
+      .select("id")
+      .eq("stripe_payment_intent_id", paymentIntentId)
+      .maybeSingle();
+
+    if (alreadyProcessed) {
+      console.log("[webhook] Duplicate delivery ignored:", session.id);
+      return NextResponse.json({ received: true });
+    }
+  }
+
   // 1. Confirm the pending booking (cinema-style: it already exists, just confirm it)
   let confirmedBooking: { id: string } | null = null;
 
@@ -116,11 +137,6 @@ export async function POST(request: NextRequest) {
   }
 
   // 2. Payment record — store payment_intent_id so admins can issue Stripe refunds later
-  const paymentIntentId =
-    typeof session.payment_intent === "string"
-      ? session.payment_intent
-      : (session.payment_intent as Stripe.PaymentIntent | null)?.id ?? null;
-
   const { error: paymentError } = await supabase.from("payments").insert({
     member_id: userId,
     booking_id: confirmedBooking?.id,
