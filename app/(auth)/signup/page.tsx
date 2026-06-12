@@ -93,6 +93,7 @@ export default async function SignupPage(props: {
           src="/images/login-side.jpg"
           alt="coworking space image"
           fill
+          sizes="(min-width: 1024px) 50vw, 0vw"
           className="object-cover"
         />
       </div>

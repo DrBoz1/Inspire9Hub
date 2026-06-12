@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import SupportRequest from "@/lib/email/templates/support-request";
+import { summarizePayments } from "@/lib/member-stats";
 import { createElement } from "react";
 
 const VALID_TOPICS = [
@@ -57,4 +58,77 @@ export async function sendSupportRequest(formData: FormData) {
   }
 
   return { success: true };
+}
+
+export async function getAssistantContext() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const [memberRes, paymentsRes, bookingsRes, passesRes] = await Promise.all([
+    supabase
+      .from("members")
+      .select("full_name, induction_status, member_status")
+      .eq("id", user.id)
+      .single(),
+    supabase
+      .from("payments")
+      .select("amount, refunded_amount, payment_status, payment_date")
+      .eq("member_id", user.id),
+    supabase
+      .from("bookings")
+      .select("booking_status, start_date_time, end_date_time, workspaces(name)")
+      .eq("member_id", user.id)
+      .order("start_date_time", { ascending: true }),
+    supabase
+      .from("access_passes")
+      .select("id", { count: "exact", head: true })
+      .eq("member_id", user.id)
+      .eq("pass_status", "active"),
+  ]);
+
+  const member = memberRes.data;
+  const payments = paymentsRes.data ?? [];
+  const bookings = bookingsRes.data ?? [];
+
+  const { totalPaid, totalRefunded, netSpend } = summarizePayments(payments);
+
+  const now = Date.now();
+  const active = bookings.filter(
+    (b) => b.booking_status === "confirmed" || b.booking_status === "pending",
+  );
+  const cancelled = bookings.filter((b) => b.booking_status === "cancelled");
+  const upcoming = active
+    .filter((b) => new Date(b.start_date_time).getTime() > now)
+    .map((b) => ({
+      room:
+        (b.workspaces as unknown as { name: string } | null)?.name ??
+        "Meeting Room",
+      startISO: b.start_date_time,
+      endISO: b.end_date_time,
+      status: b.booking_status as string,
+    }));
+
+  return {
+    firstName: member?.full_name?.split(" ")[0] || "there",
+    memberSince: user.created_at,
+    inductionStatus: member?.induction_status || "Pending",
+    memberStatus: member?.member_status || "Inactive",
+    totalPaid,
+    totalRefunded,
+    netSpend,
+    payments: payments.map((p) => ({
+      amount: Number(p.amount) || 0,
+      refunded: Number(p.refunded_amount) || 0,
+      status: p.payment_status ?? "unknown",
+      dateISO: p.payment_date ?? null,
+    })),
+    confirmedBookings: bookings.filter((b) => b.booking_status === "confirmed")
+      .length,
+    cancelledBookings: cancelled.length,
+    upcomingBookings: upcoming,
+    activePasses: passesRes.count ?? 0,
+  };
 }

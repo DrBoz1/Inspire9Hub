@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Toaster } from "sonner"; // 1. Import Toaster
 
 export default async function AdminLayout({
@@ -90,13 +91,14 @@ export default async function AdminLayout({
           )}
         </nav>
 
-        <div className="p-4 border-t">
-          <form action={logout}>
+        <div className="p-4 border-t flex items-center gap-2">
+          <form action={logout} className="flex-1">
             <button className="flex w-full items-center gap-3 px-4 py-3 text-sm font-bold text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl transition-all group">
               <LogOut className="w-4 h-4 group-hover:rotate-180 transition-transform duration-500" />
               Sign Out
             </button>
           </form>
+          <ThemeToggle />
         </div>
       </aside>
 

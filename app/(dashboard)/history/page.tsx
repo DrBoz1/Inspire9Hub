@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import Link from "next/link";
+import { summarizePayments } from "@/lib/member-stats";
 
 const PAGE_SIZE = 10;
 
@@ -98,20 +99,14 @@ export default async function HistoryPage(props: {
   const totalBookingPages = Math.ceil(totalBookings / PAGE_SIZE);
   const totalPaymentPages = Math.ceil(totalPayments / PAGE_SIZE);
 
-  // Net spend: paid - refunded portion
+  // Net spend uses the shared formula in lib/member-stats so the history
+  // page and the Hub Assistant can never disagree about the numbers.
   const allPayments = await supabase
     .from("payments")
     .select("amount, refunded_amount, payment_status")
     .eq("member_id", user?.id);
 
-  const netSpend = (allPayments.data ?? []).reduce((sum, p) => {
-    if (p.payment_status === "paid") return sum + (p.amount ?? 0);
-    if (p.payment_status === "refunded") {
-      const refunded = p.refunded_amount ?? p.amount ?? 0;
-      return sum + (p.amount ?? 0) - refunded;
-    }
-    return sum;
-  }, 0);
+  const { netSpend } = summarizePayments(allPayments.data ?? []);
 
   return (
     <div className="w-full space-y-10 font-poppins pb-16">

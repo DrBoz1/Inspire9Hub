@@ -57,10 +57,10 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
     <Sidebar
       variant="sidebar"
       collapsible="icon"
-      className="border-r border-gray-100 bg-white"
+      className="border-r border-gray-100 dark:border-slate-800 bg-white dark:bg-slate-900"
     >
       {/* ── Header: logo (hidden when collapsed) ───────────── */}
-      <SidebarHeader className="flex items-center justify-center overflow-hidden border-b border-gray-100 p-4 shrink-0">
+      <SidebarHeader className="flex items-center justify-center overflow-hidden border-b border-gray-100 dark:border-slate-800 p-4 shrink-0">
         {!isCollapsed && (
           <Image
             src="/images/inspire9Logo.png"
@@ -92,8 +92,8 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
                   tooltip={item.title}
                   className={`rounded-xl transition-all h-11 ${
                     active
-                      ? "bg-red-50 text-[#E31E24] font-bold"
-                      : "text-gray-500 hover:bg-gray-50 hover:text-gray-800 font-medium"
+                      ? "bg-red-50 dark:bg-red-950/40 text-[#E31E24] dark:text-red-400 font-bold"
+                      : "text-gray-500 dark:text-slate-400 hover:bg-gray-50 dark:hover:bg-slate-800 hover:text-gray-800 dark:hover:text-slate-200 font-medium"
                   }`}
                 >
                   <Link href={item.url} className="flex items-center gap-3 px-3">
@@ -136,7 +136,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
       </SidebarContent>
 
       {/* ── Footer: user info + logout ──────────────────────── */}
-      <SidebarFooter className="border-t border-gray-100 p-3">
+      <SidebarFooter className="border-t border-gray-100 dark:border-slate-800 p-3">
         <div
           className={`flex items-center gap-3 ${
             isCollapsed ? "justify-center" : "justify-between"
@@ -152,7 +152,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
 
             {!isCollapsed && (
               <div className="flex flex-col text-left min-w-0">
-                <span className="text-sm font-bold text-gray-700 truncate leading-tight">
+                <span className="text-sm font-bold text-gray-700 dark:text-slate-200 truncate leading-tight">
                   {userProfile?.full_name || "New User"}
                 </span>
                 <span

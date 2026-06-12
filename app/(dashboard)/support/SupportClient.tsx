@@ -20,6 +20,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { sendSupportRequest } from "./actions";
+import AssistantWidget from "./AssistantWidget";
 
 const TOPICS = [
   { label: "Booking Issue", icon: CalendarX },
@@ -64,6 +65,15 @@ export default function SupportClient({ firstName }: { firstName: string }) {
   const [message, setMessage] = useState("");
   const [sent, setSent] = useState(false);
   const [pending, startTransition] = useTransition();
+
+  const escalateFromBot = (question: string) => {
+    setSent(false);
+    setTopic("General Enquiry");
+    if (question) setMessage(question);
+    document
+      .getElementById("support-form")
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+  };
 
   const handleSubmit = () => {
     if (!topic) {
@@ -190,7 +200,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 + i * 0.12, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
             whileHover={{ y: -6, transition: { type: "spring", stiffness: 300, damping: 18 } }}
-            className="group rounded-3xl border border-slate-100 bg-white p-7 shadow-sm transition-shadow hover:shadow-xl hover:shadow-slate-200/60"
+            className="group rounded-3xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 p-7 shadow-sm transition-shadow hover:shadow-xl hover:shadow-slate-200/60 dark:hover:shadow-black/40"
           >
             <motion.div
               whileHover={{ rotate: [0, -12, 10, 0] }}
@@ -202,7 +212,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
               {card.title}
             </p>
-            <p className="mt-2 text-base font-black text-slate-900">{card.line1}</p>
+            <p className="mt-2 text-base font-black text-slate-900 dark:text-white">{card.line1}</p>
             <p className="mt-0.5 text-sm font-medium text-slate-400">{card.line2}</p>
           </motion.div>
         ))}
@@ -231,8 +241,10 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                   initial={{ opacity: 0, x: -16 }}
                   animate={{ opacity: 1, x: 0 }}
                   transition={{ delay: 0.75 + i * 0.07 }}
-                  className={`overflow-hidden rounded-2xl border bg-white transition-colors ${
-                    open ? "border-red-100 shadow-md shadow-red-50" : "border-slate-100 shadow-sm"
+                  className={`overflow-hidden rounded-2xl border bg-white dark:bg-slate-900 transition-colors ${
+                    open
+                      ? "border-red-100 dark:border-red-900/50 shadow-md shadow-red-50 dark:shadow-none"
+                      : "border-slate-100 dark:border-slate-800 shadow-sm"
                   }`}
                 >
                   <button
@@ -241,7 +253,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                   >
                     <span
                       className={`text-sm font-bold transition-colors ${
-                        open ? "text-[#E31E24]" : "text-slate-800"
+                        open ? "text-[#E31E24]" : "text-slate-800 dark:text-slate-200"
                       }`}
                     >
                       {faq.q}
@@ -250,7 +262,9 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                       animate={{ rotate: open ? 180 : 0 }}
                       transition={{ type: "spring", stiffness: 260, damping: 20 }}
                       className={`shrink-0 rounded-full p-1.5 ${
-                        open ? "bg-red-50 text-[#E31E24]" : "bg-slate-50 text-slate-400"
+                        open
+                          ? "bg-red-50 dark:bg-red-950/50 text-[#E31E24]"
+                          : "bg-slate-50 dark:bg-slate-800 text-slate-400"
                       }`}
                     >
                       <ChevronDown className="h-4 w-4" />
@@ -282,7 +296,10 @@ export default function SupportClient({ firstName }: { firstName: string }) {
           transition={{ delay: 0.85, duration: 0.5 }}
           className="lg:col-span-2"
         >
-          <div className="sticky top-6 overflow-hidden rounded-[2rem] border border-slate-100 bg-white shadow-sm">
+          <div
+            id="support-form"
+            className="sticky top-6 overflow-hidden rounded-[2rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-sm"
+          >
             <AnimatePresence mode="wait">
               {sent ? (
                 <motion.div
@@ -303,7 +320,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                       <CheckCircle2 className="h-10 w-10 text-emerald-500" />
                     </div>
                   </motion.div>
-                  <h3 className="text-xl font-black text-slate-900">Message sent!</h3>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white">Message sent!</h3>
                   <p className="mt-2 max-w-xs text-sm font-medium leading-relaxed text-slate-500">
                     The Hub team has your message and will reply to your email
                     within one business day.
@@ -326,7 +343,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                   transition={{ duration: 0.2 }}
                   className="p-8"
                 >
-                  <h3 className="text-xl font-black tracking-tight text-slate-900">
+                  <h3 className="text-xl font-black tracking-tight text-slate-900 dark:text-white">
                     Talk to the team
                   </h3>
                   <p className="mt-1 text-sm font-medium text-slate-400">
@@ -344,15 +361,15 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                           onClick={() => setTopic(t.label)}
                           className={`relative flex items-center gap-1.5 rounded-full px-4 py-2 text-xs font-bold transition-colors ${
                             selected
-                              ? "text-white"
-                              : "bg-slate-50 text-slate-500 hover:bg-slate-100"
+                              ? "text-white dark:text-slate-900"
+                              : "bg-slate-50 dark:bg-slate-800 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700"
                           }`}
                         >
                           {selected && (
                             <motion.span
                               layoutId="topic-pill"
                               transition={{ type: "spring", stiffness: 350, damping: 28 }}
-                              className="absolute inset-0 rounded-full bg-slate-900"
+                              className="absolute inset-0 rounded-full bg-slate-900 dark:bg-white"
                             />
                           )}
                           <t.icon className="relative z-10 h-3.5 w-3.5" />
@@ -369,7 +386,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
                       placeholder="Describe what you need help with…"
                       rows={6}
                       maxLength={2000}
-                      className="resize-none rounded-2xl border-slate-100 bg-slate-50/50 text-sm leading-relaxed focus-visible:ring-slate-300"
+                      className="resize-none rounded-2xl border-slate-100 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 text-sm leading-relaxed text-slate-700 dark:text-slate-200 focus-visible:ring-slate-300 dark:focus-visible:ring-slate-600"
                     />
                     <div className="mt-1.5 flex justify-end">
                       <span
@@ -407,6 +424,8 @@ export default function SupportClient({ firstName }: { firstName: string }) {
           </div>
         </motion.div>
       </div>
+
+      <AssistantWidget onEscalate={escalateFromBot} />
     </div>
   );
 }

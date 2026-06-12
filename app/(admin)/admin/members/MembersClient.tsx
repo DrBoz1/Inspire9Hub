@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -119,6 +120,10 @@ function MemberProfileDialog({ member }: { member: any }) {
                 <DialogTitle className="text-3xl font-black tracking-tight leading-none text-white">
                   {member.full_name}
                 </DialogTitle>
+                <DialogDescription className="sr-only">
+                  Member profile with contact details, bookings, payments and
+                  access passes.
+                </DialogDescription>
               </DialogHeader>
               <div className="flex items-center gap-2 pt-2">
                 <Badge className="bg-[#E31E24] text-white border-none font-black text-[9px] px-2 py-0.5 tracking-tighter uppercase">

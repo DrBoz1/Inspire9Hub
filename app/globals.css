@@ -84,12 +84,12 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
+  --background: oklch(0.18 0.022 261);
+  --foreground: oklch(0.96 0.005 261);
+  --card: oklch(0.225 0.025 261);
+  --card-foreground: oklch(0.96 0.005 261);
+  --popover: oklch(0.225 0.025 261);
+  --popover-foreground: oklch(0.96 0.005 261);
   --primary: oklch(0.922 0 0);
   --primary-foreground: oklch(0.205 0 0);
   --secondary: oklch(0.269 0 0);
@@ -127,4 +127,171 @@
   html {
     @apply font-sans;
   }
+}
+
+/* Theme toggle uses the View Transitions API for a circular reveal from the
+   click point — these rules hand full control of the animation to JS. */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+::view-transition-new(root) {
+  z-index: 2;
+}
+
+/* ── Dark-mode compatibility layer ─────────────────────────────────────────
+   Pages built before theming hardcode light utilities (bg-white,
+   text-slate-900, border-slate-100, …). Rather than editing every page,
+   these rules re-map the common ones inside .dark so the entire app —
+   member, admin, super admin, and auth pages — inherits the dark palette.
+   Note: this only targets plain utilities; `dark:*` variants are separate
+   class names and remain untouched. */
+.dark {
+  --dk-surface: oklch(0.225 0.025 261);
+  --dk-surface-deep: oklch(0.18 0.022 261);
+  --dk-surface-raised: oklch(0.27 0.025 261);
+  --dk-line: oklch(0.31 0.02 261);
+  --dk-ink-hi: oklch(0.96 0.005 261);
+  --dk-ink-mid: oklch(0.84 0.01 261);
+  --dk-ink-low: oklch(0.68 0.015 261);
+}
+
+.dark .bg-white {
+  background-color: var(--dk-surface);
+}
+
+.dark .bg-\[\#F8F9FA\],
+.dark .bg-\[\#F3F3F3\],
+.dark .bg-slate-50\/50,
+.dark .bg-slate-50\/80 {
+  background-color: var(--dk-surface-deep);
+}
+
+.dark .bg-slate-50,
+.dark .bg-gray-50,
+.dark .bg-slate-100,
+.dark .bg-gray-100,
+.dark .bg-slate-50\/30 {
+  background-color: var(--dk-surface-raised);
+}
+
+.dark .hover\:bg-slate-50:hover,
+.dark .hover\:bg-gray-50:hover,
+.dark .hover\:bg-slate-100:hover,
+.dark .hover\:bg-gray-100:hover,
+.dark .hover\:bg-slate-800:hover {
+  background-color: var(--dk-surface-raised);
+}
+
+.dark .text-slate-900,
+.dark .text-gray-900,
+.dark .text-black {
+  color: var(--dk-ink-hi);
+}
+
+.dark .text-slate-800,
+.dark .text-gray-800,
+.dark .text-slate-700,
+.dark .text-gray-700 {
+  color: var(--dk-ink-mid);
+}
+
+.dark .text-slate-600,
+.dark .text-gray-600,
+.dark .text-slate-500,
+.dark .text-gray-500 {
+  color: var(--dk-ink-low);
+}
+
+.dark .hover\:text-slate-900:hover,
+.dark .hover\:text-gray-800:hover,
+.dark .hover\:text-gray-600:hover {
+  color: var(--dk-ink-hi);
+}
+
+.dark .border-slate-50,
+.dark .border-slate-100,
+.dark .border-gray-100,
+.dark .border-slate-200,
+.dark .border-gray-200 {
+  border-color: var(--dk-line);
+}
+
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]),
+.dark .divide-gray-100 > :not([hidden]) ~ :not([hidden]) {
+  border-color: var(--dk-line);
+}
+
+.dark .ring-white {
+  --tw-ring-color: var(--dk-surface);
+}
+
+/* Pastel status chips: translucent tints instead of bright light patches */
+.dark .bg-red-50 {
+  background-color: color-mix(in oklab, #e31e24 16%, transparent);
+}
+.dark .bg-amber-50 {
+  background-color: color-mix(in oklab, #f59e0b 16%, transparent);
+}
+.dark .bg-emerald-50 {
+  background-color: color-mix(in oklab, #10b981 16%, transparent);
+}
+.dark .bg-blue-50 {
+  background-color: color-mix(in oklab, #3b82f6 16%, transparent);
+}
+.dark .bg-violet-50 {
+  background-color: color-mix(in oklab, #8b5cf6 16%, transparent);
+}
+.dark .bg-indigo-50 {
+  background-color: color-mix(in oklab, #6366f1 16%, transparent);
+}
+
+.dark .hover\:bg-red-50:hover {
+  background-color: color-mix(in oklab, #e31e24 20%, transparent);
+}
+.dark .hover\:bg-red-100:hover {
+  background-color: color-mix(in oklab, #e31e24 26%, transparent);
+}
+.dark .hover\:bg-amber-100:hover {
+  background-color: color-mix(in oklab, #f59e0b 24%, transparent);
+}
+
+.dark .text-red-600,
+.dark .text-red-700 {
+  color: #f87171;
+}
+.dark .text-amber-600,
+.dark .text-amber-700 {
+  color: #fbbf24;
+}
+.dark .text-emerald-600,
+.dark .text-emerald-700 {
+  color: #34d399;
+}
+.dark .text-blue-600,
+.dark .text-blue-700 {
+  color: #60a5fa;
+}
+.dark .text-violet-600,
+.dark .text-violet-700 {
+  color: #a78bfa;
+}
+.dark .text-indigo-600 {
+  color: #818cf8;
+}
+
+.dark .border-red-200 {
+  border-color: color-mix(in oklab, #e31e24 35%, transparent);
+}
+.dark .border-amber-200 {
+  border-color: color-mix(in oklab, #f59e0b 35%, transparent);
+}
+.dark .border-emerald-200 {
+  border-color: color-mix(in oklab, #10b981 35%, transparent);
 }

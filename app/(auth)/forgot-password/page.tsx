@@ -126,6 +126,7 @@ export default async function ForgotPasswordPage(props: {
           src="/images/login-side.jpg"
           alt="Coworking space"
           fill
+          sizes="(min-width: 1024px) 50vw, 0vw"
           className="object-cover"
         />
       </div>

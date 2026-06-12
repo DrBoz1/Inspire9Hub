@@ -10,6 +10,7 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -108,9 +109,9 @@ function CreateAnnouncementDialog() {
             <DialogTitle className="text-2xl font-black text-white tracking-tight">
               New Announcement
             </DialogTitle>
-            <p className="text-slate-400 text-sm font-medium mt-1">
+            <DialogDescription className="text-slate-400 text-sm font-medium mt-1">
               This will appear on every active member&apos;s dashboard immediately.
-            </p>
+            </DialogDescription>
           </DialogHeader>
         </div>
 

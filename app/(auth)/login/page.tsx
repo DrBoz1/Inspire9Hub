@@ -86,6 +86,8 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
           src="/images/login-side.jpg"
           alt="coworking space image"
           fill
+          sizes="(min-width: 1024px) 50vw, 0vw"
+          priority
           className="object-cover"
         />
       </div>

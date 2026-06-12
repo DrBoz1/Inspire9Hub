@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -257,6 +258,9 @@ export default function BookingModal({ room }: { room: any }) {
       <DialogContent className="sm:max-w-4xl w-[95vw] p-0 rounded-3xl overflow-hidden border-none shadow-2xl bg-white">
         <DialogHeader className="sr-only">
           <DialogTitle>Book {room.name}</DialogTitle>
+          <DialogDescription>
+            Pick a date and time slots, then continue to secure payment.
+          </DialogDescription>
         </DialogHeader>
 
         <div className="flex flex-col lg:flex-row">
