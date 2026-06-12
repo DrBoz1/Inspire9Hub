@@ -104,10 +104,11 @@ export default async function MemberDashboard() {
             </Button>
           )}
           <Button
+            asChild
             variant="outline"
             className="rounded-xl border-slate-200 font-semibold"
           >
-            Support
+            <Link href="/support">Support</Link>
           </Button>
 
           <Button
