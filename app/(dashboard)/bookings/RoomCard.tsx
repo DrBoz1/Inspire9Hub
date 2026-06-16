@@ -22,7 +22,7 @@ export default function RoomCard({ room }: { room: any }) {
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80')] bg-cover bg-center group-hover:scale-110 transition-transform duration-700" />
 
         <div className="absolute top-5 left-5 z-20 flex flex-col gap-2">
-          <Badge className="bg-white/95 backdrop-blur-md text-slate-900 border-none font-black text-[10px] px-3 py-1.5 rounded-xl shadow-sm">
+          <Badge className="bg-white/95 backdrop-blur-md text-slate-900! border-none font-black text-[10px] px-3 py-1.5 rounded-xl shadow-sm">
             AUD ${hourlyRate}/HR
           </Badge>
           {busyToday ? (

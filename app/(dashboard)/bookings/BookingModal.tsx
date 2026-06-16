@@ -368,8 +368,8 @@ export default function BookingModal({ room }: { room: any }) {
           </div>
 
           {/* ── Right: invoice + pay ─────────────────────────── */}
-          <div className="flex-1 p-8 flex flex-col gap-6">
-            <div className="bg-slate-900 rounded-2xl p-8 text-white flex flex-col gap-5 relative overflow-hidden flex-1">
+          <div className="flex-1 p-8 flex flex-col gap-6 bg-white dark:bg-slate-950">
+            <div className="bg-slate-900 dark:bg-slate-800 rounded-2xl p-8 text-white flex flex-col gap-5 relative overflow-hidden flex-1">
               <div className="absolute -top-12 -right-12 w-48 h-48 bg-white/5 rounded-full pointer-events-none" />
               <div className="absolute -bottom-10 -left-10 w-36 h-36 bg-white/5 rounded-full pointer-events-none" />
 
@@ -422,7 +422,7 @@ export default function BookingModal({ room }: { room: any }) {
                 <p className="text-xs font-black uppercase tracking-widest text-slate-500">
                   Total (AUD incl. GST)
                 </p>
-                <p className="text-6xl font-black tracking-tighter mt-2 leading-none">
+                <p className="text-6xl font-black tracking-tighter mt-2 leading-none text-white!">
                   ${totalCost}
                   <span className="text-2xl text-slate-500">.00</span>
                 </p>

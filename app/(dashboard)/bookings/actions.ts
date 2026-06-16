@@ -15,20 +15,39 @@ export async function checkRoomAvailability(
   endISO: string,
 ) {
   const supabase = await createClient();
-  // Pending holds older than 35 min are treated as expired — covers the case
-  // where the checkout.session.expired webhook was never delivered.
-  const staleCutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString();
-  const { data: conflicts, error } = await supabase
+  const { data: { user } } = await supabase.auth.getUser();
+  // Admin client so we see ALL bookings, not just the current user's (RLS would hide others).
+  const adminDb = createAdminClient();
+
+  // 1. Any confirmed booking overlapping this range is a hard block.
+  const { data: confirmed, error: e1 } = await adminDb
     .from("bookings")
     .select("id")
     .eq("workspace_id", workspaceId)
-    .neq("booking_status", "cancelled")
-    .or(`booking_status.neq.pending,created_at.gte.${staleCutoff}`)
+    .eq("booking_status", "confirmed")
     .lt("start_date_time", endISO)
     .gt("end_date_time", startISO);
 
-  if (error) return { error: "Database error during availability check." };
-  return { available: conflicts.length === 0 };
+  if (e1) return { error: "Database error during availability check." };
+  if (confirmed && confirmed.length > 0) return { available: false };
+
+  // 2. Pending holds from OTHER users block (their checkout is in progress).
+  //    The current user's own pending is ignored — they can re-initiate checkout.
+  //    Stale-pending cleanup relies on Stripe's checkout.session.expired webhook.
+  let pendingQuery = adminDb
+    .from("bookings")
+    .select("id")
+    .eq("workspace_id", workspaceId)
+    .eq("booking_status", "pending")
+    .lt("start_date_time", endISO)
+    .gt("end_date_time", startISO);
+
+  if (user?.id) pendingQuery = pendingQuery.neq("member_id", user.id);
+
+  const { data: pending, error: e2 } = await pendingQuery;
+  if (e2) return { error: "Database error during availability check." };
+
+  return { available: (pending ?? []).length === 0 };
 }
 
 export async function createCheckoutSession(bookingData: {
@@ -96,6 +115,18 @@ export async function createCheckoutSession(bookingData: {
   // Uses the admin client to bypass RLS — the member_id is explicitly set to the
   // authenticated user so this is safe and auditable.
   const adminDb = createAdminClient();
+
+  // Cancel any previous pending hold this user has on the same slot (e.g. from an
+  // abandoned checkout) before inserting a fresh one, so we don't hit a DB constraint.
+  await adminDb
+    .from("bookings")
+    .update({ booking_status: "cancelled" })
+    .eq("member_id", user.id)
+    .eq("workspace_id", bookingData.workspaceId)
+    .eq("booking_status", "pending")
+    .lt("start_date_time", endISO)
+    .gt("end_date_time", startISO);
+
   const { data: booking, error: bookingError } = await adminDb
     .from("bookings")
     .insert({
@@ -262,13 +293,11 @@ export async function getBookedSlotsForDate(
   dayEndUTC: string,
 ) {
   const adminDb = createAdminClient();
-  const staleCutoff = new Date(Date.now() - 35 * 60 * 1000).toISOString();
   const { data } = await adminDb
     .from("bookings")
     .select("start_date_time, end_date_time")
     .eq("workspace_id", roomId)
     .neq("booking_status", "cancelled")
-    .or(`booking_status.neq.pending,created_at.gte.${staleCutoff}`)
     .gte("start_date_time", dayStartUTC)
     .lte("start_date_time", dayEndUTC)
     .order("start_date_time");
