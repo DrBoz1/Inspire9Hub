@@ -2,21 +2,26 @@ import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request: { headers: request.headers } });
+  // Reassigned inside setAll below whenever Supabase needs to refresh the
+  // session — must stay a `let` so the refreshed cookies actually reach the browser.
+  let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY!,
     {
       cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value;
+        getAll() {
+          return request.cookies.getAll();
         },
-        set(name, value, options) {
-          request.cookies.set({ name, value, ...options });
-        },
-        remove(name, options) {
-          request.cookies.set({ name, value: "", ...options });
+        setAll(cookiesToSet) {
+          cookiesToSet.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
+          response = NextResponse.next({ request });
+          cookiesToSet.forEach(({ name, value, options }) =>
+            response.cookies.set(name, value, options),
+          );
         },
       },
     },
@@ -27,9 +32,17 @@ export async function middleware(request: NextRequest) {
   } = await supabase.auth.getUser();
   const pathname = request.nextUrl.pathname;
 
+  // Carries any refreshed session cookies onto a redirect response —
+  // otherwise a token refresh right before a redirect would be lost.
+  const redirectTo = (path: string) => {
+    const redirect = NextResponse.redirect(new URL(path, request.url));
+    response.cookies.getAll().forEach((cookie) => redirect.cookies.set(cookie));
+    return redirect;
+  };
+
   // Protect all Admin routes
   if (pathname.startsWith("/admin")) {
-    if (!user) return NextResponse.redirect(new URL("/login", request.url));
+    if (!user) return redirectTo("/login");
 
     const { data: adminData } = await supabase
       .from("admins")
@@ -42,7 +55,7 @@ export async function middleware(request: NextRequest) {
       !adminData ||
       (adminData.role !== "admin" && adminData.role !== "super_admin")
     ) {
-      return NextResponse.redirect(new URL("/dashboard", request.url));
+      return redirectTo("/dashboard");
     }
 
     //only 'super_admin' can access /admin/management
@@ -50,7 +63,7 @@ export async function middleware(request: NextRequest) {
       pathname.startsWith("/admin/management") &&
       adminData.role !== "super_admin"
     ) {
-      return NextResponse.redirect(new URL("/admin/approvals", request.url));
+      return redirectTo("/admin/approvals");
     }
   }
 
