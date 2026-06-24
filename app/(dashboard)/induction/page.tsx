@@ -1,6 +1,6 @@
 // app/(dashboard)/induction/page.tsx
 
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { submitInduction } from "@/app/(auth)/actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,9 +23,7 @@ import {
 
 export default async function InductionPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
   const { data: profile } = await supabase
     .from("members")
     .select("*")

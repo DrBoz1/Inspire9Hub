@@ -39,30 +39,31 @@ export default async function AdminApprovalsPage(props: {
 
   const supabase = await createClient();
 
-  // ── Pending inductions ─────────────────────────────────────
-  const { data: pending, error } = await supabase
-    .from("members")
-    .select(
-      `id, full_name, email, company_name, mobile_number, induction_status,
-       induction_records!inner (health_emergency_info, completion_date, approval_status)`,
-    )
-    .eq("induction_status", INDUCTION_STATUS.SUBMITTED);
-
-  if (error) console.error("Fetch Error:", error.message);
-
-  // ── Audit history (paginated) ──────────────────────────────
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const { data: entries, count } = await supabase
-    .from("community_entries")
-    .select(
-      `id, tags, entry_date, entry_description, members (full_name, email, company_name)`,
-      { count: "exact" },
-    )
-    .eq("entry_type", "Induction")
-    .range(from, to)
-    .order("entry_date", { ascending: false });
+  // Pending inductions and audit history are independent of each other —
+  // run them in parallel instead of paying for two sequential round-trips.
+  const [{ data: pending, error }, { data: entries, count }] = await Promise.all([
+    supabase
+      .from("members")
+      .select(
+        `id, full_name, email, company_name, mobile_number, induction_status,
+       induction_records!inner (health_emergency_info, completion_date, approval_status)`,
+      )
+      .eq("induction_status", INDUCTION_STATUS.SUBMITTED),
+    supabase
+      .from("community_entries")
+      .select(
+        `id, tags, entry_date, entry_description, members (full_name, email, company_name)`,
+        { count: "exact" },
+      )
+      .eq("entry_type", "Induction")
+      .range(from, to)
+      .order("entry_date", { ascending: false }),
+  ]);
+
+  if (error) console.error("Fetch Error:", error.message);
 
   const totalPages = Math.ceil((count || 0) / pageSize);
 

@@ -30,18 +30,13 @@ export const BOOKING_STATUS = {
   COMPLETED: "completed",
 };
 
-export const getRoomPrice = (capacity: number) => {
-  if (capacity <= 4) return 25; // Dream Room
-  if (capacity <= 5) return 45; // Elbow/Green
-  return 80; // Boiler/Pool
-};
+// Fallback used only if a workspace row is somehow missing an image_url.
+export const DEFAULT_ROOM_IMAGE =
+  "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&q=80";
 
-export const PRICING = {
-  SMALL_ROOM: 25, // AUD per hour
-  MEDIUM_ROOM: 45,
-  LARGE_ROOM: 80,
-};
-
+// Fixed catalog of amenity types the system knows about — admins pick a
+// subset of these per room. Pricing, image, and the per-room subset all
+// live on the `workspaces` row now (price_per_hour, image_url, amenities).
 export const ALL_AMENITIES = [
   { key: "whiteboard", label: "Whiteboard" },
   { key: "tv", label: "TV Screen" },
@@ -52,20 +47,3 @@ export const ALL_AMENITIES = [
   { key: "conf_phone", label: "Conference Phone" },
   { key: "catering", label: "Catering Access" },
 ] as const;
-
-export const ROOM_AMENITIES: Record<string, string[]> = {
-  "Dream Room": ["whiteboard", "tv", "ac", "wifi"],
-  "Elbow Room": ["whiteboard", "ac", "wifi", "conf_phone"],
-  "Green Room": ["whiteboard", "projector", "ac", "wifi"],
-  "Boiler Room": ["whiteboard", "tv", "ac", "wifi", "video_conf", "conf_phone"],
-  "Pool Room": [
-    "whiteboard",
-    "tv",
-    "projector",
-    "ac",
-    "wifi",
-    "video_conf",
-    "conf_phone",
-    "catering",
-  ],
-};

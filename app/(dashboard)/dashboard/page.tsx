@@ -14,11 +14,11 @@ import {
   Clock,
   Bell,
 } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import Link from "next/link";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import { getAnnouncementType } from "@/lib/announcement-types";
-import DashboardToast from "./DashboardToast";
+import BookingSuccessModal from "./BookingSuccessModal";
 import { format, parseISO } from "date-fns";
 
 const ANNOUNCEMENT_ICONS: Record<string, React.ElementType> = {
@@ -32,45 +32,42 @@ const ANNOUNCEMENT_ICONS: Record<string, React.ElementType> = {
 
 export default async function MemberDashboard() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
-  const { data: profile } = await supabase
-    .from("members")
-    .select("*")
-    .eq("id", user?.id)
-    .single();
-
-  const { data: adminRecord } = await supabase
-    .from("admins")
-    .select("role")
-    .eq("id", user?.id)
-    .single();
-
-  const { data: history } = await supabase
-    .from("community_entries")
-    .select("*")
-    .eq("member_id", user?.id)
-    .order("added_date", { ascending: false })
-    .limit(3);
-
-  const { data: nextBooking } = await supabase
-    .from("bookings")
-    .select("*, workspaces(name)")
-    .eq("member_id", user?.id)
-    .in("booking_status", ["confirmed", "pending"])
-    .gte("start_date_time", new Date().toISOString())
-    .order("start_date_time", { ascending: true })
-    .limit(1)
-    .maybeSingle();
-
-  const { data: announcements } = await supabase
-    .from("announcements")
-    .select("id, title, message, type, created_at")
-    .eq("status", "active")
-    .order("created_at", { ascending: false })
-    .limit(5);
+  // These 5 queries are independent of each other — firing them in parallel
+  // instead of sequentially awaiting each one cuts dashboard load time roughly
+  // 5x, since the page only waits for the single slowest query, not the sum of all.
+  const [
+    { data: profile },
+    { data: adminRecord },
+    { data: history },
+    { data: nextBooking },
+    { data: announcements },
+  ] = await Promise.all([
+    supabase.from("members").select("*").eq("id", user?.id).single(),
+    supabase.from("admins").select("role").eq("id", user?.id).single(),
+    supabase
+      .from("community_entries")
+      .select("*")
+      .eq("member_id", user?.id)
+      .order("added_date", { ascending: false })
+      .limit(3),
+    supabase
+      .from("bookings")
+      .select("*, workspaces(name)")
+      .eq("member_id", user?.id)
+      .in("booking_status", ["confirmed", "pending"])
+      .gte("start_date_time", new Date().toISOString())
+      .order("start_date_time", { ascending: true })
+      .limit(1)
+      .maybeSingle(),
+    supabase
+      .from("announcements")
+      .select("id, title, message, type, created_at")
+      .eq("status", "active")
+      .order("created_at", { ascending: false })
+      .limit(5),
+  ]);
 
   const firstName = profile?.full_name?.split(" ")[0] || "User";
   const status = profile?.induction_status;
@@ -80,7 +77,7 @@ export default async function MemberDashboard() {
 
   return (
     <div className="w-full space-y-8 font-poppins pb-10">
-      <DashboardToast />
+      <BookingSuccessModal />
 
       <div className="flex flex-col md:flex-row justify-between items-start md:items-end gap-4">
         <div>

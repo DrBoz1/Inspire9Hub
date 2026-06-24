@@ -10,6 +10,7 @@ import {
   LogOut,
   ShieldCheck,
   Megaphone,
+  DoorOpen,
 } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +48,7 @@ export default async function AdminLayout({
             alt="Logo"
             width={140}
             height={40}
-            className="object-contain"
+            className="w-35 h-10 object-contain"
           />
           <Badge className="mt-3 bg-amber-50 text-amber-700 border-none font-bold text-[10px] tracking-widest uppercase px-2">
             {isSuperAdmin ? "Super Admin Portal" : "Admin Portal"}
@@ -69,6 +70,11 @@ export default async function AdminLayout({
             href="/admin/bookings"
             icon={CalendarDays}
             label="Booking Schedule"
+          />
+          <AdminNavLink
+            href="/admin/rooms"
+            icon={DoorOpen}
+            label="Space Management"
           />
           <AdminNavLink
             href="/admin/members"

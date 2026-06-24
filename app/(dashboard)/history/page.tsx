@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -51,43 +51,49 @@ export default async function HistoryPage(props: {
   const paymentPage = Math.max(1, parseInt(searchParams.pp ?? "1"));
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const bFrom = (bookingPage - 1) * PAGE_SIZE;
   const pFrom = (paymentPage - 1) * PAGE_SIZE;
 
-  const [bookingsRes, paymentsRes, passesRes, activityRes] = await Promise.all([
-    supabase
-      .from("bookings")
-      .select("*, workspaces(name, location)", { count: "exact" })
-      .eq("member_id", user?.id)
-      .order("start_date_time", { ascending: false })
-      .range(bFrom, bFrom + PAGE_SIZE - 1),
+  const [bookingsRes, paymentsRes, passesRes, activityRes, allPaymentsRes] =
+    await Promise.all([
+      supabase
+        .from("bookings")
+        .select("*, workspaces(name, location)", { count: "exact" })
+        .eq("member_id", user?.id)
+        .order("start_date_time", { ascending: false })
+        .range(bFrom, bFrom + PAGE_SIZE - 1),
 
-    supabase
-      .from("payments")
-      .select("*, bookings(start_date_time, workspaces(name))", { count: "exact" })
-      .eq("member_id", user?.id)
-      .order("payment_date", { ascending: false })
-      .range(pFrom, pFrom + PAGE_SIZE - 1),
+      supabase
+        .from("payments")
+        .select("*, bookings(start_date_time, workspaces(name))", { count: "exact" })
+        .eq("member_id", user?.id)
+        .order("payment_date", { ascending: false })
+        .range(pFrom, pFrom + PAGE_SIZE - 1),
 
-    supabase
-      .from("access_passes")
-      .select("*")
-      .eq("member_id", user?.id)
-      .order("issued_date", { ascending: false })
-      .limit(50),
+      supabase
+        .from("access_passes")
+        .select("*")
+        .eq("member_id", user?.id)
+        .order("issued_date", { ascending: false })
+        .limit(50),
 
-    // Use added_date (timestamptz) for precise ordering — entry_date is just a date
-    supabase
-      .from("community_entries")
-      .select("*")
-      .eq("member_id", user?.id)
-      .order("added_date", { ascending: false })
-      .limit(30),
-  ]);
+      // Use added_date (timestamptz) for precise ordering — entry_date is just a date
+      supabase
+        .from("community_entries")
+        .select("*")
+        .eq("member_id", user?.id)
+        .order("added_date", { ascending: false })
+        .limit(30),
+
+      // Net spend uses the shared formula in lib/member-stats so the history
+      // page and the Hub Assistant can never disagree about the numbers.
+      supabase
+        .from("payments")
+        .select("amount, refunded_amount, payment_status")
+        .eq("member_id", user?.id),
+    ]);
 
   const bookings = bookingsRes.data ?? [];
   const payments = paymentsRes.data ?? [];
@@ -99,14 +105,7 @@ export default async function HistoryPage(props: {
   const totalBookingPages = Math.ceil(totalBookings / PAGE_SIZE);
   const totalPaymentPages = Math.ceil(totalPayments / PAGE_SIZE);
 
-  // Net spend uses the shared formula in lib/member-stats so the history
-  // page and the Hub Assistant can never disagree about the numbers.
-  const allPayments = await supabase
-    .from("payments")
-    .select("amount, refunded_amount, payment_status")
-    .eq("member_id", user?.id);
-
-  const { netSpend } = summarizePayments(allPayments.data ?? []);
+  const { netSpend } = summarizePayments(allPaymentsRes.data ?? []);
 
   return (
     <div className="w-full space-y-10 font-poppins pb-16">

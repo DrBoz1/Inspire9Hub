@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { motion, AnimatePresence, Variants } from "framer-motion";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Card, CardContent } from "@/components/ui/card";
@@ -155,8 +155,28 @@ export default function BookingClient({
     (b) => b.booking_status !== "cancelled",
   );
 
+  const [activeTab, setActiveTab] = useState<"available" | "my-bookings">(
+    "available",
+  );
+
+  // The server already released the held slot (see BookingsPage); this is
+  // just the user-facing acknowledgment so a cancelled checkout doesn't
+  // silently land them back here with no feedback at all.
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("status") !== "cancelled") return;
+    window.history.replaceState({}, "", window.location.pathname);
+    toast("Checkout cancelled", {
+      description: "No charge was made — your slot has been released.",
+    });
+  }, []);
+
   return (
-    <Tabs defaultValue="available" className="w-full">
+    <Tabs
+      value={activeTab}
+      onValueChange={(v) => setActiveTab(v as "available" | "my-bookings")}
+      className="w-full"
+    >
       <div className="flex justify-between items-center mb-8">
         <TabsList className="bg-slate-100 p-1 rounded-2xl h-14">
           <TabsTrigger
@@ -180,6 +200,7 @@ export default function BookingClient({
       </div>
 
       <AnimatePresence mode="wait">
+        {activeTab === "available" ? (
         <TabsContent value="available" key="available" className="mt-0">
           {rooms.length > 0 ? (
             <motion.div
@@ -205,7 +226,7 @@ export default function BookingClient({
             </div>
           )}
         </TabsContent>
-
+        ) : (
         <TabsContent value="my-bookings" key="my-bookings">
           <motion.div
             initial={{ opacity: 0, x: 20 }}
@@ -269,6 +290,7 @@ export default function BookingClient({
             )}
           </motion.div>
         </TabsContent>
+        )}
       </AnimatePresence>
     </Tabs>
   );

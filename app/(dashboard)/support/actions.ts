@@ -67,7 +67,7 @@ export async function getAssistantContext() {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  const [memberRes, paymentsRes, bookingsRes, passesRes] = await Promise.all([
+  const [memberRes, paymentsRes, bookingsRes, passesRes, roomsRes] = await Promise.all([
     supabase
       .from("members")
       .select("full_name, induction_status, member_status")
@@ -87,11 +87,26 @@ export async function getAssistantContext() {
       .select("id", { count: "exact", head: true })
       .eq("member_id", user.id)
       .eq("pass_status", "active"),
+    // Needed so the assistant can match room names, show feature summaries,
+    // and quote prices for conversational bookings without an extra
+    // round-trip per message.
+    supabase
+      .from("workspaces")
+      .select("id, name, location, capacity, price_per_hour, amenities")
+      .order("capacity", { ascending: true }),
   ]);
 
   const member = memberRes.data;
   const payments = paymentsRes.data ?? [];
   const bookings = bookingsRes.data ?? [];
+  const rooms = (roomsRes.data ?? []).map((r) => ({
+    id: r.id,
+    name: r.name,
+    location: r.location,
+    capacity: r.capacity,
+    pricePerHour: r.price_per_hour,
+    amenities: r.amenities ?? [],
+  }));
 
   const { totalPaid, totalRefunded, netSpend } = summarizePayments(payments);
 
@@ -130,5 +145,6 @@ export async function getAssistantContext() {
     cancelledBookings: cancelled.length,
     upcomingBookings: upcoming,
     activePasses: passesRes.count ?? 0,
+    rooms,
   };
 }

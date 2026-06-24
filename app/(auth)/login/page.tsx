@@ -20,7 +20,7 @@ export default async function LoginPage(props: { searchParams: SearchParams }) {
               alt="Inspire9 Logo"
               width={180}
               height={60}
-              className="object-contain"
+              className="w-45 h-15 object-contain"
             />
           </div>
           <form action={login} className="space-y-4">

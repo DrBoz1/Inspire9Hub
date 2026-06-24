@@ -24,7 +24,7 @@ export default async function SignupPage(props: {
               alt="Inspire9 Logo"
               width={180}
               height={60}
-              className="object-contain"
+              className="w-45 h-15 object-contain"
             />
           </div>
           <form action={signUp} className="space-y-4">

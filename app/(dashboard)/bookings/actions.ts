@@ -7,7 +7,6 @@ import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
-import { getRoomPrice } from "@/lib/constants";
 
 export async function checkRoomAvailability(
   workspaceId: string,
@@ -50,6 +49,12 @@ export async function checkRoomAvailability(
   return { available: (pending ?? []).length === 0 };
 }
 
+// Exact-match allowlist for the post-payment redirect destination — NEVER
+// interpolate a caller-supplied path directly into the Stripe success_url.
+// An unvalidated path here would be an open-redirect vector once Stripe
+// bounces the user's browser back to it after a real payment.
+const SAFE_RETURN_PATHS = new Set(["/dashboard", "/support"]);
+
 export async function createCheckoutSession(bookingData: {
   workspaceId: string;
   roomName: string;
@@ -59,6 +64,7 @@ export async function createCheckoutSession(bookingData: {
   endTime: string;
   startISO: string; // pre-computed UTC ISO from the browser (timezone-correct)
   endISO: string;
+  returnTo?: string; // validated against SAFE_RETURN_PATHS below; defaults to /dashboard
 }) {
   const supabase = await createClient();
   const {
@@ -91,17 +97,17 @@ export async function createCheckoutSession(bookingData: {
   if (endMs - startMs < 3600000) throw new Error("Minimum booking is 1 hour.");
   if (startMs < Date.now()) throw new Error("Cannot book a time that has already passed.");
 
-  // Price is computed server-side from the workspace record — the client's
-  // amount is display-only and never trusted for the actual charge.
+  // Price is read server-side from the workspace's stored price_per_hour —
+  // the client's amount is display-only and never trusted for the actual charge.
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("capacity")
+    .select("price_per_hour")
     .eq("id", bookingData.workspaceId)
     .single();
   if (!workspace) throw new Error("Workspace not found.");
 
   const durationHours = (endMs - startMs) / 3600000;
-  const serverAmount = getRoomPrice(workspace.capacity) * durationHours;
+  const serverAmount = workspace.price_per_hour * durationHours;
 
   // Final server-side conflict check
   const { available } = await checkRoomAvailability(
@@ -150,6 +156,9 @@ export async function createCheckoutSession(bookingData: {
   }
 
   const unitAmount = Math.round(serverAmount * 100);
+  const returnPath = SAFE_RETURN_PATHS.has(bookingData.returnTo ?? "")
+    ? bookingData.returnTo!
+    : "/dashboard";
 
   let session: Stripe.Checkout.Session;
   try {
@@ -170,7 +179,7 @@ export async function createCheckoutSession(bookingData: {
       ],
       mode: "payment",
       expires_at: Math.floor(Date.now() / 1000) + 1800, // 30-min window
-      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard?status=success`,
+      success_url: `${process.env.NEXT_PUBLIC_BASE_URL}${returnPath}?status=success&bookingId=${booking.id}`,
       cancel_url: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings?status=cancelled&bookingId=${booking.id}`,
       metadata: {
         userId: user.id,
@@ -283,6 +292,98 @@ export async function cancelConfirmedBooking(bookingId: string) {
   revalidatePath("/history");
   revalidatePath("/dashboard");
   return { success: true, refundPolicy: policy };
+}
+
+// Looks up a booking by id, scoped to the current user — used by the
+// post-payment success popup on the dashboard. Same trust model as
+// getBookingConfirmation below: the ?bookingId in the URL only unlocks a
+// lookup, never a write, and the lookup itself re-checks ownership.
+export async function getBookingById(bookingId: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: booking } = await supabase
+    .from("bookings")
+    .select("id, booking_status, start_date_time, end_date_time, workspaces(name)")
+    .eq("id", bookingId)
+    .eq("member_id", user.id)
+    .maybeSingle();
+  if (!booking) return null;
+
+  const { data: payment } = await supabase
+    .from("payments")
+    .select("amount")
+    .eq("booking_id", bookingId)
+    .eq("payment_status", "paid")
+    .maybeSingle();
+
+  return { ...booking, amount: payment?.amount ?? null };
+}
+
+// Verifies a booking belongs to the current user before reporting its status —
+// used by the Hub Assistant to confirm a chat-initiated booking after the
+// Stripe redirect back, without ever trusting the success URL on its own
+// (the webhook is what actually confirms the booking; this just reads that
+// result back, scoped to the authenticated owner).
+export async function getBookingConfirmation(
+  workspaceId: string,
+  startISO: string,
+  endISO: string,
+) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data } = await supabase
+    .from("bookings")
+    .select("id, booking_status")
+    .eq("member_id", user.id)
+    .eq("workspace_id", workspaceId)
+    .eq("start_date_time", startISO)
+    .eq("end_date_time", endISO)
+    .neq("booking_status", "cancelled")
+    .maybeSingle();
+
+  return data;
+}
+
+// Batched availability check across every room for one time window — powers
+// the assistant's "here's what's free then" suggestion when a member hasn't
+// named a specific room yet. Same conflict rules as checkRoomAvailability
+// (confirmed always blocks; pending blocks unless it's the current user's
+// own hold), just aggregated in two queries instead of one per room.
+export async function getBusyRoomIds(startISO: string, endISO: string) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const adminDb = createAdminClient();
+
+  const { data: confirmed } = await adminDb
+    .from("bookings")
+    .select("workspace_id")
+    .eq("booking_status", "confirmed")
+    .lt("start_date_time", endISO)
+    .gt("end_date_time", startISO);
+
+  let pendingQuery = adminDb
+    .from("bookings")
+    .select("workspace_id")
+    .eq("booking_status", "pending")
+    .lt("start_date_time", endISO)
+    .gt("end_date_time", startISO);
+  if (user?.id) pendingQuery = pendingQuery.neq("member_id", user.id);
+  const { data: pending } = await pendingQuery;
+
+  const busy = new Set<string>();
+  for (const b of confirmed ?? []) busy.add(b.workspace_id);
+  for (const b of pending ?? []) busy.add(b.workspace_id);
+  return Array.from(busy);
 }
 
 // Returns booked time ranges for a room within a UTC day window.

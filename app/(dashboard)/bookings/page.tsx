@@ -1,4 +1,4 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import BookingClient from "./BookingClient";
 import { cancelPendingBooking } from "./actions";
@@ -19,9 +19,7 @@ export default async function BookingsPage(props: {
   }
 
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   // Fetch profile to check induction status before anything else
   const { data: profile } = await supabase

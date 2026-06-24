@@ -25,34 +25,9 @@ import {
   createCheckoutSession,
   getBookedSlotsForDate,
 } from "./actions";
-import { getRoomPrice } from "@/lib/constants";
+import { formatHour, padTime, makeUTCIso } from "@/lib/datetime";
 
 const ALL_HOURS = [8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
-
-function formatHour(h: number) {
-  if (h === 12) return "12:00 PM";
-  if (h === 0 || h === 24) return "12:00 AM";
-  return h < 12 ? `${h}:00 AM` : `${h - 12}:00 PM`;
-}
-
-function padTime(h: number) {
-  return `${String(h).padStart(2, "0")}:00`;
-}
-
-// Build a proper UTC ISO string from a local date + local hour.
-// new Date(y, m, d, h) is constructed in the browser's local timezone,
-// so .toISOString() correctly converts it to UTC for Supabase storage.
-function makeUTCIso(date: Date, hour: number): string {
-  return new Date(
-    date.getFullYear(),
-    date.getMonth(),
-    date.getDate(),
-    hour,
-    0,
-    0,
-    0,
-  ).toISOString();
-}
 
 // A 1-hour block [hour, hour+1) is occupied if any booking overlaps it.
 // getHours() returns LOCAL hours on the client — correct for comparing against slot labels.
@@ -91,7 +66,7 @@ export default function BookingModal({ room }: { room: any }) {
   >([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
 
-  const hourlyRate = getRoomPrice(room.capacity);
+  const hourlyRate = room.price_per_hour;
   const duration =
     startHour !== null && endHour !== null ? endHour - startHour : 0;
   const totalCost = duration > 0 ? duration * hourlyRate : 0;

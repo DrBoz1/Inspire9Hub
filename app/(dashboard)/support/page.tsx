@@ -1,11 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import SupportClient from "./SupportClient";
 
 export default async function SupportPage() {
   const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const user = await getCurrentUser();
 
   const { data: profile } = await supabase
     .from("members")

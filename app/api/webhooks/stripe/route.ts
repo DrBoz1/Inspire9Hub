@@ -6,7 +6,6 @@ import { sendEmail } from "@/lib/email/send";
 import BookingConfirmation from "@/lib/email/templates/booking-confirmation";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
 import { getLogoUrl, getLogoDataUrl } from "@/lib/email/logo";
-import { getRoomPrice } from "@/lib/constants";
 import { createElement } from "react";
 
 export const dynamic = "force-dynamic";
@@ -161,10 +160,10 @@ export async function POST(request: NextRequest) {
   if (passError)
     console.error("[webhook] Access pass error:", JSON.stringify(passError));
 
-  // 4. Workspace name for activity log
+  // 4. Workspace details for the activity log + invoice email
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("name")
+    .select("name, price_per_hour")
     .eq("id", workspaceId)
     .single();
 
@@ -203,19 +202,7 @@ export async function POST(request: NextRequest) {
       const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
       const roomName = workspace?.name ?? "Meeting Room";
       const location = "Inspire9 Hub · Richmond";
-      const hourlyRate = getRoomPrice(
-        (() => {
-          // derive capacity from room name via known mapping
-          const cap: Record<string, number> = {
-            "Dream Room": 4,
-            "Elbow Room": 5,
-            "Green Room": 5,
-            "Boiler Room": 10,
-            "Pool Room": 20,
-          };
-          return cap[roomName] ?? 5;
-        })(),
-      );
+      const hourlyRate = workspace?.price_per_hour ?? amount / durationHours;
 
       const bookingDateFormatted = start.toLocaleDateString("en-AU", {
         weekday: "long",
