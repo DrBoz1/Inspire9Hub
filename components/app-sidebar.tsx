@@ -67,7 +67,7 @@ export function AppSidebar({ userProfile }: { userProfile: any }) {
             alt="Inspire9 Logo"
             width={140}
             height={48}
-            className="w-35 h-12 object-contain"
+            className="h-12 w-auto"
             priority
           />
         )}

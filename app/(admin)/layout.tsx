@@ -48,7 +48,7 @@ export default async function AdminLayout({
             alt="Logo"
             width={140}
             height={40}
-            className="w-35 h-10 object-contain"
+            className="h-10 w-auto"
           />
           <Badge className="mt-3 bg-amber-50 text-amber-700 border-none font-bold text-[10px] tracking-widest uppercase px-2">
             {isSuperAdmin ? "Super Admin Portal" : "Admin Portal"}

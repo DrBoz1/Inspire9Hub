@@ -77,6 +77,7 @@ export default async function AdminBookingsPage(props: {
           <Link
             key={key}
             href={`/admin/bookings?filter=${key}`}
+            scroll={false}
             className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
               filter === key
                 ? "bg-slate-900 text-white shadow-lg"

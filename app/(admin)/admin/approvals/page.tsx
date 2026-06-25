@@ -102,6 +102,7 @@ export default async function AdminApprovalsPage(props: {
           <Link
             key={key}
             href={`/admin/approvals?view=${key}`}
+            scroll={false}
             className={`px-5 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest transition-all ${
               view === key
                 ? "bg-slate-900 text-white shadow-lg"
@@ -333,6 +334,7 @@ export default async function AdminApprovalsPage(props: {
               >
                 <Link
                   href={`/admin/approvals?view=history&page=${Math.max(1, page - 1)}`}
+                  scroll={false}
                 >
                   <ChevronLeft className="w-4 h-4 mr-1" /> Prev
                 </Link>
@@ -345,6 +347,7 @@ export default async function AdminApprovalsPage(props: {
               >
                 <Link
                   href={`/admin/approvals?view=history&page=${Math.min(totalPages, page + 1)}`}
+                  scroll={false}
                 >
                   Next <ChevronRight className="w-4 h-4 ml-1" />
                 </Link>

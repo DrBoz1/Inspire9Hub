@@ -13,6 +13,8 @@ import {
   AlertTriangle,
   Clock,
   Bell,
+  BookOpen,
+  type LucideIcon,
 } from "lucide-react";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import Link from "next/link";
@@ -28,6 +30,11 @@ const ANNOUNCEMENT_ICONS: Record<string, React.ElementType> = {
   alert: AlertTriangle,
   hours: Clock,
   reminder: Bell,
+};
+
+const ACTIVITY_ICONS: Record<string, LucideIcon> = {
+  "Room Booking": CalendarDays,
+  Induction: BookOpen,
 };
 
 export default async function MemberDashboard() {
@@ -284,16 +291,24 @@ export default async function MemberDashboard() {
           </Button>
         </CardHeader>
         <CardContent className="p-8">
-          <div className="space-y-10 relative before:absolute before:inset-0 before:ml-1.5 before:h-full before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
+          <div className="space-y-7 relative before:absolute before:inset-0 before:ml-5 before:h-full before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800">
             {history && history.length > 0 ? (
               history.map((entry) => (
                 <ActivityItem
                   key={entry.id}
-                  title={entry.entry_type}
+                  type={entry.entry_type}
                   desc={entry.entry_description || "Update log recorded."}
-                  time={entry.entry_date}
-                  dotColor={
-                    entry.tags === "Approved" ? "bg-emerald-500" : "bg-blue-500"
+                  time={
+                    entry.added_date
+                      ? format(parseISO(entry.added_date), "d MMM")
+                      : entry.entry_date
+                  }
+                  tone={
+                    entry.tags === "Approved"
+                      ? "emerald"
+                      : entry.tags === "Rejected"
+                        ? "red"
+                        : "blue"
                   }
                 />
               ))
@@ -309,32 +324,43 @@ export default async function MemberDashboard() {
   );
 }
 
+const TONE_STYLES: Record<string, string> = {
+  emerald: "bg-emerald-500",
+  red: "bg-red-400",
+  blue: "bg-blue-500",
+};
+
 function ActivityItem({
-  title,
+  type,
   desc,
   time,
-  dotColor,
+  tone,
 }: {
-  title: string;
+  type: string;
   desc: string;
   time: string;
-  dotColor: string;
+  tone: "emerald" | "red" | "blue";
 }) {
+  const Icon = ACTIVITY_ICONS[type] ?? Bell;
   return (
-    <div className="flex gap-6 relative group">
+    <div className="flex gap-4 relative group">
       <div
-        className={`mt-1.5 h-3 w-3 rounded-full ${dotColor} shrink-0 ring-4 ring-white dark:ring-slate-900 z-10 transition-transform group-hover:scale-125`}
-      />
-      <div className="flex-1 -mt-1">
-        <div className="flex justify-between items-start">
-          <h4 className="text-md font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#E31E24] transition-colors">
-            {title}
+        className={`relative z-10 flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl ring-4 ring-white dark:ring-slate-900 transition-transform group-hover:scale-105 ${TONE_STYLES[tone]}`}
+      >
+        <Icon className="w-4 h-4 text-white" />
+      </div>
+      <div className="flex-1 -mt-0.5 pb-1">
+        <div className="flex justify-between items-start gap-3">
+          <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200 group-hover:text-[#E31E24] transition-colors">
+            {type}
           </h4>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tight shrink-0">
             {time}
           </span>
         </div>
-        <p className="text-sm text-slate-500 mt-1 leading-relaxed">{desc}</p>
+        <p className="text-sm text-slate-500 dark:text-slate-400 mt-1 leading-relaxed">
+          {desc}
+        </p>
       </div>
     </div>
   );

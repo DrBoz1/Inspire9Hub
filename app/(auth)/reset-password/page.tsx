@@ -25,7 +25,7 @@ export default async function ResetPasswordPage(props: {
               alt="Inspire9 Logo"
               width={180}
               height={60}
-              className="w-45 h-15 object-contain"
+              className="h-15 w-auto"
             />
           </div>
 
