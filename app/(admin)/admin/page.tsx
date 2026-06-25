@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { format, parseISO } from "date-fns";
+import { getLocalDayBoundsUTC, HUB_TIMEZONE } from "@/lib/datetime";
 
 function statusColor(status: string) {
   switch (status?.toLowerCase()) {
@@ -24,10 +25,10 @@ function statusColor(status: string) {
 export default async function AdminDashboardPage() {
   const supabase = createAdminClient();
 
-  const todayStart = new Date();
-  todayStart.setHours(0, 0, 0, 0);
-  const todayEnd = new Date();
-  todayEnd.setHours(23, 59, 59, 999);
+  // Computed in the Hub's actual local timezone, not the server's (UTC) —
+  // see lib/datetime.ts for why a plain setHours(0,0,0,0) checks the wrong
+  // calendar day for a chunk of every Melbourne day.
+  const { startUTC: todayStart, endUTC: todayEnd } = getLocalDayBoundsUTC(HUB_TIMEZONE);
   const now = new Date().toISOString();
 
   const [
@@ -46,8 +47,8 @@ export default async function AdminDashboardPage() {
       .from("bookings")
       .select("id", { count: "exact", head: true })
       .eq("booking_status", "confirmed")
-      .gte("start_date_time", todayStart.toISOString())
-      .lte("start_date_time", todayEnd.toISOString()),
+      .gte("start_date_time", todayStart)
+      .lte("start_date_time", todayEnd),
 
     supabase
       .from("members")

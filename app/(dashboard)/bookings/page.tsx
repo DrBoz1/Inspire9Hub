@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { ShieldCheck, Clock, ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
+import { getLocalDayBoundsUTC, HUB_TIMEZONE } from "@/lib/datetime";
 
 export default async function BookingsPage(props: {
   searchParams: Promise<{ status?: string; bookingId?: string }>;
@@ -140,7 +141,13 @@ export default async function BookingsPage(props: {
 
   // ── Normal bookings page (inducted members only) ─────────────────────────
   const adminDb = createAdminClient();
-  const today = new Date().toISOString().split("T")[0];
+  // The Hub is in Melbourne but this runs on a UTC server — computing "today"
+  // from server-local time would check the wrong calendar day for a chunk of
+  // every day (see lib/datetime.ts). Bound by Melbourne's actual calendar day
+  // instead, and only count bookings that haven't finished yet, so a room
+  // that was booked earlier today (or cancelled) doesn't stay flagged busy.
+  const { startUTC: todayStartUTC, endUTC: todayEndUTC } = getLocalDayBoundsUTC(HUB_TIMEZONE);
+  const nowUTC = new Date().toISOString();
 
   const [roomsRes, bookingsRes, todayBookingsRes] = await Promise.all([
     supabase.from("workspaces").select("*").order("capacity", { ascending: true }),
@@ -156,8 +163,9 @@ export default async function BookingsPage(props: {
       .from("bookings")
       .select("workspace_id")
       .neq("booking_status", "cancelled")
-      .gte("start_date_time", `${today}T00:00:00Z`)
-      .lte("start_date_time", `${today}T23:59:59Z`),
+      .gte("start_date_time", todayStartUTC)
+      .lte("start_date_time", todayEndUTC)
+      .gt("end_date_time", nowUTC),
   ]);
 
   const busyRoomIds = new Set(
