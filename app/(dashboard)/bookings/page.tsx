@@ -8,6 +8,7 @@ import { Progress } from "@/components/ui/progress";
 import { ShieldCheck, Clock, ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { getLocalDayBoundsUTC, HUB_TIMEZONE } from "@/lib/datetime";
+import BookingsHero from "./BookingsHero";
 
 export default async function BookingsPage(props: {
   searchParams: Promise<{ status?: string; bookingId?: string }>;
@@ -179,15 +180,7 @@ export default async function BookingsPage(props: {
 
   return (
     <div className="space-y-10 font-poppins pb-20">
-      <div className="flex flex-col gap-2">
-        <h1 className="text-4xl font-black tracking-tight text-slate-900 uppercase">
-          Reserve <span className="text-[#E31E24]">Space</span>
-        </h1>
-        <p className="text-slate-500 font-medium max-w-xl">
-          Book meeting rooms and workspaces across the Inspire9 Hub. Real-time
-          availability for members only.
-        </p>
-      </div>
+      <BookingsHero roomCount={rooms.length} />
 
       <BookingClient
         initialBookings={bookingsRes.data || []}

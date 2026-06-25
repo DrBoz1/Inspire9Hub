@@ -8,7 +8,6 @@ import {
   CalendarDays,
   LayoutGrid,
   Clock,
-  ShieldCheck,
   XCircle,
   AlertTriangle,
 } from "lucide-react";
@@ -177,7 +176,7 @@ export default function BookingClient({
       onValueChange={(v) => setActiveTab(v as "available" | "my-bookings")}
       className="w-full"
     >
-      <div className="flex justify-between items-center mb-8">
+      <div className="mb-8">
         <TabsList className="bg-slate-100 p-1 rounded-2xl h-14">
           <TabsTrigger
             value="available"
@@ -192,11 +191,6 @@ export default function BookingClient({
             <Clock className="w-4 h-4 mr-2" /> My Schedule
           </TabsTrigger>
         </TabsList>
-
-        <div className="hidden md:flex items-center gap-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
-          <ShieldCheck className="w-4 h-4 text-emerald-500" /> Instant
-          Confirmation Active
-        </div>
       </div>
 
       <AnimatePresence mode="wait">
