@@ -266,7 +266,6 @@ inspire9-hub/
 - A [Supabase](https://supabase.com) project with the schema applied
 - A [Stripe](https://stripe.com) account with a webhook endpoint registered
 - A [Resend](https://resend.com) account for transactional email
-- An [Anthropic](https://anthropic.com) API key for the AI assistant
 
 ### Installation
 
@@ -300,9 +299,6 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # ── Email — Resend ────────────────────────────────────────────────────────────
 RESEND_API_KEY=re_...
 
-# ── AI Assistant — Anthropic ──────────────────────────────────────────────────
-ANTHROPIC_API_KEY=sk-ant-...
-```
 
 </details>
 
@@ -359,7 +355,7 @@ The project is deployed on **Vercel**. Every push to `main` triggers a productio
 
 ## Author
 
-Developed by **Dr.Boz** &nbsp;—&nbsp; Final Year Project, Academic Session 2025/2026.
+Developed by **Hesam Zoveidavian Poor** &nbsp;—&nbsp; Final Year Project, Academic Session 2025/2026.
 
 ---
 
