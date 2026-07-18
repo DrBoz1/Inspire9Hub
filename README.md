@@ -303,7 +303,10 @@ NEXT_PUBLIC_BASE_URL=http://localhost:3000
 # ── Email — Resend ────────────────────────────────────────────────────────────
 RESEND_API_KEY=re_...
 
+<<<<<<< HEAD
 ```
+=======
+>>>>>>> 441e6d08d9e6268319d69c086fafde1c1516d977
 
 </details>
 
