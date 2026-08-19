@@ -14,6 +14,8 @@ import {
   endOfYear,
   addDays,
 } from "date-fns";
+import Fuse from "fuse.js";
+import * as chrono from "chrono-node";
 import { formatHour } from "@/lib/datetime";
 import { ALL_AMENITIES } from "@/lib/constants";
 
@@ -117,6 +119,40 @@ const aud = new Intl.NumberFormat("en-AU", {
   currency: "AUD",
 });
 
+// ── Stop words ─────────────────────────────────────────────────────────
+// Filtered out before intent scoring so common words don't accidentally
+// add weight to unrelated intents ("I do NOT want a refund" → refunds).
+const STOP_WORDS = new Set([
+  "a", "an", "the", "is", "it", "i", "to", "for", "of", "and", "or", "in",
+  "at", "on", "be", "was", "are", "this", "that", "my", "me", "we", "you",
+  "do", "did", "have", "has", "from", "with", "can", "will", "would", "could",
+  "should", "just", "up", "by", "but", "so", "if", "as", "any", "all",
+  "about", "get", "got", "your", "our", "their", "its", "its", "also",
+]);
+
+// Words that appear inside room names but should NOT alone trigger a match —
+// prevents "can I book a room?" from matching "Dream Room" via Fuse because
+// "room" is an exact substring of that name in the search index.
+const GENERIC_ROOM_WORDS = new Set([
+  "room", "space", "desk", "spot", "place", "area", "office", "meeting",
+]);
+
+// Negation tokens — if one appears within ~35 chars before a keyword,
+// the keyword's score contribution is flipped to a negative signal so
+// "I do not want a refund" stops triggering the refunds intent.
+const NEGATORS = [
+  "not", "dont", "don't", "never", "no", "doesnt", "doesn't",
+  "didnt", "didn't", "without", "cant", "can't", "wont", "won't",
+];
+
+function isNegated(query: string, keyword: string): boolean {
+  const q = query.toLowerCase();
+  const idx = q.indexOf(keyword);
+  if (idx === -1) return false;
+  const before = q.slice(Math.max(0, idx - 35), idx);
+  return NEGATORS.some((neg) => before.includes(neg));
+}
+
 type TimeWindow = { label: string; from: Date; to: Date };
 
 function extractTimeWindow(query: string): TimeWindow | null {
@@ -201,87 +237,112 @@ function fuzzyHit(token: string, keyword: string): number {
   return 0;
 }
 
-// ── Booking entity extraction ───────────────────────────────────────────
-// Pure, synchronous, no network calls — the widget owns the one async step
-// (the live availability check) once a draft is complete.
+// ── Room matching — Fuse.js multi-field fuzzy search ───────────────────
+// Previous implementation only compared the first word of each room name,
+// so "book the boardroom" would fail against "South Wing Boardroom".
+// Fuse.js handles multi-word names and can also match against amenity labels
+// (e.g. "that room with the projector" → room whose amenities include "projector").
+
+type RoomSearchDoc = {
+  idx: number;
+  name: string;
+  location: string;
+  amenities: string; // space-joined amenity labels for full-text search
+};
+
+function buildFuseIndex(rooms: RoomOption[]): Fuse<RoomSearchDoc> {
+  const docs: RoomSearchDoc[] = rooms.map((room, idx) => {
+    const amenityLabels = room.amenities
+      .map((key) => ALL_AMENITIES.find((a) => a.key === key)?.label ?? key)
+      .join(" ");
+    return { idx, name: room.name, location: room.location, amenities: amenityLabels };
+  });
+  return new Fuse(docs, {
+    keys: [
+      { name: "name", weight: 0.65 },
+      { name: "amenities", weight: 0.25 },
+      { name: "location", weight: 0.1 },
+    ],
+    threshold: 0.45,
+    includeScore: true,
+    ignoreLocation: true,
+    minMatchCharLength: 3,
+  });
+}
 
 function matchRoomName(query: string, rooms: RoomOption[]): RoomOption | null {
+  if (rooms.length === 0) return null;
   const q = query.toLowerCase();
+
+  // Fast path: exact full-name substring (case-insensitive)
   for (const room of rooms) {
     if (q.includes(room.name.toLowerCase())) return room;
   }
-  const tokens = tokenize(query);
-  for (const room of rooms) {
-    const keyword = room.name.toLowerCase().split(" ")[0];
-    for (const token of tokens) {
-      if (fuzzyHit(token, keyword) > 0) return room;
+
+  const fuse = buildFuseIndex(rooms);
+  const scoreMap = new Map<number, number>();
+
+  // Tokenise and strip generic room words before per-token Fuse search.
+  // Without this, "can I book a room?" produces a token "room" that scores
+  // 0 (exact substring) against "Dream Room" — a false positive.
+  const rawTokens = q.replace(/[^a-z0-9\s]/g, " ").split(/\s+/).filter(Boolean);
+  const searchTokens = rawTokens.filter(
+    (t) => t.length >= 3 && !GENERIC_ROOM_WORDS.has(t),
+  );
+
+  for (const token of searchTokens) {
+    const results = fuse.search(token);
+    for (const r of results) {
+      const prev = scoreMap.get(r.item.idx) ?? 1;
+      scoreMap.set(r.item.idx, Math.min(prev, r.score ?? 1));
     }
   }
-  return null;
+
+  // Full-phrase search — only for short messages (≤ 3 meaningful tokens)
+  // where the entire query might itself be a room name or close to one.
+  // Skipped for long conversational messages to prevent accidental matches.
+  const fullResults = searchTokens.length <= 3 ? fuse.search(query) : [];
+  for (const r of fullResults) {
+    const prev = scoreMap.get(r.item.idx) ?? 1;
+    scoreMap.set(r.item.idx, Math.min(prev, r.score ?? 1));
+  }
+
+  // Pick the entry with the lowest (best) Fuse score under the threshold
+  let bestScore = 0.45;
+  let bestIdx = -1;
+  for (const [idx, score] of scoreMap) {
+    if (score < bestScore) {
+      bestScore = score;
+      bestIdx = idx;
+    }
+  }
+
+  return bestIdx >= 0 ? rooms[bestIdx] : null;
 }
 
-const WEEKDAYS = [
-  "sunday", "monday", "tuesday", "wednesday", "thursday", "friday", "saturday",
-];
-const MONTHS = [
-  "jan", "feb", "mar", "apr", "may", "jun",
-  "jul", "aug", "sep", "oct", "nov", "dec",
-];
-
+// ── Date extraction — chrono-node ──────────────────────────────────────
+// Replaces hand-rolled regex that missed "next Friday afternoon", "the 3rd",
+// "a week from tomorrow", "end of the month", etc. chrono-node is the
+// industry-standard JS library for natural language date parsing and handles
+// all of these out of the box, including relative expressions and ordinals.
 function extractBookingDate(query: string, now: Date): Date | null {
-  const q = query.toLowerCase();
-  if (/\btoday\b/.test(q)) return startOfDay(now);
-  if (/\btomorrow\b/.test(q)) return startOfDay(addDays(now, 1));
-
-  for (let i = 0; i < WEEKDAYS.length; i++) {
-    if (new RegExp(`\\b${WEEKDAYS[i]}\\b`).test(q)) {
-      const todayIdx = now.getDay();
-      let diff = i - todayIdx;
-      if (diff < 0) diff += 7;
-      if (diff === 0 && /\bnext\b/.test(q)) diff = 7;
-      return startOfDay(addDays(now, diff));
-    }
-  }
-
-  const monthDay = q.match(
-    /\b(\d{1,2})(?:st|nd|rd|th)?\s+(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b/,
-  );
-  if (monthDay) {
-    const day = parseInt(monthDay[1]);
-    const monthIdx = MONTHS.indexOf(monthDay[2]);
-    if (monthIdx >= 0 && day >= 1 && day <= 31) {
-      let d = new Date(now.getFullYear(), monthIdx, day);
-      if (d < startOfDay(now)) d = new Date(now.getFullYear() + 1, monthIdx, day);
-      return d;
-    }
-  }
-
-  const dayMonth = q.match(
-    /\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?\b/,
-  );
-  if (dayMonth) {
-    const monthIdx = MONTHS.indexOf(dayMonth[1]);
-    const day = parseInt(dayMonth[2]);
-    if (monthIdx >= 0 && day >= 1 && day <= 31) {
-      let d = new Date(now.getFullYear(), monthIdx, day);
-      if (d < startOfDay(now)) d = new Date(now.getFullYear() + 1, monthIdx, day);
-      return d;
-    }
-  }
-
-  const numeric = q.match(/\b(\d{1,2})[\/\-](\d{1,2})\b/);
-  if (numeric) {
-    const day = parseInt(numeric[1]);
-    const month = parseInt(numeric[2]) - 1;
-    if (month >= 0 && month <= 11 && day >= 1 && day <= 31) {
-      let d = new Date(now.getFullYear(), month, day);
-      if (d < startOfDay(now)) d = new Date(now.getFullYear() + 1, month, day);
-      return d;
-    }
-  }
-
-  return null;
+  const parsed = chrono.parse(query, now, { forwardDate: true });
+  if (parsed.length === 0) return null;
+  const date = startOfDay(parsed[0].start.date());
+  // Sanity-check: only accept dates within the next 6 months
+  const ceiling = addDays(now, 180);
+  if (date < startOfDay(now) || date > ceiling) return null;
+  return date;
 }
+
+// ── Time extraction — chrono-node + time-of-day keywords ───────────────
+// Handles standard patterns ("2pm to 4pm", "10:00–12:00") via chrono,
+// and maps fuzzy time-of-day phrases to sensible business-hour windows.
+const TIME_OF_DAY: Record<string, { start: number; end: number }> = {
+  morning: { start: 9, end: 12 },
+  afternoon: { start: 13, end: 17 },
+  evening: { start: 17, end: 19 },
+};
 
 // Resolves a single time token ("2pm", "2:30pm", "14:00", "2") to a 24h hour.
 // With no am/pm given, hours 1-7 are assumed PM (a coworking room booked
@@ -302,6 +363,46 @@ function parseHourToken(raw: string): number | null {
 function extractTimeRange(query: string): { start: number; end: number } | null {
   const q = query.toLowerCase();
 
+  // Time-of-day keywords first — most explicit coworking signal
+  // ("book tomorrow afternoon" → 13:00–17:00)
+  for (const [keyword, range] of Object.entries(TIME_OF_DAY)) {
+    if (new RegExp(`\\b${keyword}\\b`).test(q)) return range;
+  }
+
+  // chrono-node handles "2pm to 4pm", "10am - 12pm", "14:00 to 16:00",
+  // "from 9 until 11", and many more patterns automatically.
+  const now = new Date();
+  const chronoParsed = chrono.parse(query, now);
+  for (const result of chronoParsed) {
+    if (result.end) {
+      const startH = result.start.get("hour");
+      const endH = result.end.get("hour");
+      if (
+        startH !== null &&
+        endH !== null &&
+        startH !== endH &&
+        startH >= ROOM_OPEN_HOUR &&
+        endH <= ROOM_CLOSE_HOUR &&
+        endH > startH
+      ) {
+        return { start: startH, end: endH };
+      }
+    }
+  }
+
+  // "at 2pm for 3 hours" — single anchor + duration
+  const durMatch = query.match(
+    /(?:at\s+)?(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s+for\s+(\d{1,2})\s*h/i,
+  );
+  if (durMatch) {
+    const start = parseHourToken(durMatch[1]);
+    const dur = parseInt(durMatch[2]);
+    if (start !== null && dur > 0 && dur <= 12) {
+      return { start, end: Math.min(start + dur, ROOM_CLOSE_HOUR) };
+    }
+  }
+
+  // Fallback: regex range pattern for bare "X to Y" without explicit am/pm
   const rangeMatch = q.match(
     /(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\s*(?:to|until|till|through|-)\s*(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)/,
   );
@@ -311,26 +412,23 @@ function extractTimeRange(query: string): { start: number; end: number } | null 
     if (start !== null && end !== null && start !== end) return { start, end };
   }
 
-  const durationMatch = q.match(
-    /(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)\D{0,15}for\s+(\d{1,2})\s*hours?/,
-  );
-  if (durationMatch) {
-    const start = parseHourToken(durationMatch[1]);
-    const dur = parseInt(durationMatch[2]);
-    if (start !== null && dur > 0 && dur <= 12) return { start, end: start + dur };
-  }
-
   return null;
 }
 
 // A booking ATTEMPT ("book the pool room", "reserve a space tomorrow") gets
 // the interactive flow; an informational question ("how do I book a room?")
 // still falls through to the existing how-to-book intent reply below.
+// Also catches modification phrases so "change the time, 1pm-7pm" re-enters
+// the booking FSM rather than falling through to the Q&A intent engine.
 function looksLikeBookingAttempt(query: string, rooms: RoomOption[]): boolean {
   const q = query.toLowerCase().trim();
   if (/^(how|what|why|when|where|who|can you explain)\b/.test(q)) return false;
   if (matchRoomName(query, rooms)) return true;
-  return /\b(book|reserve)\b/.test(q);
+  if (/\b(book|reserve)\b/.test(q)) return true;
+  if (/\b(change|update|modify|switch|adjust)\s+(the\s+)?(time|date|room|slot)\b/.test(q))
+    return true;
+  if (/\b(different|another|other)\s+(time|date|room|slot)\b/.test(q)) return true;
+  return false;
 }
 
 type Intent = {
@@ -401,7 +499,7 @@ const INTENTS: Intent[] = [
     canonical: "How do refunds work?",
     phrases: ["money back", "refund policy", "get a refund"],
     strong: ["refund", "refunds", "refunded", "reimburse", "reimbursement"],
-    stems: ["back", "money", "policy", "get", "how"],
+    stems: ["back", "money", "policy", "how"],
     reply: (ctx) => ({
       text: `${
         ctx.totalRefunded > 0
@@ -582,7 +680,7 @@ function tokenize(query: string): string[] {
     .toLowerCase()
     .replace(/[^a-z0-9\s']/g, " ")
     .split(/\s+/)
-    .filter(Boolean);
+    .filter((t) => Boolean(t) && !STOP_WORDS.has(t));
 }
 
 export function matchIntent(
@@ -591,19 +689,29 @@ export function matchIntent(
   lastIntentId: string | null = null,
 ): MatchResult {
   const normalized = query.toLowerCase().replace(/[^a-z0-9\s']/g, " ");
-  const tokens = tokenize(query);
+  const tokens = tokenize(query); // stop words already filtered
   const win = extractTimeWindow(query);
 
   const scored = INTENTS.map((intent) => {
     let score = 0;
+
     for (const phrase of intent.phrases) {
       if (normalized.includes(phrase)) score += 3;
     }
+
     for (const token of tokens) {
       let best = 0;
       for (const kw of intent.strong) {
         const hit = fuzzyHit(token, kw) * 2;
-        if (hit > best) best = hit;
+        if (hit > 0) {
+          // Flip to a negative signal when the keyword is negated
+          // ("I do not want a refund" should not score for refunds)
+          if (isNegated(normalized, kw)) {
+            score -= 1;
+            continue;
+          }
+          if (hit > best) best = hit;
+        }
       }
       if (best === 0) {
         for (const kw of intent.stems) {
@@ -637,6 +745,19 @@ export function matchIntent(
     return { reply: first.intent.reply(ctx, win), intentId: first.intent.id };
   }
 
+  // Near-miss: score 1 means the engine has a best guess but not enough confidence
+  // to commit — surface it as a suggestion rather than sending a cold fallback.
+  if (first.score >= 1) {
+    return {
+      reply: {
+        text: `Did you mean "${first.intent.canonical}"? If not, I can connect you with the Hub team directly.`,
+        suggestions: [first.intent.canonical],
+        escalate: true,
+      },
+      intentId: null,
+    };
+  }
+
   if (win && lastIntentId === "spending") {
     const spending = INTENTS.find((i) => i.id === "spending")!;
     return { reply: spending.reply(ctx, win), intentId: "spending" };
@@ -664,8 +785,86 @@ export function isBookingAttempt(query: string, ctx: AssistantContext): boolean 
   return looksLikeBookingAttempt(query, ctx.rooms);
 }
 
+// True when the user is modifying an existing in-progress booking rather than
+// starting a fresh one — e.g. "change the time, 1pm-7pm", "different date".
+// The widget uses this to restore the last known draft after a quote is cancelled,
+// so the user doesn't have to re-specify room and date from scratch.
+export function isBookingCorrectionAttempt(query: string): boolean {
+  const q = query.toLowerCase();
+  return (
+    /\b(change|update|modify|switch|adjust)\s+(the\s+)?(time|date|room|slot)\b/.test(q) ||
+    /\b(different|another|other)\s+(time|date|room|slot)\b/.test(q)
+  );
+}
+
 const ROOM_OPEN_HOUR = 8;
 const ROOM_CLOSE_HOUR = 20;
+
+// ── Conversation state helpers ──────────────────────────────────────────
+
+// What field is the bot currently waiting on, derived purely from the draft.
+// No extra state to pass — the draft already encodes the conversation position.
+function inferLastAsked(
+  draft: BookingDraft,
+): "room" | "date" | "time" | "none" {
+  if (!draft.roomId) return "room";
+  if (!draft.dateISO) return "date";
+  if (draft.startHour === undefined) return "time";
+  return "none";
+}
+
+// Classify a user message as a contextual negation or correction.
+// Only matches clear, unambiguous signals — messages that also contain
+// parseable booking data fall through to normal extraction so
+// "no actually Elbow Room" correctly picks up Elbow Room.
+type ResponseType = "negative" | "correction" | "other";
+
+const NEGATIVE_PHRASES = [
+  "not that",
+  "not this",
+  "wrong room",
+  "wrong date",
+  "wrong time",
+  "different room",
+  "different one",
+  "another one",
+  "other room",
+  "not the right",
+];
+
+function classifyResponse(q: string): ResponseType {
+  if (/^(no|nope|nah|wrong)\b/.test(q)) return "negative";
+  if (NEGATIVE_PHRASES.some((p) => q.includes(p))) return "negative";
+  if (/\b(actually|i meant|wait|change it|change the|instead|rather)\b/.test(q))
+    return "correction";
+  return "other";
+}
+
+// Repair response — fires when the bot would otherwise repeat the same
+// prompt verbatim. Provides concrete examples so the user isn't stuck.
+function buildRepairMessage(
+  field: "room" | "date" | "time",
+  ctx: AssistantContext,
+  draft: BookingDraft,
+): BotReply {
+  if (field === "room") {
+    const list = ctx.rooms.map(describeRoomOption).join("\n");
+    return {
+      text: `I didn't catch a room name. Here's the full list:\n\n${list}\n\nJust pick one or type the name.`,
+      suggestions: ctx.rooms.map((r) => r.name),
+    };
+  }
+  if (field === "date") {
+    return {
+      text: `I didn't catch a date — try "tomorrow", "next Friday", or something like "Aug 25". When would you like to book${draft.roomName ? ` ${draft.roomName}` : " the room"}?`,
+      suggestions: ["Today", "Tomorrow"],
+    };
+  }
+  return {
+    text: `I didn't catch a time — try "2pm to 4pm", "afternoon", or "9am for 2 hours". What time works for you?`,
+    suggestions: ["9am to 11am", "2pm to 4pm", "afternoon", "4pm to 6pm"],
+  };
+}
 
 // Advances a booking draft by one chat turn. Pure and synchronous — the
 // caller (the widget) is responsible for the one real async step, checking
@@ -691,6 +890,161 @@ export function progressBooking(
     };
   }
 
+  // ── Contextual response classification ───────────────────────────────
+  // Must run BEFORE the mid-booking interruption so short negations like
+  // "no not that" or "wrong room" are treated as booking corrections —
+  // not routed to the intent engine, which would return a cold fallback.
+  const lastAsked = inferLastAsked(draft);
+  const responseType = classifyResponse(q);
+
+  if (responseType === "negative") {
+    // Only act as a correction if the message contains no parseable booking
+    // data — "no actually Elbow Room" falls through so extraction gets it.
+    const testRoom = matchRoomName(query, ctx.rooms);
+    const testDate = extractBookingDate(query, new Date());
+    const testTime = extractTimeRange(query);
+
+    if (!testRoom && !testDate && !testTime) {
+      if (lastAsked === "room") {
+        const cleared: BookingDraft = { ...draft };
+        delete cleared.roomId;
+        delete cleared.roomName;
+        return {
+          reply: bookingPrompt("room", ctx, cleared),
+          draft: cleared,
+          readyToQuote: false,
+          cancelled: false,
+          nextMissing: "room",
+        };
+      }
+      if (lastAsked === "date") {
+        // "no not that" after the bot named a room most likely means "wrong
+        // room" (the user hasn't given a date yet). Exception: if the message
+        // contains a recognisable date word, clear just the date instead.
+        const hasDateWord =
+          /\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday|\d{1,2}(st|nd|rd|th)?)\b/.test(
+            q,
+          );
+        if (hasDateWord) {
+          const cleared: BookingDraft = { ...draft };
+          delete cleared.dateISO;
+          return {
+            reply: {
+              text: `No problem — what date works for you?`,
+              suggestions: ["Today", "Tomorrow"],
+            },
+            draft: cleared,
+            readyToQuote: false,
+            cancelled: false,
+            nextMissing: "date",
+          };
+        }
+        // No date word → treat as "wrong room", reset fully.
+        return {
+          reply: bookingPrompt("room", ctx, {}),
+          draft: {},
+          readyToQuote: false,
+          cancelled: false,
+          nextMissing: "room",
+        };
+      }
+      if (lastAsked === "time") {
+        const cleared: BookingDraft = { ...draft };
+        delete cleared.startHour;
+        delete cleared.endHour;
+        return {
+          reply: {
+            text: `Sure — what time works better? (e.g. "2pm to 4pm" or "afternoon")`,
+            suggestions: ["9am to 11am", "2pm to 4pm", "afternoon", "4pm to 6pm"],
+          },
+          draft: cleared,
+          readyToQuote: false,
+          cancelled: false,
+          nextMissing: "time",
+        };
+      }
+    }
+  }
+
+  // ── Correction when all fields are already set ───────────────────────
+  // "change the time" / "different date" after a full draft is assembled
+  // (lastAsked === "none"). If the new value is provided inline
+  // ("change the time, 1pm-7pm"), fall through to extraction which naturally
+  // overrides the old value. If not provided, clear that field and ask.
+  if (responseType === "correction" && lastAsked === "none") {
+    const hasNewTime = extractTimeRange(query) !== null;
+    const hasNewDate = extractBookingDate(query, new Date()) !== null;
+    const hasNewRoom = matchRoomName(query, ctx.rooms) !== null;
+
+    if (!hasNewTime && /\b(time|hours?|slot)\b/.test(q)) {
+      const cleared: BookingDraft = { ...draft };
+      delete cleared.startHour;
+      delete cleared.endHour;
+      return {
+        reply: {
+          text: `Sure — what time would you like instead?`,
+          suggestions: ["9am to 11am", "2pm to 4pm", "afternoon", "4pm to 6pm"],
+        },
+        draft: cleared,
+        readyToQuote: false,
+        cancelled: false,
+        nextMissing: "time",
+      };
+    }
+    if (!hasNewDate && /\bdate\b/.test(q)) {
+      const cleared: BookingDraft = { ...draft };
+      delete cleared.dateISO;
+      return {
+        reply: {
+          text: `Sure — what date works instead?`,
+          suggestions: ["Today", "Tomorrow"],
+        },
+        draft: cleared,
+        readyToQuote: false,
+        cancelled: false,
+        nextMissing: "date",
+      };
+    }
+    if (!hasNewRoom && /\broom\b/.test(q)) {
+      return {
+        reply: bookingPrompt("room", ctx, {}),
+        draft: {},
+        readyToQuote: false,
+        cancelled: false,
+        nextMissing: "room",
+      };
+    }
+    // New value provided inline — fall through to extraction.
+  }
+
+  // ── Mid-booking interruption ──────────────────────────────────────────
+  // If a draft is already in progress and the new message doesn't look like a
+  // booking action (no room name, no "book"/"reserve"), check whether it's an
+  // off-topic Q&A question. If so, answer it and append a one-liner reminding
+  // the user their draft is still waiting — no widget changes needed.
+  const hasDraft = Object.keys(draft).length > 0 && (draft.roomId || draft.dateISO || draft.startHour !== undefined);
+  if (hasDraft && !looksLikeBookingAttempt(query, ctx.rooms)) {
+    const interrupted = matchIntent(query, ctx, null);
+    if (interrupted.intentId && interrupted.intentId !== "how-to-book") {
+      const parts: string[] = [];
+      if (draft.roomName) parts.push(draft.roomName);
+      if (draft.dateISO) parts.push(`on ${format(parseISO(draft.dateISO), "d MMM")}`);
+      const reminder = parts.length > 0
+        ? `\n\n_Still holding your ${parts.join(" ")} booking — just reply to continue._`
+        : "";
+      return {
+        reply: {
+          ...interrupted.reply,
+          text: interrupted.reply.text + reminder,
+        },
+        draft,
+        readyToQuote: false,
+        cancelled: false,
+        nextMissing: !draft.roomId ? "room" : !draft.dateISO ? "date" : "time",
+      };
+    }
+  }
+
   const next: BookingDraft = { ...draft };
 
   const room = matchRoomName(query, ctx.rooms);
@@ -699,7 +1053,15 @@ export function progressBooking(
     next.roomName = room.name;
   }
 
-  const date = extractBookingDate(query, new Date());
+  const rawDate = extractBookingDate(query, new Date());
+  // Don't apply a date that's explicitly negated ("not today", "not tomorrow").
+  // chrono-node will still parse "today" out of "not today" — discard it.
+  const dateIsNegated =
+    rawDate !== null &&
+    /\b(not|no|don't|dont|can't|cant)\b.{0,15}\b(today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i.test(
+      query,
+    );
+  const date = dateIsNegated ? null : rawDate;
   if (date) next.dateISO = format(date, "yyyy-MM-dd");
 
   const range = extractTimeRange(query);
@@ -743,6 +1105,33 @@ export function progressBooking(
     };
   }
 
+  // ── Loop / repetition detection ───────────────────────────────────────
+  // If this turn produced no new info and the still-missing field is the same
+  // one the bot just asked about, serve a repair response with concrete
+  // examples instead of parroting the same prompt again.
+  // The `draftHasContent` guard prevents a false trigger on the very first
+  // booking turn (empty draft → bot hasn't asked anything yet).
+  const nothingNewParsed = !room && !date && !range;
+  const draftHasContent =
+    draft.roomId !== undefined ||
+    draft.dateISO !== undefined ||
+    draft.startHour !== undefined;
+  if (
+    nothingNewParsed &&
+    responseType === "other" &&
+    missing.length > 0 &&
+    missing[0] === lastAsked &&
+    draftHasContent
+  ) {
+    return {
+      reply: buildRepairMessage(missing[0], ctx, next),
+      draft: next,
+      readyToQuote: false,
+      cancelled: false,
+      nextMissing: missing[0],
+    };
+  }
+
   return {
     reply: bookingPrompt(missing[0], ctx, next),
     draft: next,
@@ -776,8 +1165,8 @@ function bookingPrompt(
     };
   }
   return {
-    text: `And what time? (e.g. "2pm to 4pm")`,
-    suggestions: ["9am to 11am", "2pm to 4pm", "4pm to 6pm"],
+    text: `And what time? (e.g. "2pm to 4pm" or "afternoon")`,
+    suggestions: ["9am to 11am", "2pm to 4pm", "afternoon", "4pm to 6pm"],
   };
 }
 

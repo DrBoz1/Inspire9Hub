@@ -19,6 +19,7 @@ import {
 import {
   matchIntent,
   isBookingAttempt,
+  isBookingCorrectionAttempt,
   progressBooking,
   isRoomOptionsTrigger,
   describeRoomOption,
@@ -84,6 +85,9 @@ export default function AssistantWidget({
   const lastQuestion = useRef("");
   const lastIntent = useRef<string | null>(null);
   const lastQuotedKey = useRef<string | null>(null);
+  // Survives quote cancellation so "change the time" / "different room" can
+  // restore Dream Room + date context without the user re-typing everything.
+  const lastKnownDraft = useRef<BookingDraft | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const chipsRef = useRef<HTMLDivElement>(null);
   const booted = useRef(false);
@@ -191,6 +195,9 @@ export default function AssistantWidget({
   };
 
   const runAvailabilityCheck = (draft: BookingDraft) => {
+    // Stash before the async step — survives quote cancellation so "change the
+    // time" can restore room + date context without the user re-typing them.
+    lastKnownDraft.current = draft;
     const room = ctx!.rooms.find((r) => r.id === draft.roomId)!;
     const dateObj = parseISO(draft.dateISO!);
     const startISO = makeUTCIso(dateObj, draft.startHour!);
@@ -248,8 +255,17 @@ export default function AssistantWidget({
     }
 
     // ── Conversational booking flow ───────────────────────────────────
-    if (bookingDraft || isBookingAttempt(question, ctx)) {
-      if (!bookingDraft && ctx.inductionStatus !== "Complete") {
+    // If bookingDraft is null but the user is making a correction ("change the
+    // time", "different room"), restore the last known draft so context (room,
+    // date) is not lost after a quote is cancelled.
+    const restoredDraft =
+      !bookingDraft && isBookingCorrectionAttempt(question) && lastKnownDraft.current
+        ? lastKnownDraft.current
+        : null;
+    const activeDraft = bookingDraft ?? restoredDraft;
+
+    if (activeDraft !== null || isBookingAttempt(question, ctx)) {
+      if (!activeDraft && ctx.inductionStatus !== "Complete") {
         setTimeout(() => {
           pushBotMessage(
             ctx.inductionStatus === "Submitted"
@@ -265,7 +281,7 @@ export default function AssistantWidget({
         return;
       }
 
-      const step = progressBooking(question, ctx, bookingDraft ?? {});
+      const step = progressBooking(question, ctx, activeDraft ?? {});
 
       if (step.cancelled) {
         setBookingDraft(null);
