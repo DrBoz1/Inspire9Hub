@@ -458,8 +458,19 @@ export default function AssistantWidget({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 24, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="fixed bottom-24 right-6 z-50 flex h-144 w-[calc(100vw-3rem)] max-w-104 flex-col overflow-hidden rounded-[1.75rem] border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl shadow-slate-900/20 dark:shadow-black/50"
+            className="fixed bottom-24 right-6 z-50 h-144 w-[calc(100vw-3rem)] max-w-104 overflow-hidden rounded-[1.75rem] p-[1.5px] shadow-2xl shadow-slate-900/20 dark:shadow-black/50"
           >
+            {/* BorderBeam — a rotating conic-gradient behind the 1.5px padding */}
+            <div
+              className="pointer-events-none absolute inset-[-200%]"
+              style={{
+                background:
+                  "conic-gradient(from 0deg, transparent 0deg, #E31E24 55deg, rgba(255,120,80,0.5) 80deg, transparent 115deg)",
+                animation: "beam-spin 4s linear infinite",
+              }}
+            />
+            {/* Content panel — sits on top of the rotating beam */}
+            <div className="relative flex h-full flex-col overflow-hidden rounded-[1.65rem] bg-white dark:bg-slate-900">
             <div className="relative flex items-center gap-3 bg-slate-950 px-5 py-4">
               <motion.div
                 animate={{ opacity: [0.15, 0.3, 0.15] }}
@@ -506,8 +517,37 @@ export default function AssistantWidget({
                           msg.bookingQuoteCancelled ? "opacity-50" : ""
                         }`}
                       >
+                        {/* Particle burst — fires once when the card mounts */}
+                        {!msg.bookingQuoteCancelled &&
+                          [
+                            { tx: "-28px", ty: "-32px" },
+                            { tx: "28px", ty: "-28px" },
+                            { tx: "-20px", ty: "24px" },
+                            { tx: "32px", ty: "20px" },
+                            { tx: "0px", ty: "-36px" },
+                            { tx: "-36px", ty: "8px" },
+                          ].map(({ tx, ty }, i) => (
+                            <motion.span
+                              key={i}
+                              initial={{ scale: 1, opacity: 1, x: 0, y: 0 }}
+                              animate={{ scale: 0, opacity: 0, x: tx, y: ty }}
+                              transition={{ duration: 0.55, delay: i * 0.04, ease: "easeOut" }}
+                              className="pointer-events-none absolute left-1/2 top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#E31E24]"
+                            />
+                          ))}
                         <div className="absolute -top-8 -right-8 h-24 w-24 rounded-full bg-[#E31E24]/20 blur-2xl pointer-events-none" />
-                        <p className="relative text-[9px] font-black uppercase tracking-[0.2em] text-slate-400">
+                        <p
+                          className="relative text-[9px] font-black uppercase tracking-[0.2em]"
+                          style={{
+                            background:
+                              "linear-gradient(90deg, #94a3b8 0%, #e2e8f0 40%, #94a3b8 100%)",
+                            backgroundSize: "200% auto",
+                            WebkitBackgroundClip: "text",
+                            WebkitTextFillColor: "transparent",
+                            backgroundClip: "text",
+                            animation: "shimmer-wave 3s linear infinite",
+                          }}
+                        >
                           Booking Summary
                         </p>
                         <div className="relative space-y-1">
@@ -525,9 +565,14 @@ export default function AssistantWidget({
                           <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">
                             Total (AUD)
                           </span>
-                          <span className="text-xl font-black">
+                          <motion.span
+                            initial={{ scale: 0.6, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            transition={{ type: "spring", stiffness: 280, damping: 18, delay: 0.15 }}
+                            className="text-xl font-black"
+                          >
                             ${msg.bookingQuote.totalCost.toFixed(2)}
-                          </span>
+                          </motion.span>
                         </div>
                         {msg.bookingQuoteCancelled ? (
                           <p className="relative text-center text-[11px] font-black uppercase tracking-widest text-slate-400">
@@ -633,18 +678,18 @@ export default function AssistantWidget({
                   animate={{ opacity: 1, y: 0 }}
                   className="flex justify-start"
                 >
-                  <div className="flex items-center gap-1.5 rounded-2xl rounded-tl-sm bg-slate-50 dark:bg-slate-800 px-4 py-3.5">
-                    {[0, 1, 2].map((i) => (
+                  <div className="flex items-center gap-[3px] rounded-2xl rounded-tl-sm bg-slate-50 dark:bg-slate-800 px-4 py-4">
+                    {[0.35, 0.65, 1, 0.8, 0.55, 0.9, 0.4].map((base, i) => (
                       <motion.span
                         key={i}
-                        animate={{ y: [0, -4, 0] }}
+                        animate={{ scaleY: [base, 1, base] }}
                         transition={{
-                          duration: 0.6,
+                          duration: 0.9,
                           repeat: Infinity,
-                          delay: i * 0.15,
+                          delay: i * 0.09,
                           ease: "easeInOut",
                         }}
-                        className="h-1.5 w-1.5 rounded-full bg-slate-300"
+                        className="h-4 w-[3px] origin-center rounded-full bg-slate-300 dark:bg-slate-600"
                       />
                     ))}
                   </div>
@@ -709,6 +754,7 @@ export default function AssistantWidget({
                 <SendHorizonal className="h-4 w-4" />
               </motion.button>
             </form>
+            </div>{/* end content panel */}
           </motion.div>
         )}
       </AnimatePresence>

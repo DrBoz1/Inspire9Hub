@@ -295,3 +295,22 @@
 .dark .border-emerald-200 {
   border-color: color-mix(in oklab, #10b981 35%, transparent);
 }
+
+/* ── Hub Assistant visual effects ───────────────────────────────────────── */
+
+/* BorderBeam — drives the rotating conic-gradient on the chat widget border */
+@keyframes beam-spin {
+  to { transform: rotate(1turn); }
+}
+
+/* Shimmer text — sweeps a highlight across gradient-clipped text */
+@keyframes shimmer-wave {
+  0%   { background-position: 200% center; }
+  100% { background-position: -200% center; }
+}
+
+/* Confetti particle burst on booking quote appearance */
+@keyframes particle-up {
+  0%   { transform: translate(0, 0) scale(1); opacity: 1; }
+  100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+}
