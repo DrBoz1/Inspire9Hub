@@ -9,6 +9,38 @@ import { getLogoUrl } from "@/lib/email/logo";
 import InductionSubmitted from "@/lib/email/templates/induction-submitted";
 import { createElement } from "react";
 
+// ── Friendly error helpers ────────────────────────────────────────────────────
+
+function friendlyLoginError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("invalid login credentials") || m.includes("invalid credentials"))
+    return "Incorrect email or password. Double-check your details or reset your password below.";
+  if (m.includes("email not confirmed"))
+    return "Your email isn't verified yet. Check your inbox for a confirmation link.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "Too many sign-in attempts. Please wait a few minutes and try again.";
+  if (m.includes("user not found") || m.includes("no user found"))
+    return "No account found with that email. Did you mean to sign up?";
+  if (m.includes("network") || m.includes("fetch"))
+    return "Connection issue. Check your internet and try again.";
+  return "Sign in failed. Please try again or contact support.";
+}
+
+function friendlySignupError(message: string): string {
+  const m = message.toLowerCase();
+  if (m.includes("already registered") || m.includes("already exists") || m.includes("user already"))
+    return "An account with this email already exists. Try signing in instead.";
+  if (m.includes("password") && (m.includes("weak") || m.includes("short")))
+    return "Password is too weak. Use at least 8 characters with a mix of letters and numbers.";
+  if (m.includes("invalid email") || (m.includes("email") && m.includes("invalid")))
+    return "Please enter a valid email address.";
+  if (m.includes("rate limit") || m.includes("too many"))
+    return "Too many attempts. Please wait a few minutes before trying again.";
+  if (m.includes("network") || m.includes("fetch"))
+    return "Connection issue. Check your internet and try again.";
+  return message; // Supabase signup messages are usually user-safe as-is
+}
+
 export async function logout() {
   const supabase = await createClient();
   await supabase.auth.signOut();
@@ -47,7 +79,8 @@ export async function login(formData: FormData) {
     });
 
   if (authError || !authData.user) {
-    return redirect("/login?error=Could not authenticate user");
+    const msg = friendlyLoginError(authError?.message ?? "");
+    return redirect(`/login?error=${encodeURIComponent(msg)}`);
   }
 
   const { data: adminRecord } = await supabase
@@ -74,9 +107,11 @@ export async function signUp(formData: FormData) {
   };
 
   const { error } = await supabase.auth.signUp(data);
-  if (error)
-    return redirect(`/signup?error=${encodeURIComponent(error.message)}`);
-  return redirect("/login?message=Check email to confirm registration");
+  if (error) {
+    const msg = friendlySignupError(error.message);
+    return redirect(`/signup?error=${encodeURIComponent(msg)}`);
+  }
+  return redirect("/login?message=Account created! Check your email to confirm before signing in.");
 }
 
 export async function sendPasswordReset(formData: FormData) {

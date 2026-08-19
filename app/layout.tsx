@@ -18,6 +18,13 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Inspire9 Hub",
   description: "The ultimate collaboration platform.",
+  icons: {
+    icon: [
+      { url: "/images/inspire9Logo.png", type: "image/png" },
+    ],
+    shortcut: "/images/inspire9Logo.png",
+    apple: "/images/inspire9Logo.png",
+  },
 };
 
 export default function RootLayout({
