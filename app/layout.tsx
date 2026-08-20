@@ -20,10 +20,10 @@ export const metadata: Metadata = {
   description: "The ultimate collaboration platform.",
   icons: {
     icon: [
-      { url: "/images/inspire9Logo.png", type: "image/png" },
+      { url: "/images/inspire9-favicon.jpg", type: "image/jpeg" },
     ],
-    shortcut: "/images/inspire9Logo.png",
-    apple: "/images/inspire9Logo.png",
+    shortcut: "/images/inspire9-favicon.jpg",
+    apple: "/images/inspire9-favicon.jpg",
   },
 };
 
