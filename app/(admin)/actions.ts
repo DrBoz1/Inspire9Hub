@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import { sendEmail } from "@/lib/email/send";
@@ -171,13 +172,138 @@ export async function createAdmin(formData: FormData) {
 export async function revokeAdminAccess(adminId: string) {
   const supabase = await createClient();
 
-  const { error } = await supabase.from("admins").delete().eq("id", adminId);
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return { success: false, message: "Your session expired — sign in again." };
+
+  // Middleware already gates /admin/management, but a server action is its own
+  // public endpoint — re-check the caller's role here rather than trusting it.
+  const { data: actor } = await supabase
+    .from("admins")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (actor?.role !== "super_admin")
+    return { success: false, message: "Only a super admin can revoke access." };
+
+  if (adminId === user.id)
+    return { success: false, message: "You can't revoke your own access." };
+
+  const { data: target } = await supabase
+    .from("admins")
+    .select("role")
+    .eq("id", adminId)
+    .single();
+
+  if (!target)
+    return { success: false, message: "That admin record no longer exists." };
+
+  // Never leave the hub with nobody able to reach this page
+  if (target.role === "super_admin") {
+    const { count } = await supabase
+      .from("admins")
+      .select("id", { count: "exact", head: true })
+      .eq("role", "super_admin");
+
+    if ((count ?? 0) <= 1)
+      return {
+        success: false,
+        message: "That's the last super admin — promote someone else first.",
+      };
+  }
+
+  // super_admins.admin_id references admins.id, so clear the child row first or
+  // the delete below trips a foreign key violation.
+  await supabase.from("super_admins").delete().eq("admin_id", adminId);
+
+  const { data: deleted, error } = await supabase
+    .from("admins")
+    .delete()
+    .eq("id", adminId)
+    .select("id");
 
   if (error) {
-    console.error("Revoke Error:", error.message);
+    console.error("[revokeAdminAccess]", error.message);
     return { success: false, message: error.message };
   }
 
+  // A delete blocked by row-level security returns no error *and* no rows —
+  // report that instead of a success that never happened.
+  if (!deleted?.length)
+    return {
+      success: false,
+      message: "The database rejected that delete (row-level security).",
+    };
+
   revalidatePath("/admin/management");
   return { success: true };
+}
+
+/**
+ * `public.admins` has no foreign key to `auth.users`, so deleting a login from the
+ * Supabase Auth dashboard leaves its admins row behind. Those rows can never sign
+ * in but still appear on the roster. This removes them.
+ *
+ * The ids arrive from the client, so every one is re-verified against Auth here —
+ * a row is only deleted once Supabase confirms the login account is really gone.
+ */
+export async function purgeOrphanedAdmins(adminIds: string[]) {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user)
+    return { success: false, message: "Your session expired — sign in again." };
+
+  const { data: actor } = await supabase
+    .from("admins")
+    .select("role")
+    .eq("id", user.id)
+    .single();
+
+  if (actor?.role !== "super_admin")
+    return { success: false, message: "Only a super admin can do that." };
+
+  const authAdmin = createAdminClient();
+  const confirmed: string[] = [];
+
+  for (const id of adminIds) {
+    if (id === user.id) continue; // never purge the signed-in account
+    const { data } = await authAdmin.auth.admin.getUserById(id);
+    if (!data?.user) confirmed.push(id); // no login account -> genuinely orphaned
+  }
+
+  if (!confirmed.length)
+    return {
+      success: false,
+      message: "Those records still have active login accounts.",
+    };
+
+  await supabase.from("super_admins").delete().in("admin_id", confirmed);
+
+  const { data: deleted, error } = await supabase
+    .from("admins")
+    .delete()
+    .in("id", confirmed)
+    .select("id");
+
+  if (error) {
+    console.error("[purgeOrphanedAdmins]", error.message);
+    return { success: false, message: error.message };
+  }
+
+  if (!deleted?.length)
+    return {
+      success: false,
+      message: "The database rejected that delete (row-level security).",
+    };
+
+  revalidatePath("/admin/management");
+  return { success: true, removed: deleted.length };
 }
