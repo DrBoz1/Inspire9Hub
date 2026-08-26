@@ -1,0 +1,613 @@
+/* ---------------------------------------------------------------------------
+   Floor-plan booking map -- scoped styles.
+
+   Ported from the standalone Vite app (hesam work). Two deliberate changes
+   were made on the way in, and both matter:
+
+   1. Its design tokens lived in Tailwind's @theme block, which is global.
+      Three of them collide with what the hub already defines:
+        --color-border   (shadcn uses it for every border in the app)
+        --font-sans      (the hub is Poppins)
+        --font-mono
+      They are declared on .fp-root here instead. Custom properties inherit,
+      so the map resolves its own values and nothing outside it changes.
+
+   2. Its @layer base styled html, body and #root directly -- 100% height,
+      background, font-family, a global :focus-visible ring, ::selection, and
+      color-scheme: light. That last one alone would have disabled dark mode
+      across the entire hub. Each of those rules is scoped to .fp-root below,
+      and the html/body sizing is dropped entirely: the map takes its height
+      from whichever container it is placed in.
+
+   Invariant: no selector in this file may match outside .fp-root.
+   --------------------------------------------------------------------------- */
+
+.fp-root {
+
+  /* paper & surfaces */
+  --color-paper: #ffffff;
+  --color-mat: #edebe6;
+  --color-surface-0: #ffffff;
+  --color-surface-1: #f7f8f9;
+  --color-surface-2: #eff1f3;
+  --color-surface-3: #e4e7ea;
+  --color-border-subtle: #e9ecef;
+  --color-border: #d6dae0;
+  --color-border-strong: #b9c0c8;
+
+  /* ink */
+  --color-ink-900: #0a0c0e;
+  --color-ink-700: #2b3238;
+  --color-ink-600: #454e57;
+  --color-ink-500: #5b6670;
+  --color-ink-400: #7c8794;
+  --color-ink-300: #a8b0b8;
+  --color-ink-200: #d6dae0;
+
+  /* plan-native (sampled from the source drawing — do not drift) */
+  --color-zone-hotdesk-key: #aae6ee;
+  --color-zone-hotdesk-wash: #d0f1f6;
+  --color-zone-hotdesk-pod: #dbeef3;
+  --color-zone-lounge-key: #ccc1d9;
+  --color-zone-lounge-wash: #e8e3ee;
+  --color-plan-green: #00632d;
+  --color-plan-felt: #4d5d2c;
+  --color-plan-red: #c0504d;
+
+  /* availability status */
+  --color-status-available: #0e8a6b;
+  --color-status-available-ink: #0b6e56;
+  --color-status-available-wash: #e2f1ed;
+  --color-status-partial: #c2740a;
+  --color-status-partial-ink: #8a5206;
+  --color-status-partial-wash: #f8eee2;
+  --color-status-full: #5b6670;
+  --color-status-full-ink: #3b444c;
+  --color-status-full-wash: #ebedee;
+  --color-status-mine: #2457c5;
+  --color-status-mine-ink: #1d47a3;
+  --color-status-mine-wash: #e5ebf8;
+
+  /* category accents — one OKLCH arc spanning the drawing's own cyan→violet */
+  --color-cat-desk: #02948c;
+  --color-cat-desk-ink: #02605a;
+  --color-cat-desk-wash: #d6f4f1;
+  --color-cat-workpoint: #039390;
+  --color-cat-workpoint-ink: #035f5d;
+  --color-cat-workpoint-wash: #d5f4f4;
+  --color-cat-collab_table: #04919e;
+  --color-cat-collab_table-ink: #045e67;
+  --color-cat-collab_table-wash: #d5f3f7;
+  --color-cat-team_bay: #04919e;
+  --color-cat-team_bay-ink: #045e67;
+  --color-cat-team_bay-wash: #d5f3f7;
+  --color-cat-lounge_pod: #058eaf;
+  --color-cat-lounge_pod-ink: #045c72;
+  --color-cat-lounge_pod-wash: #d7f2fc;
+  --color-cat-phone_booth: #058eaf;
+  --color-cat-phone_booth-ink: #045c72;
+  --color-cat-phone_booth-wash: #d7f2fc;
+  --color-cat-meeting_room: #2987c8;
+  --color-cat-meeting_room-ink: #015789;
+  --color-cat-meeting_room-wash: #deefff;
+  --color-cat-boardroom: #547ecd;
+  --color-cat-boardroom-ink: #2f508f;
+  --color-cat-boardroom-wash: #e3edff;
+  --color-cat-training_room: #6f76cc;
+  --color-cat-training_room-ink: #454a8e;
+  --color-cat-training_room-wash: #e8ecff;
+  --color-cat-private_office: #886ec4;
+  --color-cat-private_office-ink: #594388;
+  --color-cat-private_office-wash: #eee9fe;
+  --color-cat-amenity: #7b8187;
+  --color-cat-amenity-ink: #4e5358;
+  --color-cat-amenity-wash: #ebedef;
+
+  /* brand & feedback */
+  --color-brand: #1e5f5b;
+  --color-brand-hover: #17514e;
+  --color-brand-press: #144442;
+  --color-brand-wash: #e8f0ef;
+  --color-danger: #b3403d;
+  --color-danger-ink: #9b3330;
+  --color-danger-wash: #f7ecec;
+  --color-warn-ink: #7a4a05;
+  --color-warn-wash: #f8eee2;
+  --color-focus: #1152d6;
+
+  /* type */
+  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  "Helvetica Neue", Arial, sans-serif;
+  --font-plan: "Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed",
+  "Inter", sans-serif;
+  --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas,
+  monospace;
+
+  --text-micro: 11px;
+  --text-micro--line-height: 14px;
+  --text-caption: 12px;
+  --text-caption--line-height: 16px;
+  --text-meta: 13px;
+  --text-meta--line-height: 18px;
+  --text-body: 14px;
+  --text-body--line-height: 20px;
+  --text-lead: 15px;
+  --text-lead--line-height: 20px;
+  --text-title: 18px;
+  --text-title--line-height: 24px;
+  --text-panel: 20px;
+  --text-panel--line-height: 26px;
+
+  /* radii */
+  --radius-sheet: 2px;
+
+  /* elevation */
+  --shadow-e1: 0 1px 2px rgb(16 24 32 / 0.06), 0 0 0 1px rgb(16 24 32 / 0.05);
+  --shadow-e2: 0 2px 6px rgb(16 24 32 / 0.07), 0 1px 2px rgb(16 24 32 / 0.06);
+  --shadow-e3: 0 8px 24px rgb(16 24 32 / 0.1), 0 2px 6px rgb(16 24 32 / 0.06);
+  --shadow-e4: 0 20px 48px rgb(16 24 32 / 0.14), 0 4px 12px rgb(16 24 32 / 0.08);
+  --shadow-sheet: 0 1px 1px rgb(16 24 32 / 0.05), 0 6px 20px rgb(16 24 32 / 0.07);
+
+  /* motion */
+  --ease-out-fast: cubic-bezier(0.2, 0, 0.38, 0.9);
+  --ease-emphasis: cubic-bezier(0.32, 0.72, 0, 1);
+  --ease-exit: cubic-bezier(0.4, 0, 1, 1);
+
+
+  /* Linework weights in plan units (1 unit ≈ 24 mm). Ratio is the drawing's. */
+  --wall-w: 16;
+  --partition-w: 8;
+  --glazing-w: 5;
+  --furniture-w: 2;
+  --swing-w: 1.6;
+
+  color-scheme: light;
+
+  /* Was a bare `body` rule in the source. */
+  background: var(--color-surface-1);
+  color: var(--color-ink-700);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 20px;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Times, durations, capacities and counts must never jitter. */
+.fp-root .tnum,
+.fp-root time,
+.fp-root input[type="number"] {
+  font-variant-numeric: tabular-nums;
+}
+
+.fp-root :focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+.fp-root ::selection {
+  background: var(--color-brand-wash);
+}
+
+.fp-root .fp-svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  touch-action: none;
+  cursor: grab;
+  shape-rendering: geometricPrecision;
+}
+.fp-root .fp-svg[data-panning="true"] {
+  cursor: grabbing;
+}
+
+.fp-root .fp-slab {
+  fill: var(--color-paper);
+}
+
+/* Walls are poché with real physical thickness — they scale with content. */
+.fp-root .fp-wall {
+  stroke-linecap: square;
+  fill: none;
+}
+.fp-root .fp-wall-perimeter {
+  stroke: var(--color-ink-900);
+  stroke-width: var(--wall-w);
+}
+.fp-root .fp-wall-partition {
+  stroke: var(--color-ink-700);
+  stroke-width: var(--partition-w);
+}
+.fp-root .fp-wall-glass {
+  stroke: var(--color-ink-700);
+  stroke-width: var(--glazing-w);
+}
+.fp-root .fp-wall-lowwall {
+  stroke: var(--color-ink-500);
+  stroke-width: var(--partition-w);
+}
+.fp-root .fp-column {
+  fill: var(--color-ink-900);
+}
+.fp-root .fp-glazing line {
+  stroke: var(--color-ink-400);
+  stroke-width: 2.5;
+}
+
+.fp-root .fp-door-leaf {
+  stroke: var(--color-ink-400);
+  stroke-width: var(--swing-w);
+}
+.fp-root .fp-door-arc {
+  stroke: var(--color-ink-400);
+  stroke-width: var(--swing-w);
+  fill: none;
+  stroke-dasharray: none;
+}
+
+.fp-furniture,
+.fp-seat,
+.fp-seat-hotdesk,
+.fp-seat-lounge,
+.fp-root .fp-lounge {
+  fill: none;
+  stroke: var(--color-ink-500);
+  stroke-width: var(--furniture-w);
+  stroke-linejoin: round;
+}
+.fp-furniture rect,
+.fp-furniture circle,
+.fp-furniture path,
+.fp-seat rect,
+.fp-root .fp-seat path {
+  fill: var(--color-paper);
+}
+.fp-root .fp-furniture line {
+  stroke: var(--color-ink-400);
+}
+.fp-root .fp-glyph {
+  stroke: var(--color-ink-500);
+  stroke-width: 5;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.fp-root .fp-soft {
+  fill: var(--color-surface-2);
+}
+.fp-root .fp-pod-inner {
+  fill: none;
+  stroke: var(--color-ink-400);
+  stroke-dasharray: 8 7;
+}
+
+/* The drawing's own two legend colours, quoted verbatim. */
+.fp-seat-hotdesk rect,
+.fp-root .fp-seat-hotdesk path {
+  fill: var(--color-zone-hotdesk-key);
+  stroke: var(--color-ink-500);
+}
+.fp-seat-lounge rect,
+.fp-seat-lounge path,
+.fp-root .fp-lounge rect {
+  fill: var(--color-zone-lounge-key);
+  stroke: var(--color-ink-500);
+}
+.fp-root .fp-zone-hotdesk polygon {
+  fill: var(--color-zone-hotdesk-pod);
+  stroke: none;
+}
+
+.fp-root .fp-plant ellipse {
+  fill: var(--color-plan-green);
+  stroke: none;
+}
+.fp-root .fp-plant-core {
+  fill: var(--color-paper);
+  stroke: none;
+}
+.fp-root .fp-plant {
+  opacity: 0.7;
+}
+
+.fp-root .fp-pool-frame {
+  fill: var(--color-surface-2);
+  stroke: var(--color-ink-500);
+  stroke-width: var(--furniture-w);
+}
+.fp-root .fp-pool-felt {
+  fill: var(--color-plan-felt);
+  stroke: none;
+}
+.fp-root .fp-pool-pocket {
+  fill: var(--color-ink-900);
+  stroke: none;
+}
+
+/* Furniture recedes to a texture at overview zoom (spec §5.3). */
+.fp-root .fp-furniture-layer {
+  opacity: var(--furniture-opacity, 1);
+  transition: opacity 160ms var(--ease-out-fast);
+}
+
+.fp-root .fp-annotation {
+  font-family: var(--font-plan);
+  fill: var(--color-ink-900);
+  letter-spacing: 0.04em;
+  pointer-events: none;
+}
+.fp-root .fp-annotation-muted {
+  fill: var(--color-ink-500);
+  letter-spacing: 0.1em;
+}
+.fp-root .fp-annotation-alert {
+  fill: var(--color-plan-red);
+  letter-spacing: 0.06em;
+}
+
+/* ── Availability layer: a wash UNDER the ink, never a coat over it ───────── */
+
+.fp-root .fp-status {
+  stroke: none;
+  transition: fill-opacity 120ms var(--ease-out-fast);
+}
+.fp-root .fp-status-available {
+  fill: var(--color-status-available);
+  fill-opacity: 0.12;
+}
+.fp-root .fp-status-partial {
+  fill: var(--color-status-partial);
+  fill-opacity: 0.16;
+}
+.fp-root .fp-status-booked {
+  fill: var(--color-status-full);
+  fill-opacity: 0.16;
+}
+.fp-root .fp-status-mine {
+  fill: var(--color-status-mine);
+  fill-opacity: 0.16;
+}
+.fp-root .fp-status-closed {
+  fill: none;
+}
+.fp-root .fp-status-available[data-hovered="true"] {
+  fill-opacity: 0.18;
+}
+.fp-status-partial[data-hovered="true"],
+.fp-status-booked[data-hovered="true"],
+.fp-root .fp-status-mine[data-hovered="true"] {
+  fill-opacity: 0.22;
+}
+.fp-root .fp-status-available[data-selected="true"] {
+  fill-opacity: 0.22;
+}
+.fp-status-partial[data-selected="true"],
+.fp-status-booked[data-selected="true"],
+.fp-root .fp-status-mine[data-selected="true"] {
+  fill-opacity: 0.26;
+}
+
+/* ── Interaction outlines: UI, so their strokes never scale ───────────────── */
+
+.fp-root .fp-outline {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke-width: 1;
+  transition: stroke-width 120ms var(--ease-out-fast);
+}
+.fp-root .fp-outline-available {
+  stroke: var(--color-status-available);
+}
+.fp-root .fp-outline-partial {
+  stroke: var(--color-status-partial);
+}
+.fp-root .fp-outline-booked {
+  stroke: var(--color-status-full);
+}
+.fp-root .fp-outline-mine {
+  stroke: var(--color-status-mine);
+}
+.fp-root .fp-outline-closed {
+  stroke: var(--color-ink-300);
+  stroke-dasharray: 4 3;
+  stroke-opacity: 0.75;
+}
+.fp-root .fp-space[data-hovered='true'] .fp-outline-closed {
+  stroke: var(--color-ink-400);
+  stroke-opacity: 1;
+}
+.fp-root .fp-space[data-hovered="true"] .fp-outline {
+  stroke-width: 1.5;
+}
+.fp-root .fp-space[data-selected="true"] .fp-outline {
+  stroke: var(--color-ink-900);
+  stroke-width: 2;
+}
+.fp-root .fp-halo {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: var(--color-ink-900);
+  stroke-opacity: 0.1;
+  stroke-width: 6;
+}
+.fp-root .fp-focus-ring-inner {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: #ffffff;
+  stroke-width: 4;
+  stroke-linejoin: miter;
+}
+.fp-root .fp-focus-ring-outer {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: var(--color-focus);
+  stroke-width: 2;
+  stroke-linejoin: miter;
+}
+.fp-root .fp-mine-inner {
+  fill: none;
+  vector-effect: non-scaling-stroke;
+  stroke: var(--color-status-mine);
+  stroke-width: 1;
+}
+
+.fp-root .fp-hit {
+  fill: transparent;
+  stroke: none;
+  outline: none;
+}
+.fp-root .fp-space[data-bookable="true"] .fp-hit {
+  cursor: pointer;
+}
+/* Fingers are blunter than cursors: widen every hit polygon on touch so the
+   smallest spaces (a 1.6 m phone booth) still clear the 24 px target rule. */
+@media (pointer: coarse) {
+  .fp-root .fp-hit {
+    stroke-width: 24;
+  }
+}
+.fp-root .fp-scrim {
+  fill: var(--color-paper);
+  fill-opacity: 0.62;
+  stroke: none;
+  pointer-events: none;
+}
+
+/* ── Constant-screen-size label layer (HTML over the SVG) ─────────────────── */
+
+.fp-root .fp-labels {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: var(--font-plan);
+}
+.fp-root .fp-label {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  white-space: nowrap;
+  text-align: center;
+  transition: opacity 120ms var(--ease-out-fast);
+}
+.fp-root .fp-label-name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 14px;
+  letter-spacing: 0.005em;
+  color: var(--color-ink-900);
+}
+.fp-root .fp-label-sub {
+  font-size: 11px;
+  font-weight: 400;
+  line-height: 13px;
+  color: var(--color-ink-500);
+  font-variant-numeric: tabular-nums;
+}
+.fp-root .fp-label-code {
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 13px;
+  color: var(--color-ink-900);
+}
+.fp-root .fp-label-amenity {
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.fp-root .fp-label-banner {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+.fp-root .fp-label-chip {
+  background: var(--color-paper);
+  border: 1px solid var(--color-ink-200);
+  border-radius: 4px;
+  padding: 3px 6px;
+  box-shadow: var(--shadow-e1);
+}
+.fp-root .fp-label-bracket {
+  border-top: 1px solid var(--color-ink-200);
+  border-left: 1px solid var(--color-ink-200);
+  border-right: 1px solid var(--color-ink-200);
+}
+
+/* ── Chrome ───────────────────────────────────────────────────────────────── */
+
+.fp-root .i9-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-ink-300) transparent;
+}
+.fp-root .i9-scroll::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+.fp-root .i9-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.fp-root .i9-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-surface-3);
+  border-radius: 999px;
+  border: 3px solid var(--color-surface-1);
+}
+.fp-root .i9-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-300);
+}
+
+.fp-root .eyebrow {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--color-ink-500);
+}
+
+@keyframes i9-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.fp-root .i9-skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-2) 25%,
+    var(--color-surface-1) 37%,
+    var(--color-surface-2) 63%
+  );
+  background-size: 200% 100%;
+  animation: i9-shimmer 1200ms ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .fp-root .rm-fade {
+    transition: opacity 100ms linear !important;
+  }
+  .fp-root .i9-skeleton {
+    background: var(--color-surface-2);
+  }
+}
+
+@media (prefers-contrast: more) {
+  .fp-root .fp-status {
+    fill-opacity: 0.24 !important;
+  }
+  .fp-root .fp-outline {
+    stroke-width: 2;
+  }
+}
