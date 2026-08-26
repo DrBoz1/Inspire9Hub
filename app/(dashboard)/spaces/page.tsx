@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import BookingMap from "@/features/booking-map/App";
+import BookingMap from "@/features/booking-map/BookingMapClient";
 
 export const metadata: Metadata = {
   title: "Floor Plan | Inspire9 Hub",

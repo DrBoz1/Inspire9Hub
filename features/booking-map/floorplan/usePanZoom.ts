@@ -5,6 +5,34 @@ export interface Box { x: number; y: number; w: number; h: number }
 
 const IDENTITY: Transform = { k: 1, x: 0, y: 0 };
 
+/**
+ * Keep the plan inside the frame.
+ *
+ * The group renders as `translate(x y) scale(k)`, so a plan point p lands at
+ * x + p*k, and the visible frame is the viewBox itself. Zoomed in (k > 1) the
+ * drawing is wider than the frame, so translation is free within the overhang
+ * but neither edge may travel inside the frame -- that is what stops the plan
+ * being dragged off into empty space. Zoomed out (k < 1) it is smaller than the
+ * frame and there is nothing to choose: centre it.
+ *
+ * Only `k` was clamped before this; x and y were accumulated raw, which is why
+ * the plan could be dragged anywhere.
+ */
+function clampPan(t: Transform, vb: Box): Transform {
+  const loX = (vb.x + vb.w) * (1 - t.k);
+  const hiX = vb.x * (1 - t.k);
+  const loY = (vb.y + vb.h) * (1 - t.k);
+  const hiY = vb.y * (1 - t.k);
+
+  return {
+    k: t.k,
+    x: loX <= hiX ? Math.min(hiX, Math.max(loX, t.x)) : (vb.x + vb.w / 2) * (1 - t.k),
+    y: loY <= hiY ? Math.min(hiY, Math.max(loY, t.y)) : (vb.y + vb.h / 2) * (1 - t.k),
+  };
+}
+
+
+
 export interface PanZoomOptions {
   /** The SVG's viewBox — the transform is expressed in these units. */
   viewBox: Box;
@@ -97,8 +125,9 @@ export function usePanZoom({ viewBox, min = 0.6, max = 14, duration = 480 }: Pan
       const ux = (anchor.x - cur.x) / cur.k;
       const uy = (anchor.y - cur.y) / cur.k;
       const next = { k, x: anchor.x - ux * k, y: anchor.y - uy * k };
-      if (animate) animateTo(next);
-      else setT(next);
+      const bounded = clampPan(next, viewBox);
+      if (animate) animateTo(bounded);
+      else setT(bounded);
     },
     [animateTo, clampK, stopAnim, toLocal, viewBox],
   );
@@ -156,7 +185,7 @@ export function usePanZoom({ viewBox, min = 0.6, max = 14, duration = 480 }: Pan
       // Convert screen delta → viewBox delta using the rendered scale.
       const s = Math.min(rect.width / viewBox.w, rect.height / viewBox.h) || 1;
       stopAnim();
-      setT((cur) => ({ ...cur, x: cur.x + dx / s, y: cur.y + dy / s }));
+      setT((cur) => clampPan({ ...cur, x: cur.x + dx / s, y: cur.y + dy / s }, viewBox));
     },
     [stopAnim, viewBox, zoomAt],
   );
@@ -205,7 +234,7 @@ export function usePanZoom({ viewBox, min = 0.6, max = 14, duration = 480 }: Pan
         const rect = svg.getBoundingClientRect();
         const s = Math.min(rect.width / viewBox.w, rect.height / viewBox.h) || 1;
         stopAnim();
-        setT((cur) => ({ ...cur, x: cur.x - e.deltaX / s, y: cur.y - e.deltaY / s }));
+        setT((cur) => clampPan({ ...cur, x: cur.x - e.deltaX / s, y: cur.y - e.deltaY / s }, viewBox));
         return;
       }
       const intensity = e.ctrlKey || e.metaKey ? 0.01 : 0.0022;

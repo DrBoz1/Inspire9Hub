@@ -70,12 +70,15 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
       const [f, t] = clampWindow(from, Math.max(m, from + SLOT));
       onChange(f, t);
     } else {
+      // Slide the whole window, keeping its length. This used to clamp twice --
+      // clampWindow pins the start against `hi - SLOT`, then the line below
+      // pinned it again against `hi - width`. With a window longer than one slot
+      // the two disagree, so dragging near the end of the day snapped the window
+      // to one bound and then the other: the jump you can see. One clamp only.
       const width = to - from;
-      const start = m - drag.grabOffset;
-      const [f] = clampWindow(start, start + width);
       const lo = hours.open ?? DAY_START;
       const hi = hours.close ?? DAY_END;
-      const nf = Math.max(lo, Math.min(f, hi - width));
+      const nf = Math.max(lo, Math.min(m - drag.grabOffset, hi - width));
       onChange(nf, nf + width);
     }
   };

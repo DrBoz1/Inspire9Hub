@@ -39,9 +39,16 @@ export function ScheduleView({
           className="sticky top-0 z-20 flex border-b"
           style={{ background: 'var(--color-surface-0)', borderColor: 'var(--color-border)' }}
         >
+          {/* Pinned: at narrow widths the grid scrolls sideways, and an unpinned
+              name column slides out of view under the sidebar. z-30 keeps it above
+              the row cells it overlaps while scrolling. */}
           <div
-            className="w-60 shrink-0 border-r px-3 py-2 text-[12px] font-semibold"
-            style={{ borderColor: 'var(--color-border)', color: 'var(--color-ink-500)' }}
+            className="sticky left-0 z-30 w-60 shrink-0 border-r px-3 py-2 text-[12px] font-semibold"
+            style={{
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-ink-500)',
+              background: 'var(--color-surface-0)',
+            }}
           >
             Space
           </div>
@@ -79,8 +86,18 @@ export function ScheduleView({
             >
               <button
                 onClick={() => onSelect(s.id)}
-                className="flex w-60 shrink-0 items-center gap-2 border-r px-3 text-left"
-                style={{ borderColor: 'var(--color-border)', height: ROW_H }}
+                className="sticky left-0 z-20 flex w-60 shrink-0 items-center gap-2 border-r px-3 text-left"
+                style={{
+                  borderColor: 'var(--color-border)',
+                  height: ROW_H,
+                  // Opaque, and matching the row, so the timeline cannot bleed
+                  // through the pinned column as it scrolls underneath.
+                  background: isSel
+                    ? 'var(--color-brand-wash)'
+                    : hoveredId === s.id
+                      ? 'var(--color-surface-2)'
+                      : 'var(--color-surface-0)',
+                }}
               >
                 <StatusSwatch status={st} size={12} />
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold" style={{ color: 'var(--color-ink-900)' }}>
