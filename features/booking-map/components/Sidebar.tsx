@@ -32,14 +32,16 @@ interface Props {
   onSelect: (id: string) => void;
   onHover: (id: string | null) => void;
   searchRef?: React.RefObject<HTMLInputElement | null>;
+  /** Rendered above the count line. The legend lives here when the sidebar is
+      open, instead of floating over the drawing. */
+  footer?: React.ReactNode;
 }
 
 const FILTER_AMENITIES: Amenity[] = ['whiteboard', 'av', 'video', 'display', 'standing', 'monitor', 'accessible', 'quiet'];
 
 export function Sidebar({
   spaces, matching, status, subline, filters, onFilters,
-  selectedId, hoveredId, onSelect, onHover, searchRef,
-}: Props) {
+  selectedId, hoveredId, onSelect, onHover, searchRef, footer}: Props) {
   const [showAdvanced, setShowAdvanced] = useState(false);
 
   const grouped = useMemo(() => {
@@ -270,6 +272,12 @@ export function Sidebar({
           ))
         )}
       </div>
+
+      {footer && (
+        <div className="shrink-0 border-t px-3 py-2" style={{ borderColor: 'var(--color-border-subtle)' }}>
+          {footer}
+        </div>
+      )}
 
       <div
         className="shrink-0 border-t px-3 py-2 text-[12px]"

@@ -82,6 +82,15 @@ export default function App() {
   const [date, setDate] = useState(initialDate);
   const [[from, to], setWindow] = useState<[number, number]>(() => defaultWindow(initialDate()));
   const [view, setView] = useState<ViewMode>('map');
+  // The schedule already names every space down its left edge, so the sidebar is a
+  // second copy of the same list eating the width the grid needs. Collapse it when
+  // switching to schedule, restore it for the map -- still manually togglable, so
+  // the filters stay reachable in either view.
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const changeView = useCallback((v: ViewMode) => {
+    setView(v);
+    setSidebarOpen(v === 'map');
+  }, []);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [hiddenStatuses, setHiddenStatuses] = useState<Availability[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -303,7 +312,14 @@ export default function App() {
     // shadcn controls resolve the hub's tokens and Poppins. .fp-root starts below
     // it, where --color-border, --font-sans and the rest become the drawing's.
     <div className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
-      <TopBar date={date} onDateChange={changeDate} view={view} onViewChange={setView} />
+      <TopBar
+        date={date}
+        onDateChange={changeDate}
+        view={view}
+        onViewChange={changeView}
+        sidebarOpen={sidebarOpen}
+        onToggleSidebar={() => setSidebarOpen((o) => !o)}
+      />
       <div className="fp-root flex min-h-0 flex-1 flex-col">
       {/* Map only: ScheduleView draws its own hour axis, and two unaligned time
           scales for the same day is the single most confusing thing on screen. */}
@@ -343,7 +359,7 @@ export default function App() {
       )}
 
       <div className="flex min-h-0 flex-1">
-        {!compact && (
+        {!compact && sidebarOpen && (
         <Sidebar
           spaces={SPACES}
           matching={matching}
@@ -356,6 +372,13 @@ export default function App() {
           onSelect={select}
           onHover={setHoveredId}
           searchRef={searchRef}
+          footer={<Legend
+              counts={counts}
+              hidden={hiddenStatuses}
+              onToggle={(s) =>
+                setHiddenStatuses((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
+              }
+            />}
         />
         )}
 
@@ -395,7 +418,13 @@ export default function App() {
 
               <div className="pointer-events-none absolute inset-0 p-3 sm:p-6">
                 <div className="relative h-full w-full">
-                  <div className={`pointer-events-auto absolute bottom-4 left-4 ${compact ? 'hidden' : ''}`}>
+                  {/* Only float the legend when the sidebar isn't carrying it --
+                      otherwise it sits on top of the drawing and collides with it. */}
+                  <div
+                    className={`pointer-events-auto absolute bottom-4 left-4 ${
+                      compact || sidebarOpen ? 'hidden' : ''
+                    }`}
+                  >
                     <Legend
                       counts={counts}
                       hidden={hiddenStatuses}

@@ -1,6 +1,6 @@
 "use client";
 
-import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Map as MapIcon } from "lucide-react";
+import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Map as MapIcon, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -15,6 +15,8 @@ interface Props {
   onDateChange: (d: string) => void;
   view: ViewMode;
   onViewChange: (v: ViewMode) => void;
+  sidebarOpen: boolean;
+  onToggleSidebar: () => void;
 }
 
 /**
@@ -30,7 +32,7 @@ interface Props {
  * that, and duplicating them was what made the embedded map feel like a second app
  * bolted onto the first.
  */
-export function TopBar({ date, onDateChange, view, onViewChange }: Props) {
+export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, onToggleSidebar }: Props) {
   const rel = relativeDay(date);
   const isToday = date === todayKey();
 
@@ -39,10 +41,32 @@ export function TopBar({ date, onDateChange, view, onViewChange }: Props) {
     // the map still renders if it is ever mounted outside that layout.
     <TooltipProvider delayDuration={300}>
     <header className="flex h-14 shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 sm:gap-4 sm:px-4 dark:border-slate-800 dark:bg-slate-900">
-      {/* Which floor — genuine context, not branding */}
-      <span className="hidden min-w-0 flex-1 truncate text-[13px] font-medium text-slate-400 lg:block dark:text-slate-500">
-        Level 1 · Cremorne
-      </span>
+      <div className="flex min-w-0 flex-1 items-center gap-2">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="hidden h-8 w-8 shrink-0 rounded-lg lg:inline-flex"
+              aria-label={sidebarOpen ? "Hide space list" : "Show space list"}
+              aria-pressed={sidebarOpen}
+              onClick={onToggleSidebar}
+            >
+              {sidebarOpen ? (
+                <PanelLeftClose className="h-4 w-4" />
+              ) : (
+                <PanelLeftOpen className="h-4 w-4" />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{sidebarOpen ? "Hide space list" : "Show space list"}</TooltipContent>
+        </Tooltip>
+
+        {/* Which floor — genuine context, not branding */}
+        <span className="hidden truncate text-[13px] font-medium text-slate-400 lg:block dark:text-slate-500">
+          Level 1 · Cremorne
+        </span>
+      </div>
 
       {/* Date navigation */}
       <div className="flex shrink-0 items-center gap-1">
