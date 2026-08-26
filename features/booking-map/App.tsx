@@ -299,11 +299,15 @@ export default function App() {
   const mapLabel = `Inspire9 Level 1 floor plan, ${date}, ${formatRange(from, to)}`;
 
   return (
-    // fp-root scopes every token and base rule in floorplan.css to this subtree.
-    // h-full (not h-screen/w-screen as in the standalone app) so the map fills
-    // whatever container the host page gives it, rather than the viewport.
-    <div className="fp-root flex h-full w-full flex-col overflow-hidden">
-      <TopBar date={date} onDateChange={changeDate} view={view} onViewChange={setView} memberName={MEMBER} />
+    // Two scopes on purpose. The outer div is plain hub styling, so TopBar's
+    // shadcn controls resolve the hub's tokens and Poppins. .fp-root starts below
+    // it, where --color-border, --font-sans and the rest become the drawing's.
+    <div className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
+      <TopBar date={date} onDateChange={changeDate} view={view} onViewChange={setView} />
+      <div className="fp-root flex min-h-0 flex-1 flex-col">
+      {/* Map only: ScheduleView draws its own hour axis, and two unaligned time
+          scales for the same day is the single most confusing thing on screen. */}
+      {view === 'map' && (
       <TimeRail
         date={date}
         from={from}
@@ -319,6 +323,7 @@ export default function App() {
           </>
         }
       />
+      )}
 
       {isClosed(date) && (
         <div
@@ -354,7 +359,7 @@ export default function App() {
         />
         )}
 
-        <main className="relative min-w-0 flex-1" style={{ background: 'var(--color-mat)' }}>
+        <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden" style={{ background: 'var(--color-mat)' }}>
           {view === 'map' ? (
             <>
               {/* The sheet takes the plan's own aspect ratio, so the paper is a
@@ -544,6 +549,7 @@ export default function App() {
 
       <div aria-live="polite" aria-atomic="true" className="sr-only">
         {announcement}
+      </div>
       </div>
     </div>
   );

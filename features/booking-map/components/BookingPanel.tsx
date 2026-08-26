@@ -299,14 +299,28 @@ export function BookingPanel({
               Cancel your {formatRange(myBooking.from, myBooking.to)} booking
             </Button>
           ) : (
-            <Button
-              variant="primary"
-              className="w-full"
-              disabled={!!error}
-              onClick={() => onBook(space, title.trim() || (space.kind === 'desk' ? 'Desk booking' : 'Booking'))}
-            >
-              {error ? 'Unavailable' : `Book · ${formatDuration(duration)}`}
-            </Button>
+            <>
+              {/* The full explanation sits at the top of the panel, which scrolls out
+                  of view by the time you reach this button. Without a reason here a
+                  disabled "Unavailable" just reads as a broken button. */}
+              {error && (
+                <p
+                  className="mb-2 text-center text-[12px] font-medium"
+                  style={{ color: 'var(--color-danger-ink)' }}
+                  role="status"
+                >
+                  {error.message}
+                </p>
+              )}
+              <Button
+                variant="primary"
+                className="w-full"
+                disabled={!!error}
+                onClick={() => onBook(space, title.trim() || (space.kind === 'desk' ? 'Desk booking' : 'Booking'))}
+              >
+                {error ? 'Unavailable' : `Book · ${formatDuration(duration)}`}
+              </Button>
+            </>
           )}
           <p className="mt-1.5 text-center text-[12px]" style={{ color: 'var(--color-ink-500)' }}>
             Booking as {memberName}

@@ -34,7 +34,7 @@ export function ScheduleView({
 
   return (
     <div className="i9-scroll h-full overflow-auto" style={{ background: 'var(--color-surface-1)' }}>
-      <div className="min-w-[900px]">
+      <div className="min-w-[1240px]">
         <div
           className="sticky top-0 z-20 flex border-b"
           style={{ background: 'var(--color-surface-0)', borderColor: 'var(--color-border)' }}

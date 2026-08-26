@@ -104,10 +104,13 @@
   --color-cat-amenity-wash: #ebedef;
 
   /* brand & feedback */
-  --color-brand: #1e5f5b;
-  --color-brand-hover: #17514e;
-  --color-brand-press: #144442;
-  --color-brand-wash: #e8f0ef;
+  /* Inspire9 red. The standalone app shipped a teal accent; on the hub that read
+     as a different product. Status colours below are deliberately NOT rebranded --
+     green/amber/red there means available/busy/full, not "our colour". */
+  --color-brand: #e31e24;
+  --color-brand-hover: #c41a1f;
+  --color-brand-press: #a81619;
+  --color-brand-wash: #fdeced;
   --color-danger: #b3403d;
   --color-danger-ink: #9b3330;
   --color-danger-wash: #f7ecec;
