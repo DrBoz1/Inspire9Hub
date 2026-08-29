@@ -108,7 +108,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 760, y: 447, w: 324, h: 362 },
     label: 'inside',
     zone: 'Central Core',
-    amenities: ['av', 'whiteboard', 'hvac', 'display', 'catering'],
+    amenities: ['projector', 'whiteboard', 'ac', 'tv', 'catering'],
     description:
       '20-person training and class room with AV media, wall whiteboard, independent heating & cooling and modular tables that reconfigure for workshops, all-hands or exam layout.',
     minMinutes: 60,
@@ -126,7 +126,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 760, y: 809, w: 167, h: 146 },
     label: 'inside',
     zone: 'Central Core',
-    amenities: ['video', 'whiteboard', 'display'],
+    amenities: ['video_conf', 'whiteboard', 'tv'],
     description: 'Enclosed 6-person meeting room with round table, video bar and glass frontage onto the training corridor.',
     minMinutes: 30,
     maxMinutes: 4 * 60,
@@ -143,7 +143,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 927, y: 809, w: 157, h: 146 },
     label: 'inside',
     zone: 'Central Core',
-    amenities: ['video', 'whiteboard', 'display'],
+    amenities: ['video_conf', 'whiteboard', 'tv'],
     description: 'Paired 6-person meeting room beside MR-A. Round table, 4K display and wireless casting.',
     minMinutes: 30,
     maxMinutes: 4 * 60,
@@ -161,7 +161,7 @@ export const SPACES: Space[] = [
     label: 'code',
     labelAt: [1779, 633],
     zone: 'East Wing',
-    amenities: ['video', 'quiet'],
+    amenities: ['video_conf', 'quiet'],
     description: 'Narrow 4-person room off the east corridor. High table, wall display — best for stand-up calls and 1:1s.',
     minMinutes: 30,
     maxMinutes: 3 * 60,
@@ -178,7 +178,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 1749, y: 731, w: 145, h: 194 },
     label: 'inside',
     zone: 'East Wing',
-    amenities: ['video', 'display', 'whiteboard'],
+    amenities: ['video_conf', 'tv', 'whiteboard'],
     description: 'East meeting room with round table for six, adjacent to the lounge pods and washrooms.',
     minMinutes: 30,
     maxMinutes: 4 * 60,
@@ -195,7 +195,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 1763, y: 925, w: 354, h: 218 },
     label: 'inside',
     zone: 'East Wing',
-    amenities: ['av', 'whiteboard', 'hvac', 'video', 'display', 'catering'],
+    amenities: ['projector', 'whiteboard', 'ac', 'video_conf', 'tv', 'catering'],
     description:
       '10-person boardroom with whiteboard, AV media and dedicated heating & cooling. Glazed to the lounge with a blind for privacy.',
     minMinutes: 60,
@@ -293,7 +293,7 @@ export const SPACES: Space[] = [
     shape: { t: 'rect', x: 1256, y: 638, w: 191, h: 321 },
     label: 'inside',
     zone: 'Central Core',
-    amenities: ['quiet', 'power', 'monitor', 'display'],
+    amenities: ['quiet', 'power', 'monitor', 'tv'],
     description: 'Combined suite: six workstations plus a sofa lounge and its own informal meeting corner.',
     minMinutes: 60,
     maxMinutes: 12 * 60,
@@ -491,17 +491,5 @@ export const BOOKABLE_SPACES = SPACES.filter((s) => s.bookable);
 
 export const SPACE_BY_ID = new Map(SPACES.map((s) => [s.id, s]));
 
-export const AMENITY_LABELS: Record<string, string> = {
-  whiteboard: 'Whiteboard',
-  av: 'AV media',
-  video: 'Video conferencing',
-  display: 'Display',
-  standing: 'Standing height',
-  monitor: 'Monitor',
-  power: 'Power & data',
-  daylight: 'Natural light',
-  accessible: 'Step-free access',
-  quiet: 'Acoustically treated',
-  hvac: 'Independent heating & cooling',
-  catering: 'Catering allowed',
-};
+// Labels come from lib/constants.ts now -- one vocabulary, one label table.
+export { AMENITY_LABELS } from '@/lib/constants';

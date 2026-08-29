@@ -43,7 +43,13 @@ jobs:
             next-${{ runner.os }}-
 
       - name: Typecheck
-        run: npx tsc --noEmit
+        run: npm run typecheck
+
+      # Blocking from the day it was added. The amenity vocabulary fails silently
+      # when it's wrong -- a bad key returns no rows rather than throwing -- so a
+      # red suite here has to stop the merge.
+      - name: Test
+        run: npm test
 
       # Currently 37 errors (31 of them @typescript-eslint/no-explicit-any), so
       # this reports without failing the run. A permanently red pipeline is worse

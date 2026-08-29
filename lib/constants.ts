@@ -38,6 +38,8 @@ export const DEFAULT_ROOM_IMAGE =
 // subset of these per room. Pricing, image, and the per-room subset all
 // live on the `workspaces` row now (price_per_hour, image_url, amenities).
 export const ALL_AMENITIES = [
+  // Original eight. These are the values already stored on every workspaces row,
+  // so their keys must never change -- the database holds them as plain text.
   { key: "whiteboard", label: "Whiteboard" },
   { key: "tv", label: "TV Screen" },
   { key: "projector", label: "Projector" },
@@ -46,4 +48,23 @@ export const ALL_AMENITIES = [
   { key: "video_conf", label: "Video Conferencing" },
   { key: "conf_phone", label: "Conference Phone" },
   { key: "catering", label: "Catering Access" },
+
+  // Added when the floor-plan map was folded in. The map described spaces with a
+  // second, overlapping vocabulary ('hvac' for ac, 'display' for tv, and so on);
+  // these six are the concepts it had that the hub genuinely lacked. Everything
+  // else it used now maps onto a key above -- see lib/amenities.ts.
+  { key: "power", label: "Power & Data" },
+  { key: "monitor", label: "Monitor" },
+  { key: "daylight", label: "Natural Light" },
+  { key: "quiet", label: "Acoustically Treated" },
+  { key: "standing", label: "Standing Height" },
+  { key: "accessible", label: "Step-Free Access" },
 ] as const;
+
+/** The canonical amenity key. One vocabulary, used by the database, the booking
+ *  pages, the assistant and the floor-plan map alike. */
+export type AmenityKey = (typeof ALL_AMENITIES)[number]["key"];
+
+export const AMENITY_LABELS: Record<AmenityKey, string> = Object.fromEntries(
+  ALL_AMENITIES.map((a) => [a.key, a.label]),
+) as Record<AmenityKey, string>;

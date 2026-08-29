@@ -1,3 +1,5 @@
+import type { AmenityKey } from '@/lib/constants';
+
 /** Domain types for the Inspire9 space-booking map. */
 
 export type SpaceKind =
@@ -16,19 +18,13 @@ export type SpaceKind =
 /** Top-level filter buckets shown as chips in the toolbar. */
 export type SpaceGroup = 'desks' | 'rooms' | 'offices' | 'facilities';
 
-export type Amenity =
-  | 'whiteboard'
-  | 'av'
-  | 'video'
-  | 'display'
-  | 'standing'
-  | 'monitor'
-  | 'power'
-  | 'daylight'
-  | 'accessible'
-  | 'quiet'
-  | 'hvac'
-  | 'catering';
+/**
+ * The map used to declare its own twelve amenity values. They only half-overlapped
+ * the hub's, so a database-backed space would have failed every filter silently.
+ * There is one vocabulary now, in lib/constants.ts; lib/amenities.ts translates the
+ * old values for anything still carrying them.
+ */
+export type Amenity = AmenityKey;
 
 export type Shape =
   | { t: 'rect'; x: number; y: number; w: number; h: number; r?: number }

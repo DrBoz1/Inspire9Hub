@@ -37,7 +37,11 @@ interface Props {
   footer?: React.ReactNode;
 }
 
-const FILTER_AMENITIES: Amenity[] = ['whiteboard', 'av', 'video', 'display', 'standing', 'monitor', 'accessible', 'quiet'];
+// Canonical keys (lib/constants.ts). Previously the map's own vocabulary, which
+// no space will carry once these come from the database.
+const FILTER_AMENITIES: Amenity[] = [
+  'whiteboard', 'projector', 'video_conf', 'tv', 'standing', 'monitor', 'accessible', 'quiet',
+];
 
 export function Sidebar({
   spaces, matching, status, subline, filters, onFilters,
