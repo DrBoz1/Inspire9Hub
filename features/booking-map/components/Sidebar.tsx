@@ -187,7 +187,10 @@ export function Sidebar({
       </div>
 
       <div className="i9-scroll min-h-0 flex-1 overflow-y-auto">
-        {bookableMatches === 0 ? (
+        {/* "No spaces match these filters" is only true when there are bookable
+            spaces for the filters to have excluded. Before any room is placed on
+            the plan there are none, and the list below explains that per space. */}
+        {bookableMatches === 0 && spaces.some((x) => x.bookable) ? (
           <div className="px-6 py-10 text-center">
             <div
               aria-hidden
@@ -258,7 +261,9 @@ export function Sidebar({
                           >
                             {s.bookable
                               ? `${s.capacity} ${s.capacity === 1 ? 'seat' : 'seats'} · ${subline.get(s.id) ?? STATUS_LABEL[st]}`
-                              : 'Not bookable'}
+                              : s.unlinked
+                                ? 'Not open for booking yet'
+                                : 'Not bookable'}
                           </span>
                         </span>
                         <span

@@ -63,7 +63,9 @@ export function FloorPlan({
   const invScale = 1 / (k * renderScale);
 
   const bookable = useMemo(() => spaces.filter((s) => s.bookable), [spaces]);
-  const ordered = useMemo(() => readingOrder(bookable), [bookable]);
+  // Unlinked spaces can't be booked but can still be opened.
+  const selectable = useMemo(() => spaces.filter((s) => s.bookable || s.unlinked), [spaces]);
+  const ordered = useMemo(() => readingOrder(selectable), [selectable]);
   const navigable = useMemo(
     () => ordered.filter((s) => visible.has(s.id)),
     [ordered, visible],
@@ -266,6 +268,7 @@ export function FloorPlan({
           <g role="group" aria-label="Bookable spaces">
             {spaces.map((s) => {
               const isVisible = visible.has(s.id);
+              const canSelect = s.bookable || !!s.unlinked;
               const st = s.bookable ? status.get(s.id) ?? 'available' : 'closed';
               const selected = selectedId === s.id;
               const hovered = hoveredId === s.id;
@@ -279,15 +282,15 @@ export function FloorPlan({
                   data-bookable={s.bookable}
                   data-hovered={hovered}
                   data-selected={selected}
-                  role={s.bookable ? 'button' : 'img'}
+                  role={canSelect ? 'button' : 'img'}
                   aria-label={ariaLabels.get(s.id) ?? s.name}
-                  aria-pressed={s.bookable ? selected : undefined}
+                  aria-pressed={canSelect ? selected : undefined}
                   aria-disabled={!isVisible || undefined}
-                  tabIndex={s.bookable && isVisible && rovingId === s.id ? 0 : -1}
+                  tabIndex={canSelect && isVisible && rovingId === s.id ? 0 : -1}
                   onFocus={() => setFocusId(s.id)}
                   onPointerEnter={() => isVisible && onHover(s.id)}
                   onPointerLeave={() => onHover(null)}
-                  onClick={() => isVisible && s.bookable && handleClick(s.id)}
+                  onClick={() => isVisible && canSelect && handleClick(s.id)}
                   style={{ outline: 'none', display: isVisible ? undefined : 'none' }}
                 >
                   {selected && <path className="fp-halo" d={d} />}
@@ -306,7 +309,7 @@ export function FloorPlan({
                     stroke="transparent"
                     strokeWidth={12}
                     vectorEffect="non-scaling-stroke"
-                    pointerEvents={isVisible && s.bookable ? 'all' : 'none'}
+                    pointerEvents={isVisible && canSelect ? 'all' : 'none'}
                   />
                 </g>
               );

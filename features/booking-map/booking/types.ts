@@ -54,6 +54,11 @@ export interface Space {
   maxMinutes?: number;
   /** Cost per hour in AUD; 0 = included with membership. */
   ratePerHour?: number;
+  /** The `workspaces` row this space books. Absent = no room is linked to it yet. */
+  workspaceId?: string;
+  /** Drawn on the plan but not linked to a room an admin has set up, so it can't be
+   *  booked. Kept distinct from `bookable: false`, which is a kitchen or stairwell. */
+  unlinked?: boolean;
 }
 
 export interface Booking {

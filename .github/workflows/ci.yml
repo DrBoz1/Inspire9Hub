@@ -51,6 +51,20 @@ jobs:
       - name: Test
         run: npm test
 
+      # The booking map converts between Melbourne wall-clock time and UTC. Code
+      # that accidentally reads the machine's own clock passes on a machine whose
+      # zone happens to match -- the author's does, in winter. So the whole suite
+      # runs again under zones chosen to break that: negative offset, a half-hour
+      # offset, the +14 date-line extreme, and Santiago, whose clocks change at
+      # midnight so "local midnight" sometimes doesn't exist.
+      - name: Test under hostile timezones
+        run: |
+          for tz in UTC America/New_York Asia/Kolkata Pacific/Kiritimati America/Santiago; do
+            echo "::group::TZ=$tz"
+            TZ=$tz npx vitest run || exit 1
+            echo "::endgroup::"
+          done
+
       # Currently 37 errors (31 of them @typescript-eslint/no-explicit-any), so
       # this reports without failing the run. A permanently red pipeline is worse
       # than no pipeline — it teaches everyone to ignore the X. Delete the

@@ -1,18 +1,20 @@
 'use client';
 
-// The map drives ResizeObserver, matchMedia, pointer events and localStorage,
+// The map measures itself with ResizeObserver and runs on pointer events,
 // so it can only run in the browser.
 import './floorplan.css';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { List, Maximize2, Minus, Plus, X } from 'lucide-react';
 import type { Availability, Booking, Space } from './booking/types';
 import { SPACES } from './data/spaces';
-import { generateBookings } from './data/seedBookings';
+import { mergeSpaces, planIdByWorkspace, toMapBookings, type DayBookingRow, type WorkspaceRow } from './adapter';
+import { getMapDay } from './actions';
+import { HUB_TIMEZONE } from '@/lib/datetime';
 import { addDays } from './booking/time';
 import {
   availabilityOf, bookingsOnDay, DAY_END, formatDateLong, formatRange, formatTime, freeGaps,
-  isClosed, makeISO, nextAvailableStart, nowMinutes, openingFor, SLOT, todayKey, validateBooking,
+  isClosed, nextAvailableStart, nowMinutes, openingFor, SLOT, todayKey,
 } from './booking/time';
 import { FloorPlan, type Camera } from './floorplan/FloorPlan';
 import { TopBar, type ViewMode } from './components/TopBar';
@@ -26,25 +28,43 @@ import { KIND_META } from './data/spaces';
 import { computeLayout, toggleSidebar as nextSidebar } from './layout';
 import { useElementWidth } from './useElementWidth';
 
-const MEMBER = 'Hesam';
-const STORE_KEY = 'i9.bookings.v1';
-
-interface Persisted {
-  mine: Booking[];
-  cancelled: string[];
+export interface MapProps {
+  /** `workspaces` rows as the page loaded them. May predate the floor-plan columns. */
+  workspaces: WorkspaceRow[];
+  /** Shown as "Booking as ...". */
+  memberName: string;
+  /** Set when the rooms themselves couldn't be loaded. */
+  roomsError: string | null;
 }
 
-function loadPersisted(): Persisted {
-  try {
-    const raw = localStorage.getItem(STORE_KEY);
-    if (raw) {
-      const p = JSON.parse(raw) as Persisted;
-      if (Array.isArray(p.mine) && Array.isArray(p.cancelled)) return p;
-    }
-  } catch {
-    /* storage unavailable or corrupt — start clean */
-  }
-  return { mine: [], cancelled: [] };
+/** A one-line strip under the time rail: something the member should know. */
+function Notice({
+  tone = 'info',
+  children,
+  action,
+}: {
+  tone?: 'info' | 'danger';
+  children: ReactNode;
+  action?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div
+      role={tone === 'danger' ? 'alert' : 'status'}
+      className="flex shrink-0 items-center gap-2 px-4 py-1.5 text-[13px]"
+      style={
+        tone === 'danger'
+          ? { background: 'var(--color-danger-wash)', color: 'var(--color-danger-ink)' }
+          : { background: 'var(--color-surface-2)', color: 'var(--color-ink-600)' }
+      }
+    >
+      <span className="min-w-0 flex-1">{children}</span>
+      {action && (
+        <button onClick={action.onClick} className="shrink-0 rounded px-2 py-0.5 font-semibold underline">
+          {action.label}
+        </button>
+      )}
+    </div>
+  );
 }
 
 /** First day strictly after `date` that Inspire9 is open. */
@@ -79,7 +99,7 @@ function defaultWindow(date: string): [number, number] {
   return [from, Math.min(from + 60, close)];
 }
 
-export default function App() {
+export default function App({ workspaces, memberName, roomsError }: MapProps) {
   const [date, setDate] = useState(initialDate);
   const [[from, to], setWindow] = useState<[number, number]>(() => defaultWindow(initialDate()));
   const [view, setView] = useState<ViewMode>('map');
@@ -116,36 +136,59 @@ export default function App() {
   const layout = computeLayout(width ?? 0, layoutState);
   const compact = layout.compact;
 
-  const [persisted, setPersisted] = useState<Persisted>(loadPersisted);
-  const seed = useMemo(() => generateBookings(), []);
   const cameraRef = useRef<Camera | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
 
+  // The drawing, joined to the rooms admins have set up. See adapter.ts.
+  const { spaces, linkedCount, problems } = useMemo(() => mergeSpaces(SPACES, workspaces), [workspaces]);
   useEffect(() => {
-    try {
-      localStorage.setItem(STORE_KEY, JSON.stringify(persisted));
-    } catch {
-      /* ignore — bookings still live in memory for this session */
-    }
-  }, [persisted]);
+    if (problems.length) console.warn('[floor plan] data problems:\n' + problems.join('\n'));
+  }, [problems]);
 
-  const bookings = useMemo(() => {
-    const cancelled = new Set(persisted.cancelled);
-    return [...seed, ...persisted.mine].filter((b) => !cancelled.has(b.id));
-  }, [persisted, seed]);
+  // Real bookings, one hub-local day at a time. Each result records the date it
+  // belongs to, so a slow response for Tuesday can never overwrite Wednesday's
+  // after the member has moved on: a result for any other date is ignored.
+  type DayState = { for: string; rows: DayBookingRow[] } | { for: string; error: string };
+  const [dayData, setDayData] = useState<DayState | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  useEffect(() => {
+    let live = true;
+    getMapDay(date).then(
+      (r) => {
+        if (live) setDayData(r.ok ? { for: r.day, rows: r.rows } : { for: r.day, error: r.error });
+      },
+      () => {
+        if (live) setDayData({ for: date, error: 'Couldn’t reach the server. Check your connection and try again.' });
+      },
+    );
+    return () => {
+      live = false;
+    };
+  }, [date, reloadKey]);
+
+  const current = dayData && dayData.for === date ? dayData : null;
+  const loading = current === null;
+  const dayError = current && 'error' in current ? current.error : null;
+  const bookings = useMemo(
+    () =>
+      current && 'rows' in current
+        ? toMapBookings(current.rows, date, HUB_TIMEZONE, planIdByWorkspace(spaces)).bookings
+        : [],
+    [current, date, spaces],
+  );
 
   // ── availability for the selected window ─────────────────────────────────
   const win = useMemo(() => ({ date, from, to }), [date, from, to]);
 
   const status = useMemo(() => {
     const m = new Map<string, Availability>();
-    for (const s of SPACES) m.set(s.id, availabilityOf(s, bookings, win));
+    for (const s of spaces) m.set(s.id, availabilityOf(s, bookings, win));
     return m;
-  }, [bookings, win]);
+  }, [bookings, spaces, win]);
 
   const subline = useMemo(() => {
     const m = new Map<string, string>();
-    for (const s of SPACES) {
+    for (const s of spaces) {
       if (!s.bookable) continue;
       const st = status.get(s.id)!;
       const day = bookingsOnDay(bookings, s.id, date);
@@ -166,11 +209,11 @@ export default function App() {
       }
     }
     return m;
-  }, [bookings, date, from, status, to, win]);
+  }, [bookings, date, from, spaces, status, to, win]);
 
   const ariaLabels = useMemo(() => {
     const m = new Map<string, string>();
-    for (const s of SPACES) {
+    for (const s of spaces) {
       if (!s.bookable) {
         m.set(s.id, `${s.name}. ${KIND_META[s.kind].label}, not bookable. ${s.zone}.`);
         continue;
@@ -184,12 +227,12 @@ export default function App() {
       );
     }
     return m;
-  }, [from, status, subline, to]);
+  }, [from, spaces, status, subline, to]);
 
   // ── filtering ────────────────────────────────────────────────────────────
   const matching = useMemo(() => {
     const q = filters.q.trim().toLowerCase();
-    return SPACES.filter((s) => {
+    return spaces.filter((s) => {
       if (filters.groups.length && !filters.groups.includes(s.group)) return false;
       if (filters.minCapacity > 0 && s.capacity < filters.minCapacity) return false;
       if (filters.amenities.length && !filters.amenities.every((a) => s.amenities.includes(a))) return false;
@@ -199,7 +242,7 @@ export default function App() {
       }
       return true;
     });
-  }, [filters]);
+  }, [filters, spaces]);
 
   const visible = useMemo(() => {
     const set = new Set<string>();
@@ -220,7 +263,7 @@ export default function App() {
     return c;
   }, [matching, status]);
 
-  const selected = selectedId ? SPACES.find((s) => s.id === selectedId) ?? null : null;
+  const selected = selectedId ? spaces.find((s) => s.id === selectedId) ?? null : null;
 
   // ── handlers ─────────────────────────────────────────────────────────────
   const changeWindow = useCallback(
@@ -254,36 +297,15 @@ export default function App() {
     cameraRef.current?.focus(id);
   }, []);
 
-  const book = useCallback(
-    (space: Space, title: string) => {
-      const err = validateBooking(space, bookings, { date, from, to });
-      if (err) {
-        setAnnouncement(err.message);
-        return;
-      }
-      const booking: Booking = {
-        id: `mine-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
-        spaceId: space.id,
-        start: makeISO(date, from),
-        end: makeISO(date, to),
-        title,
-        owner: MEMBER,
-        mine: true,
-      };
-      setPersisted((p) => ({ ...p, mine: [...p.mine, booking] }));
-      setJustBooked(booking);
-      setAnnouncement(`Booked. ${space.name}, ${formatRange(from, to)}.`);
-    },
-    [bookings, date, from, to],
-  );
-
-  const cancel = useCallback((id: string) => {
-    setPersisted((p) => ({
-      mine: p.mine.filter((b) => b.id !== id),
-      cancelled: p.cancelled.includes(id) ? p.cancelled : [...p.cancelled, id],
-    }));
-    setJustBooked(null);
-    setAnnouncement('Booking cancelled.');
+  // Booking from the plan is switched on in the next step, through the same server
+  // action, Stripe checkout and overlap constraint as the Bookings page. Until then
+  // the map is read-only rather than pretending: the standalone app "booked" into
+  // localStorage, where nothing else could ever see it.
+  const book = useCallback((space: Space) => {
+    setAnnouncement(`Booking ${space.name} from the floor plan isn’t switched on yet. Use Bookings for now.`);
+  }, []);
+  const cancel = useCallback(() => {
+    setAnnouncement('Manage your bookings from the Bookings page.');
   }, []);
 
   // ── global shortcuts (§7.3) ──────────────────────────────────────────────
@@ -333,7 +355,7 @@ export default function App() {
   );
   const sidebarEl = (
     <Sidebar
-      spaces={SPACES}
+      spaces={spaces}
       matching={matching}
       status={status}
       subline={subline}
@@ -387,12 +409,16 @@ export default function App() {
         onChange={changeWindow}
         onJumpNow={jumpNow}
         summary={
-          <>
-            <span className="tnum font-semibold" style={{ color: 'var(--color-status-available-ink)' }}>
-              {counts.available}
-            </span>{' '}
-            available
-          </>
+          loading ? (
+            <span>Loading bookings…</span>
+          ) : (
+            <>
+              <span className="tnum font-semibold" style={{ color: 'var(--color-status-available-ink)' }}>
+                {counts.available}
+              </span>{' '}
+              available
+            </>
+          )
         }
       />
       )}
@@ -412,6 +438,20 @@ export default function App() {
             Go to the next open day
           </button>
         </div>
+      )}
+
+      {roomsError ? (
+        <Notice tone="danger">{roomsError}</Notice>
+      ) : linkedCount === 0 ? (
+        <Notice>
+          Rooms haven’t been placed on the floor plan yet, so nothing here can be booked.{' '}
+          <a href="/bookings" className="font-semibold underline underline-offset-2">Book from Bookings</a>
+        </Notice>
+      ) : null}
+      {dayError && (
+        <Notice tone="danger" action={{ label: 'Try again', onClick: () => setReloadKey((n) => n + 1) }}>
+          {dayError}
+        </Notice>
       )}
 
       <div className="relative flex min-h-0 flex-1">
@@ -452,7 +492,7 @@ export default function App() {
                   }}
                 >
                   <FloorPlan
-                    spaces={SPACES}
+                    spaces={spaces}
                     status={status}
                     visible={visible}
                     selectedId={selectedId}
@@ -537,7 +577,8 @@ export default function App() {
             from={from}
             to={to}
             bookings={bookings}
-            memberName={MEMBER}
+            memberName={memberName}
+            bookingEnabled={false}
             onClose={() => {
               setSelectedId(null);
               setJustBooked(null);
@@ -595,7 +636,8 @@ export default function App() {
             from={from}
             to={to}
             bookings={bookings}
-            memberName={MEMBER}
+            memberName={memberName}
+            bookingEnabled={false}
             onClose={() => {
               setSelectedId(null);
               setJustBooked(null);

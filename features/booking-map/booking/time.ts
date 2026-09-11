@@ -1,4 +1,6 @@
 import type { Availability, Booking, OpeningHours, Space, TimeWindow } from './types';
+import { HUB_TIMEZONE } from '@/lib/datetime';
+import { addDaysToKey, minutesNowIn, todayIn, weekdayOfKey } from '../zoned-time';
 
 /** Booking granularity, in minutes. */
 export const SLOT = 15;
@@ -31,23 +33,22 @@ export function fromDateKey(key: string): Date {
 }
 
 export function addDays(key: string, n: number): string {
-  const d = fromDateKey(key);
-  d.setDate(d.getDate() + n);
-  return toDateKey(d);
+  return addDaysToKey(key, n);
 }
 
+/** Today in Melbourne -- not on whatever clock the browser happens to be set to. */
 export function todayKey(): string {
-  return toDateKey(new Date());
+  return todayIn(HUB_TIMEZONE);
 }
 
 /** Local minutes-from-midnight, snapped up to the next slot. */
+/** Minutes past midnight in Melbourne, rounded up to the next slot. */
 export function nowMinutes(): number {
-  const d = new Date();
-  return Math.ceil((d.getHours() * 60 + d.getMinutes()) / SLOT) * SLOT;
+  return Math.ceil(minutesNowIn(HUB_TIMEZONE) / SLOT) * SLOT;
 }
 
 export function openingFor(dateKey: string): OpeningHours {
-  return OPENING[fromDateKey(dateKey).getDay()];
+  return OPENING[weekdayOfKey(dateKey)];
 }
 
 export function isClosed(dateKey: string): boolean {

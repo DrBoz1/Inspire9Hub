@@ -33,6 +33,9 @@ interface Props {
   to: number;
   bookings: Booking[];
   memberName: string;
+  /** Off until booking from the plan goes through the real checkout. When off, the
+   *  panel points to the Bookings page instead of faking a booking. */
+  bookingEnabled: boolean;
   onClose: () => void;
   onChangeWindow: (from: number, to: number) => void;
   onBook: (space: Space, title: string) => void;
@@ -45,7 +48,7 @@ interface Props {
 }
 
 export function BookingPanel({
-  space, status, date, from, to, bookings, memberName,
+  space, status, date, from, to, bookings, memberName, bookingEnabled,
   onClose, onChangeWindow, onBook, onCancel, justBooked, onDismissConfirmation,
   variant = 'rail',
 }: Props) {
@@ -289,12 +292,41 @@ export function BookingPanel({
         </div>
       </div>
 
+      {space.unlinked && (
+        <div
+          className="shrink-0 border-t p-3"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
+        >
+          <p className="text-[12.5px] leading-5" style={{ color: 'var(--color-ink-600)' }}>
+            {space.name} isn’t open for booking yet.{' '}
+            <a href="/bookings" className="font-semibold underline underline-offset-2" style={{ color: 'var(--color-brand)' }}>
+              See rooms you can book
+            </a>
+          </p>
+        </div>
+      )}
+
       {space.bookable && (
         <div
           className="shrink-0 border-t p-3"
           style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
         >
-          {myBooking ? (
+          {!bookingEnabled ? (
+            <div
+              className="rounded-md px-3 py-2.5 text-[12.5px] leading-5"
+              style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-600)' }}
+              role="status"
+            >
+              {myBooking
+                ? `You have ${space.name} booked ${formatRange(myBooking.from, myBooking.to)}.`
+                : error
+                  ? error.message
+                  : `Free for ${formatDuration(duration)}. Booking straight from the floor plan is switched on in the next update.`}{' '}
+              <a href="/bookings" className="font-semibold underline underline-offset-2" style={{ color: 'var(--color-brand)' }}>
+                {myBooking ? 'Manage it in Bookings' : 'Book from Bookings'}
+              </a>
+            </div>
+          ) : myBooking ? (
             <Button variant="ghost" className="w-full" onClick={() => onCancel(myBooking.id)}>
               Cancel your {formatRange(myBooking.from, myBooking.to)} booking
             </Button>
@@ -322,10 +354,12 @@ export function BookingPanel({
               </Button>
             </>
           )}
-          <p className="mt-1.5 text-center text-[12px]" style={{ color: 'var(--color-ink-500)' }}>
-            Booking as {memberName}
-            {date === todayKey() ? '' : ` for ${formatDateLong(date)}`}
-          </p>
+          {bookingEnabled && (
+            <p className="mt-1.5 text-center text-[12px]" style={{ color: 'var(--color-ink-500)' }}>
+              Booking as {memberName}
+              {date === todayKey() ? '' : ` for ${formatDateLong(date)}`}
+            </p>
+          )}
         </div>
       )}
     </PanelShell>

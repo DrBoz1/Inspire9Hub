@@ -1,19 +1,21 @@
 "use client";
 
 import dynamic from "next/dynamic";
+// Type-only, so it's erased: importing App itself here would pull it into the
+// server-rendered bundle and defeat the dynamic import below.
+import type { MapProps } from "./App";
 
 /**
  * The map is rendered client-only, on purpose.
  *
- * It reads `matchMedia` (false on the server, real on the client) and seeds state
- * from `todayKey()` / `nowMinutes()`, which differ between the server render and
- * hydration. React saw the mismatch, discarded the whole tree and rebuilt it —
- * "Hydration failed because the server rendered HTML didn't match the client" —
- * which showed up as a flash of the desktop shell collapsing into the mobile one
- * on every load.
+ * It measures its own width and reads the hub's clock, both of which differ between
+ * the server render and hydration. React saw the mismatch, discarded the whole tree
+ * and rebuilt it — "Hydration failed because the server rendered HTML didn't match
+ * the client" — which showed up as a flash on every load.
  *
  * There is nothing to gain from server-rendering it: it is an interactive canvas
- * with no SEO value, driven entirely by pointer events and browser APIs.
+ * with no SEO value, driven entirely by pointer events and browser APIs. Its data
+ * is loaded on the server by the page and passed in as props.
  */
 const BookingMap = dynamic(() => import("./App"), {
   ssr: false,
@@ -29,6 +31,6 @@ const BookingMap = dynamic(() => import("./App"), {
   ),
 });
 
-export default function BookingMapClient() {
-  return <BookingMap />;
+export default function BookingMapClient(props: MapProps) {
+  return <BookingMap {...props} />;
 }
