@@ -42,6 +42,14 @@ describe('mergeSpaces: before anything is linked', () => {
     expect(problems).toEqual([]);
   });
 
+  it('shows no price or booking limits for a space no room backs', () => {
+    for (const s of spaces.filter((x) => x.unlinked)) {
+      expect(s.ratePerHour, s.id).toBeUndefined();
+      expect(s.minMinutes, s.id).toBeUndefined();
+      expect(s.maxMinutes, s.id).toBeUndefined();
+    }
+  });
+
   it('leaves kitchens and stairwells exactly as drawn', () => {
     for (const s of SPACES.filter((x) => !x.bookable)) {
       expect(spaces.find((x) => x.id === s.id)).toBe(s);

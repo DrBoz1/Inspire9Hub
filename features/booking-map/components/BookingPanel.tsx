@@ -36,6 +36,8 @@ interface Props {
   /** Off until booking from the plan goes through the real checkout. When off, the
    *  panel points to the Bookings page instead of faking a booking. */
   bookingEnabled: boolean;
+  /** Whether the day's bookings actually loaded. */
+  dayStatus: 'loading' | 'error' | 'ready';
   onClose: () => void;
   onChangeWindow: (from: number, to: number) => void;
   onBook: (space: Space, title: string) => void;
@@ -48,7 +50,7 @@ interface Props {
 }
 
 export function BookingPanel({
-  space, status, date, from, to, bookings, memberName, bookingEnabled,
+  space, status, date, from, to, bookings, memberName, bookingEnabled, dayStatus,
   onClose, onChangeWindow, onBook, onCancel, justBooked, onDismissConfirmation,
   variant = 'rail',
 }: Props) {
@@ -179,10 +181,13 @@ export function BookingPanel({
             <Meta label="Capacity" value={`${space.capacity} ${space.capacity === 1 ? 'person' : 'people'}`} />
             <Meta label="Zone" value={space.zone} />
             <Meta label="Reference" value={space.code} mono />
-            <Meta
-              label="Rate"
-              value={space.ratePerHour ? `$${space.ratePerHour}/hr` : 'Included'}
-            />
+            {/* No room behind it, so no real price. */}
+            {!space.unlinked && (
+              <Meta
+                label="Rate"
+                value={space.ratePerHour ? `$${space.ratePerHour}/hr` : 'Included'}
+              />
+            )}
           </dl>
         </div>
 
@@ -253,9 +258,17 @@ export function BookingPanel({
           </div>
         )}
 
-        <div className="border-t px-4 py-3" style={{ borderColor: 'var(--color-border-subtle)' }}>
+        <div
+          className={`border-t px-4 py-3 ${space.unlinked ? 'hidden' : ''}`}
+          style={{ borderColor: 'var(--color-border-subtle)' }}
+        >
           <p className="eyebrow">{formatDateLong(date)}</p>
-          {dayBookings.length === 0 ? (
+          {/* Only say "nothing booked" once the day has loaded. */}
+          {dayStatus !== 'ready' ? (
+            <p className="mt-1.5 text-[13px]" style={{ color: 'var(--color-ink-500)' }}>
+              {dayStatus === 'loading' ? 'Loading bookings…' : 'Couldn’t load this day’s bookings.'}
+            </p>
+          ) : dayBookings.length === 0 ? (
             <p className="mt-1.5 text-[13px]" style={{ color: 'var(--color-ink-500)' }}>
               Nothing booked all day.
             </p>
@@ -276,7 +289,7 @@ export function BookingPanel({
                   <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--color-ink-700)' }}>
                     {b.title}
                   </span>
-                  {b.mine && (
+                  {b.mine && bookingEnabled && (
                     <button
                       onClick={() => onCancel(b.id)}
                       className="shrink-0 rounded px-1.5 py-0.5 text-[12px] font-semibold hover:bg-[var(--color-danger-wash)]"

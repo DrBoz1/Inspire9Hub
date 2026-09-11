@@ -119,7 +119,10 @@ export function mergeSpaces(plan: readonly Space[], rows: readonly WorkspaceRow[
     if (!s.bookable) return s;
 
     const row = byPlanId.get(s.id);
-    if (!row) return { ...s, bookable: false, unlinked: true };
+    // Unlinked: price and limits come only from a real room.
+    if (!row) {
+      return { ...s, bookable: false, unlinked: true, ratePerHour: undefined, minMinutes: undefined, maxMinutes: undefined };
+    }
 
     const rate = price(row.price_per_hour);
     if (rate === undefined) {

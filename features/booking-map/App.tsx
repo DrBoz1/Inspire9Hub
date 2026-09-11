@@ -579,6 +579,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
             bookings={bookings}
             memberName={memberName}
             bookingEnabled={false}
+            dayStatus={loading ? 'loading' : dayError ? 'error' : 'ready'}
             onClose={() => {
               setSelectedId(null);
               setJustBooked(null);
@@ -638,6 +639,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
             bookings={bookings}
             memberName={memberName}
             bookingEnabled={false}
+            dayStatus={loading ? 'loading' : dayError ? 'error' : 'ready'}
             onClose={() => {
               setSelectedId(null);
               setJustBooked(null);
