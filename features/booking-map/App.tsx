@@ -23,7 +23,8 @@ import { Legend } from './components/Legend';
 import { ScheduleView } from './components/ScheduleView';
 import { STATUS_LABEL } from './components/ui';
 import { KIND_META } from './data/spaces';
-import { useMediaQuery } from './useMediaQuery';
+import { computeLayout, toggleSidebar as nextSidebar } from './layout';
+import { useElementWidth } from './useElementWidth';
 
 const MEMBER = 'Hesam';
 const STORE_KEY = 'i9.bookings.v1';
@@ -99,8 +100,21 @@ export default function App() {
   const [announcement, setAnnouncement] = useState('');
   const [listOpen, setListOpen] = useState(false);
 
-  /** Below 1024 px the sidebar becomes a drawer and the panel a bottom sheet. */
-  const compact = useMediaQuery('(max-width: 1023px)');
+  // Layout comes from the map's own width, not the window's. Inside the dashboard
+  // the map loses 320px to the dashboard's sidebar and padding, which a window
+  // media query can't see -- that is how the booking rail ended up clipped.
+  const [rootRef, width] = useElementWidth<HTMLDivElement>();
+  // Which space the member asked to float the list over. Keyed to the selection
+  // rather than a boolean, so choosing another space or closing the panel
+  // dismisses it without an effect.
+  const [overlayFor, setOverlayFor] = useState<string | null>(null);
+  const layoutState = {
+    sidebarOpen,
+    panelOpen: selectedId !== null,
+    overlayRequested: overlayFor !== null && overlayFor === selectedId,
+  };
+  const layout = computeLayout(width ?? 0, layoutState);
+  const compact = layout.compact;
 
   const [persisted, setPersisted] = useState<Persisted>(loadPersisted);
   const seed = useMemo(() => generateBookings(), []);
@@ -307,20 +321,62 @@ export default function App() {
 
   const mapLabel = `Inspire9 Level 1 floor plan, ${date}, ${formatRange(from, to)}`;
 
+  // Rendered in up to three places (column, floating, compact drawer), so built once.
+  const legendEl = (
+    <Legend
+      counts={counts}
+      hidden={hiddenStatuses}
+      onToggle={(s) =>
+        setHiddenStatuses((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
+      }
+    />
+  );
+  const sidebarEl = (
+    <Sidebar
+      spaces={SPACES}
+      matching={matching}
+      status={status}
+      subline={subline}
+      filters={filters}
+      onFilters={setFilters}
+      selectedId={selectedId}
+      hoveredId={hoveredId}
+      onSelect={select}
+      onHover={setHoveredId}
+      searchRef={searchRef}
+      footer={legendEl}
+    />
+  );
+
+  const onToggleSidebar = () => {
+    const next = nextSidebar(width ?? 0, layoutState);
+    setSidebarOpen(next.sidebarOpen);
+    setOverlayFor(next.overlayRequested ? selectedId : null);
+  };
+
   return (
     // Two scopes on purpose. The outer div is plain hub styling, so TopBar's
     // shadcn controls resolve the hub's tokens and Poppins. .fp-root starts below
     // it, where --color-border, --font-sans and the rest become the drawing's.
-    <div className="flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900">
+    // `@container` so the bars' breakpoints track the map's width, like layout.ts.
+    // Children wait for the first measurement rather than flash a wrong layout; the
+    // root itself always renders so the ResizeObserver keeps a live element.
+    <div
+      ref={rootRef}
+      data-map-root
+      className="@container relative flex h-full w-full flex-col overflow-hidden bg-white dark:bg-slate-900"
+    >
+      {width !== null && (<>
       <TopBar
         date={date}
         onDateChange={changeDate}
         view={view}
         onViewChange={changeView}
-        sidebarOpen={sidebarOpen}
-        onToggleSidebar={() => setSidebarOpen((o) => !o)}
+        sidebarOpen={layout.sidebar !== 'hidden'}
+        onToggleSidebar={onToggleSidebar}
+        showSidebarToggle={!compact}
       />
-      <div className="fp-root flex min-h-0 flex-1 flex-col">
+      <div className="fp-root relative flex min-h-0 flex-1 flex-col">
       {/* Map only: ScheduleView draws its own hour axis, and two unaligned time
           scales for the same day is the single most confusing thing on screen. */}
       {view === 'map' && (
@@ -358,28 +414,23 @@ export default function App() {
         </div>
       )}
 
-      <div className="flex min-h-0 flex-1">
-        {!compact && sidebarOpen && (
-        <Sidebar
-          spaces={SPACES}
-          matching={matching}
-          status={status}
-          subline={subline}
-          filters={filters}
-          onFilters={setFilters}
-          selectedId={selectedId}
-          hoveredId={hoveredId}
-          onSelect={select}
-          onHover={setHoveredId}
-          searchRef={searchRef}
-          footer={<Legend
-              counts={counts}
-              hidden={hiddenStatuses}
-              onToggle={(s) =>
-                setHiddenStatuses((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
-              }
-            />}
-        />
+      <div className="relative flex min-h-0 flex-1">
+        {layout.sidebar === 'column' && sidebarEl}
+
+        {layout.sidebar === 'overlay' && (
+          <>
+            {/* Asked for while a space is open and there's no room for a column:
+                float it over the plan. A click outside dismisses it. */}
+            <div
+              className="absolute inset-0 z-20"
+              style={{ background: 'rgb(16 24 32 / .18)' }}
+              onClick={() => setOverlayFor(null)}
+              aria-hidden
+            />
+            <div className="absolute inset-y-0 left-0 z-30 flex" style={{ boxShadow: 'var(--shadow-e4)' }}>
+              {sidebarEl}
+            </div>
+          </>
         )}
 
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden" style={{ background: 'var(--color-mat)' }}>
@@ -422,16 +473,10 @@ export default function App() {
                       otherwise it sits on top of the drawing and collides with it. */}
                   <div
                     className={`pointer-events-auto absolute bottom-4 left-4 ${
-                      compact || sidebarOpen ? 'hidden' : ''
+                      layout.floatLegend ? '' : 'hidden'
                     }`}
                   >
-                    <Legend
-                      counts={counts}
-                      hidden={hiddenStatuses}
-                      onToggle={(s) =>
-                        setHiddenStatuses((h) => (h.includes(s) ? h.filter((x) => x !== s) : [...h, s]))
-                      }
-                    />
+                    {legendEl}
                   </div>
                   <div
                     className="pointer-events-auto absolute bottom-4 right-4 flex flex-col overflow-hidden rounded-lg border"
@@ -484,7 +529,7 @@ export default function App() {
           )}
         </main>
 
-        {selected && !compact && (
+        {selected && layout.panel === 'rail' && (
           <BookingPanel
             space={selected}
             status={selected.bookable ? status.get(selected.id) ?? 'available' : 'closed'}
@@ -508,27 +553,15 @@ export default function App() {
 
       {/* ── Narrow viewports: sidebar as a drawer, panel as a bottom sheet ── */}
       {compact && listOpen && (
-        <div className="fixed inset-0 z-40 flex">
+        <div className="absolute inset-0 z-40 flex">
           <div
             className="absolute inset-0"
             style={{ background: 'rgb(16 24 32 / .35)' }}
             onClick={() => setListOpen(false)}
             aria-hidden
           />
-          <div className="relative flex h-full max-w-[86vw]">
-            <Sidebar
-              spaces={SPACES}
-              matching={matching}
-              status={status}
-              subline={subline}
-              filters={filters}
-              onFilters={setFilters}
-              selectedId={selectedId}
-              hoveredId={hoveredId}
-              onSelect={select}
-              onHover={setHoveredId}
-              searchRef={searchRef}
-            />
+          <div className="relative flex h-full max-w-[86%]">
+            {sidebarEl}
             <button
               onClick={() => setListOpen(false)}
               aria-label="Close the space list"
@@ -544,7 +577,7 @@ export default function App() {
       {compact && (
         <button
           onClick={() => setListOpen(true)}
-          className="fixed bottom-4 left-4 z-30 flex h-11 items-center gap-2 rounded-full px-4 text-[14px] font-semibold text-white"
+          className="absolute bottom-4 left-4 z-30 flex h-11 items-center gap-2 rounded-full px-4 text-[14px] font-semibold text-white"
           style={{ background: 'var(--color-brand)', boxShadow: 'var(--shadow-e3)' }}
         >
           <List size={16} aria-hidden />
@@ -553,7 +586,7 @@ export default function App() {
       )}
 
       {compact && selected && (
-        <div className="pointer-events-none fixed inset-x-0 bottom-0 z-40 flex justify-center">
+        <div className="pointer-events-none absolute inset-x-0 top-14 bottom-0 z-40 flex items-end justify-center">
           <BookingPanel
             variant="sheet"
             space={selected}
@@ -580,6 +613,7 @@ export default function App() {
         {announcement}
       </div>
       </div>
+      </>)}
     </div>
   );
 }

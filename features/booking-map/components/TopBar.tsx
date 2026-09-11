@@ -6,7 +6,7 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { addDays, formatDateLong, fromDateKey, relativeDay, toDateKey, todayKey } from "../booking/time";
+import { addDays, formatDateLong, formatDateShort, fromDateKey, relativeDay, toDateKey, todayKey } from "../booking/time";
 
 export type ViewMode = "map" | "schedule";
 
@@ -17,6 +17,8 @@ interface Props {
   onViewChange: (v: ViewMode) => void;
   sidebarOpen: boolean;
   onToggleSidebar: () => void;
+  /** Hidden in compact mode, where the list is a drawer with its own button. */
+  showSidebarToggle: boolean;
 }
 
 /**
@@ -32,7 +34,7 @@ interface Props {
  * that, and duplicating them was what made the embedded map feel like a second app
  * bolted onto the first.
  */
-export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, onToggleSidebar }: Props) {
+export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, onToggleSidebar, showSidebarToggle }: Props) {
   const rel = relativeDay(date);
   const isToday = date === todayKey();
 
@@ -40,14 +42,15 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
     // Its own provider: nesting inside the dashboard's is harmless, and it means
     // the map still renders if it is ever mounted outside that layout.
     <TooltipProvider delayDuration={300}>
-    <header className="flex h-14 shrink-0 flex-wrap items-center gap-2 border-b border-slate-100 bg-white px-3 sm:gap-4 sm:px-4 dark:border-slate-800 dark:bg-slate-900">
+    <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-100 bg-white px-3 py-2 @xl:gap-x-4 @xl:px-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex min-w-0 flex-1 items-center gap-2">
+        {showSidebarToggle && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
               size="icon"
-              className="hidden h-8 w-8 shrink-0 rounded-lg lg:inline-flex"
+              className="inline-flex h-8 w-8 shrink-0 rounded-lg"
               aria-label={sidebarOpen ? "Hide space list" : "Show space list"}
               aria-pressed={sidebarOpen}
               onClick={onToggleSidebar}
@@ -61,9 +64,10 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
           </TooltipTrigger>
           <TooltipContent>{sidebarOpen ? "Hide space list" : "Show space list"}</TooltipContent>
         </Tooltip>
+        )}
 
         {/* Which floor — genuine context, not branding */}
-        <span className="hidden truncate text-[13px] font-medium text-slate-400 lg:block dark:text-slate-500">
+        <span className="hidden truncate text-[13px] font-medium text-slate-400 @4xl:block dark:text-slate-500">
           Level 1 · Cremorne
         </span>
       </div>
@@ -92,9 +96,13 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
               className="h-9 gap-2 rounded-lg px-3 font-semibold tabular-nums"
             >
               <CalendarDays className="h-3.5 w-3.5 text-slate-400" />
-              <span className="whitespace-nowrap text-[13px]">
+              <span className="hidden whitespace-nowrap text-[13px] @xl:inline">
                 {rel ? `${rel} · ` : ""}
                 {formatDateLong(date)}
+              </span>
+              {/* Narrow maps get the short form -- "Today" or "Fri 11 Sep". */}
+              <span className="whitespace-nowrap text-[13px] @xl:hidden">
+                {rel ?? formatDateShort(date)}
               </span>
             </Button>
           </PopoverTrigger>
@@ -129,7 +137,7 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
           variant="ghost"
           disabled={isToday}
           onClick={() => onDateChange(todayKey())}
-          className={`ml-1 hidden h-8 rounded-lg px-2.5 text-[12px] font-bold text-[#E31E24] hover:text-[#E31E24] md:block ${
+          className={`ml-1 hidden h-8 rounded-lg px-2.5 text-[12px] font-bold text-[#E31E24] hover:text-[#E31E24] @3xl:block ${
             isToday ? "invisible" : ""
           }`}
         >
@@ -138,16 +146,16 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
       </div>
 
       {/* View switch */}
-      <div className="flex min-w-0 flex-1 items-center justify-end">
+      <div className="flex min-w-fit flex-1 items-center justify-end">
         <Tabs value={view} onValueChange={(v) => onViewChange(v as ViewMode)}>
           <TabsList className="h-9 rounded-lg">
             <TabsTrigger value="map" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
               <MapIcon className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Map</span>
+              <span className="hidden @xl:inline">Map</span>
             </TabsTrigger>
             <TabsTrigger value="schedule" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
               <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Schedule</span>
+              <span className="hidden @xl:inline">Schedule</span>
             </TabsTrigger>
           </TabsList>
         </Tabs>

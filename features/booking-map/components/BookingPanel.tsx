@@ -347,7 +347,7 @@ function PanelShell({
     <aside
       className={
         sheet
-          ? 'pointer-events-auto flex max-h-[68vh] w-full flex-col rounded-t-xl border-t'
+          ? 'pointer-events-auto flex max-h-full w-full flex-col rounded-t-xl border-t'
           : 'flex h-full w-[380px] shrink-0 flex-col border-l'
       }
       style={{

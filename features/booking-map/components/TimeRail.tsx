@@ -92,7 +92,7 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
 
   return (
     <div
-      className="flex h-14 shrink-0 items-center gap-2 border-b px-3 sm:gap-3 sm:px-4"
+      className="flex h-14 shrink-0 items-center gap-2 border-b px-3 @xl:gap-3 @xl:px-4"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
     >
       <button
@@ -198,7 +198,7 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
               <span
                 key={m}
                 className={`tnum absolute -translate-x-1/2 text-[10px] font-medium ${
-                  m % 240 === 0 ? '' : 'hidden sm:inline'
+                  m % 240 === 0 ? '' : 'hidden @xl:inline'
                 }`}
                 style={{ left: `${pct(m)}%`, color: 'var(--color-ink-500)' }}
               >
@@ -218,13 +218,13 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
           {formatRange(from, to)}
         </span>
         <span
-          className="tnum hidden min-w-[5.5rem] rounded px-1.5 py-0.5 text-center text-[12px] font-semibold whitespace-nowrap sm:inline-block"
+          className="tnum hidden min-w-[5.5rem] rounded px-1.5 py-0.5 text-center text-[12px] font-semibold whitespace-nowrap @xl:inline-block"
           style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-600)' }}
         >
           {formatDuration(to - from)}
         </span>
         <span
-          className="hidden min-w-[6.5rem] whitespace-nowrap text-right text-[13px] xl:inline-block"
+          className="hidden min-w-[6.5rem] whitespace-nowrap text-right text-[13px] @5xl:inline-block"
           style={{ color: 'var(--color-ink-500)' }}
         >
           {summary}
