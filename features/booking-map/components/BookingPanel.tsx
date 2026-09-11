@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo } from 'react';
 import {
   AlertCircle, Building2, Check, Clock, DoorClosed, GraduationCap, LayoutGrid, Minus, Phone,
   Plus, Presentation, Sofa, Users, X,
@@ -33,15 +33,19 @@ interface Props {
   to: number;
   bookings: Booking[];
   memberName: string;
-  /** Off until booking from the plan goes through the real checkout. When off, the
-   *  panel points to the Bookings page instead of faking a booking. */
+  /** False when no room backs the space; the panel then points to Bookings. */
   bookingEnabled: boolean;
+  /** 'working' while checkout starts, so the button can't be pressed twice. */
+  bookingState: 'idle' | 'working';
+  /** Why the last attempt failed, as the server said it. */
+  bookError: string | null;
   /** Whether the day's bookings actually loaded. */
   dayStatus: 'loading' | 'error' | 'ready';
   onClose: () => void;
   onChangeWindow: (from: number, to: number) => void;
-  onBook: (space: Space, title: string) => void;
-  onCancel: (bookingId: string) => void;
+  onBook: (space: Space) => void;
+  /** Left out until cancelling (with refunds) is wired here; the panel links to Bookings. */
+  onCancel?: (bookingId: string) => void;
   /** Set after a successful booking so the panel can confirm in place. */
   justBooked: Booking | null;
   onDismissConfirmation: () => void;
@@ -50,11 +54,10 @@ interface Props {
 }
 
 export function BookingPanel({
-  space, status, date, from, to, bookings, memberName, bookingEnabled, dayStatus,
+  space, status, date, from, to, bookings, memberName, bookingEnabled, dayStatus, bookingState, bookError,
   onClose, onChangeWindow, onBook, onCancel, justBooked, onDismissConfirmation,
   variant = 'rail',
 }: Props) {
-  const [title, setTitle] = useState('');
   const Icon = KIND_ICON[space.kind];
 
   const dayBookings = useMemo(
@@ -75,6 +78,8 @@ export function BookingPanel({
   const myBooking = dayBookings.find((b) => b.mine && b.from < to && from < b.to);
 
   const duration = to - from;
+  const cost = space.ratePerHour === undefined ? null : Math.round(space.ratePerHour * (duration / 60) * 100) / 100;
+  const costLabel = cost === null ? '' : ` · $${Number.isInteger(cost) ? cost : cost.toFixed(2)}`;
   const step = space.minMinutes && space.minMinutes >= 60 ? 30 : SLOT;
 
   if (justBooked) {
@@ -103,9 +108,11 @@ export function BookingPanel({
             <Button variant="primary" onClick={onDismissConfirmation}>
               Done
             </Button>
-            <Button variant="ghost" onClick={() => onCancel(justBooked.id)}>
-              Cancel booking
-            </Button>
+            {onCancel && (
+              <Button variant="ghost" onClick={() => onCancel(justBooked.id)}>
+                Cancel booking
+              </Button>
+            )}
           </div>
         </div>
       </PanelShell>
@@ -245,16 +252,6 @@ export function BookingPanel({
               </div>
             </div>
 
-            <label className="mt-3 block">
-              <span className="eyebrow">Booking title</span>
-              <input
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder={space.kind === 'desk' ? 'Desk booking' : 'Team meeting'}
-                className="mt-1 h-9 w-full rounded-md border px-2.5 text-[14px] outline-none focus:border-[var(--color-border-strong)]"
-                style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
-              />
-            </label>
           </div>
         )}
 
@@ -289,7 +286,7 @@ export function BookingPanel({
                   <span className="min-w-0 flex-1 truncate" style={{ color: 'var(--color-ink-700)' }}>
                     {b.title}
                   </span>
-                  {b.mine && bookingEnabled && (
+                  {b.mine && onCancel && (
                     <button
                       onClick={() => onCancel(b.id)}
                       className="shrink-0 rounded px-1.5 py-0.5 text-[12px] font-semibold hover:bg-[var(--color-danger-wash)]"
@@ -330,40 +327,56 @@ export function BookingPanel({
               style={{ background: 'var(--color-surface-2)', color: 'var(--color-ink-600)' }}
               role="status"
             >
-              {myBooking
-                ? `You have ${space.name} booked ${formatRange(myBooking.from, myBooking.to)}.`
-                : error
-                  ? error.message
-                  : `Free for ${formatDuration(duration)}. Booking straight from the floor plan is switched on in the next update.`}{' '}
+              {space.name} can’t be booked from the floor plan.{' '}
               <a href="/bookings" className="font-semibold underline underline-offset-2" style={{ color: 'var(--color-brand)' }}>
-                {myBooking ? 'Manage it in Bookings' : 'Book from Bookings'}
+                Book from Bookings
               </a>
             </div>
           ) : myBooking ? (
-            <Button variant="ghost" className="w-full" onClick={() => onCancel(myBooking.id)}>
-              Cancel your {formatRange(myBooking.from, myBooking.to)} booking
-            </Button>
+            onCancel ? (
+              <Button variant="ghost" className="w-full" onClick={() => onCancel(myBooking.id)}>
+                Cancel your {formatRange(myBooking.from, myBooking.to)} booking
+              </Button>
+            ) : (
+              <div
+                className="rounded-md px-3 py-2.5 text-[12.5px] leading-5"
+                style={{ background: 'var(--color-status-mine-wash)', color: 'var(--color-status-mine-ink)' }}
+                role="status"
+              >
+                You have this space booked {formatRange(myBooking.from, myBooking.to)}.{' '}
+                <a href="/bookings" className="font-semibold underline underline-offset-2">
+                  Manage it in Bookings
+                </a>
+              </div>
+            )
           ) : (
             <>
-              {/* The full explanation sits at the top of the panel, which scrolls out
-                  of view by the time you reach this button. Without a reason here a
-                  disabled "Unavailable" just reads as a broken button. */}
-              {error && (
+              {/* Reason next to the button: the top of the panel may be scrolled away. */}
+              {(bookError || error) && (
                 <p
                   className="mb-2 text-center text-[12px] font-medium"
                   style={{ color: 'var(--color-danger-ink)' }}
-                  role="status"
+                  role="alert"
                 >
-                  {error.message}
+                  {bookError ?? error?.message}
                 </p>
               )}
               <Button
                 variant="primary"
                 className="w-full"
-                disabled={!!error}
-                onClick={() => onBook(space, title.trim() || (space.kind === 'desk' ? 'Desk booking' : 'Booking'))}
+                disabled={!!error || dayStatus !== 'ready' || bookingState === 'working'}
+                aria-busy={bookingState === 'working' || undefined}
+                onClick={() => onBook(space)}
               >
-                {error ? 'Unavailable' : `Book · ${formatDuration(duration)}`}
+                {bookingState === 'working'
+                  ? 'Starting checkout…'
+                  : dayStatus === 'loading'
+                    ? 'Checking availability…'
+                    : dayStatus === 'error'
+                      ? 'Can’t check availability'
+                      : error
+                        ? 'Unavailable'
+                        : `Book · ${formatDuration(duration)}${costLabel}`}
               </Button>
             </>
           )}

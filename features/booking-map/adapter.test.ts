@@ -1,9 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   mergeSpaces,
   planIdByWorkspace,
   toMapBookings,
   windowToUtcRange,
+  buildCheckout,
+  parseBookRequest,
+  SERVER_MIN_MINUTES,
   type DayBookingRow,
   type WorkspaceRow,
 } from './adapter';
@@ -238,5 +243,71 @@ describe('windowToUtcRange', () => {
   it('refuses an empty or backwards window', () => {
     expect(() => windowToUtcRange('2026-08-26', 600, 600, MEL)).toThrow(RangeError);
     expect(() => windowToUtcRange('2026-08-26', 660, 600, MEL)).toThrow(RangeError);
+  });
+});
+
+describe('booking from the map', () => {
+  const ROOM = { id: '2d5fdf80-a9dc-456a-b040-ac660f1ee6b2', name: 'Pool Room', price_per_hour: 90 };
+  const req = (o: Record<string, unknown> = {}) =>
+    parseBookRequest({ workspaceId: ROOM.id, day: '2026-08-26', from: 600, to: 660, ...o });
+  const valid = (o: Record<string, unknown> = {}) => {
+    const r = req(o);
+    if (!r.ok) throw new Error(r.error);
+    return r.value;
+  };
+
+  it('accepts a well-formed request', () => {
+    expect(req()).toEqual({ ok: true, value: { workspaceId: ROOM.id, day: '2026-08-26', from: 600, to: 660 } });
+  });
+
+  it.each([
+    ['a room id that isn’t one', { workspaceId: 'dream-room' }],
+    ['a date that doesn’t exist', { day: '2026-02-30' }],
+    ['a time off the 15-minute grid', { from: 607 }],
+    ['fractional minutes', { to: 660.5 }],
+    ['a time past midnight', { to: 1455 }],
+    ['a negative time', { from: -15 }],
+    ['a backwards window', { from: 660, to: 600 }],
+    ['an empty window', { from: 600, to: 600 }],
+    ['numbers sent as strings', { from: '600' }],
+  ])('rejects %s', (_, o) => {
+    expect(req(o).ok).toBe(false);
+  });
+
+  it('rejects things that aren’t requests at all', () => {
+    expect(parseBookRequest(null).ok).toBe(false);
+    expect(parseBookRequest('book it').ok).toBe(false);
+  });
+
+  it('builds the checkout from wall-clock minutes (winter, +10)', () => {
+    expect(buildCheckout(ROOM, valid({ to: 690 }), MEL)).toEqual({
+      workspaceId: ROOM.id, roomName: 'Pool Room', amount: 135, date: '2026-08-26',
+      startTime: '10:00', endTime: '11:30',
+      startISO: '2026-08-26T00:00:00.000Z', endISO: '2026-08-26T01:30:00.000Z',
+      returnTo: '/dashboard',
+    });
+  });
+
+  it('uses the summer offset in summer (+11)', () => {
+    const c = buildCheckout(ROOM, valid({ day: '2026-12-01' }), MEL);
+    expect(c.startISO).toBe('2026-11-30T23:00:00.000Z');
+  });
+
+  it('prices part-hours exactly', () => {
+    expect(buildCheckout({ ...ROOM, price_per_hour: 45 }, valid({ to: 645 }), MEL).amount).toBe(33.75);
+  });
+
+  it('floors every linked room at the server’s one-hour minimum', () => {
+    const minOf = (m: number | null) =>
+      mergeSpaces(SPACES, [row({ min_minutes: m })]).spaces.find((s) => s.id === 'meeting-a')!.minMinutes;
+    expect(minOf(15)).toBe(SERVER_MIN_MINUTES);
+    expect(minOf(null)).toBe(SERVER_MIN_MINUTES);
+    expect(minOf(120)).toBe(120);
+  });
+
+  it('matches the minimum the checkout server action actually enforces', () => {
+    const src = readFileSync(join(import.meta.dirname, '../../app/(dashboard)/bookings/actions.ts'), 'utf8');
+    expect(src).toContain('endMs - startMs < 3600000');
+    expect(SERVER_MIN_MINUTES * 60_000).toBe(3600000);
   });
 });

@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { addDays, nowMinutes, openingFor, SLOT, todayKey } from './time';
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { addDays, nowMinutes, openingFor, SLOT, statusFor, todayKey } from './time';
+import { SPACES } from '../data/spaces';
 import { minutesNowIn, todayIn } from '../zoned-time';
 import { HUB_TIMEZONE } from '@/lib/datetime';
 
@@ -39,5 +42,35 @@ describe('day arithmetic', () => {
     expect(addDays('2026-10-04', 1)).toBe('2026-10-05');
     expect(addDays('2026-04-05', -1)).toBe('2026-04-04');
     expect(addDays('2026-04-04', 1)).toBe('2026-04-05');
+  });
+});
+
+describe('status while the day is loading or failed to load', () => {
+  const room = { ...SPACES.find((s) => s.id === 'meeting-a')!, bookable: true };
+  const monday = { date: '2026-10-05', from: 600, to: 660 };
+
+  it('is unknown, not available, until the day has loaded', () => {
+    expect(statusFor(room, [], monday, false)).toBe('unknown');
+    expect(statusFor(room, [], monday, true)).toBe('available');
+  });
+
+  it('still knows a closed day is closed', () => {
+    expect(statusFor(room, [], { ...monday, date: '2026-10-04' }, false)).toBe('closed');
+  });
+
+  it('keeps kitchens and stairwells closed', () => {
+    const kitchen = SPACES.find((s) => !s.bookable)!;
+    expect(statusFor(kitchen, [], monday, false)).toBe('closed');
+  });
+});
+
+describe('no status silently defaults to "available"', () => {
+  it('has no optimistic fallback anywhere in the map', () => {
+    const dir = join(import.meta.dirname, '..');
+    const needle = '?? ' + "'available'";
+    const hits = (readdirSync(dir, { recursive: true }) as string[])
+      .filter((f) => /[.]tsx?$/.test(f) && !/[.]test[.]ts$/.test(f))
+      .filter((f) => readFileSync(join(dir, f), 'utf8').includes(needle));
+    expect(hits, 'a missing status must read as unknown, not free').toEqual([]);
   });
 });

@@ -78,7 +78,8 @@ export interface Booking {
  * `partial` means the window is partly free — enough to be worth offering an
  * alternative slot rather than greying the space out entirely.
  */
-export type Availability = 'available' | 'partial' | 'booked' | 'mine' | 'closed';
+/** 'unknown': the day's bookings haven't loaded, so we can't say. */
+export type Availability = 'available' | 'partial' | 'booked' | 'mine' | 'closed' | 'unknown';
 
 export interface OpeningHours {
   /** Minutes from midnight; null = closed that day. */

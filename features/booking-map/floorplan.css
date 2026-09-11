@@ -374,6 +374,9 @@
 .fp-root .fp-status-closed {
   fill: none;
 }
+.fp-root .fp-status-unknown {
+  fill: none;
+}
 .fp-root .fp-status-available[data-hovered="true"] {
   fill-opacity: 0.18;
 }
@@ -415,6 +418,10 @@
   stroke: var(--color-ink-300);
   stroke-dasharray: 4 3;
   stroke-opacity: 0.75;
+}
+.fp-root .fp-outline-unknown {
+  stroke: var(--color-ink-400);
+  stroke-dasharray: 2 3;
 }
 .fp-root .fp-space[data-hovered='true'] .fp-outline-closed {
   stroke: var(--color-ink-400);

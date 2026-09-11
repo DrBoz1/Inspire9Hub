@@ -67,7 +67,7 @@ export function ScheduleView({
 
         {rows.map((s) => {
           const day = bookingsOnDay(bookings, s.id, date);
-          const st = status.get(s.id) ?? 'available';
+          const st = status.get(s.id) ?? 'unknown';
           const isSel = selectedId === s.id;
           return (
             <div

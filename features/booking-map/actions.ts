@@ -4,7 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { HUB_TIMEZONE } from '@/lib/datetime';
 import { dayBoundsUtc, isDateKey } from './zoned-time';
-import type { DayBookingRow } from './adapter';
+import { unstable_rethrow } from 'next/navigation';
+import { createCheckoutSession } from '@/app/(dashboard)/bookings/actions';
+import { buildCheckout, parseBookRequest, type DayBookingRow } from './adapter';
 
 export type DayResult =
   | { ok: true; day: string; rows: DayBookingRow[] }
@@ -66,4 +68,40 @@ export async function getMapDay(day: string): Promise<DayResult> {
     });
   }
   return { ok: true, day, rows };
+}
+
+/**
+ * Start Stripe checkout for a window picked on the map.
+ *
+ * Goes through createCheckoutSession, so it gets the same induction gate, availability
+ * check and overlap constraint as the Bookings page. Two differences: the instants are
+ * worked out here from wall-clock minutes, and failures come back as values (as the
+ * Next docs advise) so the member sees the real reason. On success it redirects to
+ * Stripe and never returns.
+ */
+export async function bookFromMap(input: unknown): Promise<{ ok: false; error: string }> {
+  const parsed = parseBookRequest(input);
+  if (!parsed.ok) return parsed;
+  const req = parsed.value;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Sign in to book.' };
+
+  const { data: room } = await supabase.from('workspaces').select('*').eq('id', req.workspaceId).maybeSingle();
+  if (!room) return { ok: false, error: 'That room no longer exists.' };
+  if (room.active === false || room.bookable === false) {
+    return { ok: false, error: 'This room isn’t open for booking.' };
+  }
+
+  try {
+    await createCheckoutSession(buildCheckout(room, req, HUB_TIMEZONE));
+  } catch (err) {
+    unstable_rethrow(err); // the redirect to Stripe
+    const message = err instanceof Error && err.message ? err.message : '';
+    return { ok: false, error: message || 'Couldn’t start checkout. Try again.' };
+  }
+  return { ok: false, error: 'Couldn’t start checkout. Try again.' };
 }

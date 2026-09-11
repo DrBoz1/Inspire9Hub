@@ -9,12 +9,12 @@ import { List, Maximize2, Minus, Plus, X } from 'lucide-react';
 import type { Availability, Booking, Space } from './booking/types';
 import { SPACES } from './data/spaces';
 import { mergeSpaces, planIdByWorkspace, toMapBookings, type DayBookingRow, type WorkspaceRow } from './adapter';
-import { getMapDay } from './actions';
+import { bookFromMap, getMapDay } from './actions';
 import { HUB_TIMEZONE } from '@/lib/datetime';
 import { addDays } from './booking/time';
 import {
-  availabilityOf, bookingsOnDay, DAY_END, formatDateLong, formatRange, formatTime, freeGaps,
-  isClosed, nextAvailableStart, nowMinutes, openingFor, SLOT, todayKey,
+  bookingsOnDay, DAY_END, formatDateLong, formatRange, formatTime, freeGaps,
+  isClosed, nextAvailableStart, nowMinutes, openingFor, SLOT, statusFor, todayKey,
 } from './booking/time';
 import { FloorPlan, type Camera } from './floorplan/FloorPlan';
 import { TopBar, type ViewMode } from './components/TopBar';
@@ -169,6 +169,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
   const current = dayData && dayData.for === date ? dayData : null;
   const loading = current === null;
   const dayError = current && 'error' in current ? current.error : null;
+  const dayLoaded = current !== null && 'rows' in current;
   const bookings = useMemo(
     () =>
       current && 'rows' in current
@@ -182,9 +183,9 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
 
   const status = useMemo(() => {
     const m = new Map<string, Availability>();
-    for (const s of spaces) m.set(s.id, availabilityOf(s, bookings, win));
+    for (const s of spaces) m.set(s.id, statusFor(s, bookings, win, dayLoaded));
     return m;
-  }, [bookings, spaces, win]);
+  }, [bookings, dayLoaded, spaces, win]);
 
   const subline = useMemo(() => {
     const m = new Map<string, string>();
@@ -192,7 +193,9 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
       if (!s.bookable) continue;
       const st = status.get(s.id)!;
       const day = bookingsOnDay(bookings, s.id, date);
-      if (st === 'mine') {
+      if (st === 'unknown') {
+        m.set(s.id, loading ? 'Checking availability…' : 'Availability unknown');
+      } else if (st === 'mine') {
         m.set(s.id, 'Your booking');
       } else if (st === 'available') {
         const next = day.find((b) => b.from >= to);
@@ -209,7 +212,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
       }
     }
     return m;
-  }, [bookings, date, from, spaces, status, to, win]);
+  }, [bookings, date, from, loading, spaces, status, to, win]);
 
   const ariaLabels = useMemo(() => {
     const m = new Map<string, string>();
@@ -247,7 +250,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
   const visible = useMemo(() => {
     const set = new Set<string>();
     for (const s of matching) {
-      const st = s.bookable ? status.get(s.id) ?? 'available' : 'closed';
+      const st = s.bookable ? status.get(s.id) ?? 'unknown' : 'closed';
       if (hiddenStatuses.includes(st)) continue;
       set.add(s.id);
     }
@@ -255,9 +258,9 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
   }, [hiddenStatuses, matching, status]);
 
   const counts = useMemo(() => {
-    const c: Record<Availability, number> = { available: 0, partial: 0, booked: 0, mine: 0, closed: 0 };
+    const c: Record<Availability, number> = { available: 0, partial: 0, booked: 0, mine: 0, closed: 0, unknown: 0 };
     for (const s of matching) {
-      const st = s.bookable ? status.get(s.id) ?? 'available' : 'closed';
+      const st = s.bookable ? status.get(s.id) ?? 'unknown' : 'closed';
       c[st] += 1;
     }
     return c;
@@ -297,16 +300,37 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
     cameraRef.current?.focus(id);
   }, []);
 
-  // Booking from the plan is switched on in the next step, through the same server
-  // action, Stripe checkout and overlap constraint as the Bookings page. Until then
-  // the map is read-only rather than pretending: the standalone app "booked" into
-  // localStorage, where nothing else could ever see it.
-  const book = useCallback((space: Space) => {
-    setAnnouncement(`Booking ${space.name} from the floor plan isn’t switched on yet. Use Bookings for now.`);
-  }, []);
-  const cancel = useCallback(() => {
-    setAnnouncement('Manage your bookings from the Bookings page.');
-  }, []);
+  // Same checkout and overlap constraint as the Bookings page. On success the server
+  // redirects to Stripe; only failures come back here.
+  const [bookingFor, setBookingFor] = useState<string | null>(null);
+  const [bookError, setBookError] = useState<{ spaceId: string; date: string; from: number; to: number; message: string } | null>(null);
+  const book = useCallback(
+    async (space: Space) => {
+      if (bookingFor || !space.workspaceId) return; // one checkout at a time
+      setBookingFor(space.id);
+      setBookError(null);
+      const fail = (message: string) => {
+        setBookError({ spaceId: space.id, date, from, to, message });
+        setAnnouncement(message);
+        setBookingFor(null);
+      };
+      try {
+        const r = await bookFromMap({ workspaceId: space.workspaceId, day: date, from, to });
+        fail(r.error);
+      } catch (err) {
+        // The redirect to Stripe arrives as a thrown NEXT_REDIRECT; let Next handle it.
+        if ((err as { digest?: string } | null)?.digest?.startsWith('NEXT_REDIRECT')) throw err;
+        fail('Couldn’t reach the server. Check your connection and try again.');
+      }
+    },
+    [bookingFor, date, from, to],
+  );
+  // An error only belongs to the exact window it was about.
+  const shownBookError =
+    selected && bookError && bookError.spaceId === selected.id && bookError.date === date &&
+    bookError.from === from && bookError.to === to
+      ? bookError.message
+      : null;
 
   // ── global shortcuts (§7.3) ──────────────────────────────────────────────
   useEffect(() => {
@@ -411,6 +435,8 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
         summary={
           loading ? (
             <span>Loading bookings…</span>
+          ) : dayError ? (
+            <span>Availability unknown</span>
           ) : (
             <>
               <span className="tnum font-semibold" style={{ color: 'var(--color-status-available-ink)' }}>
@@ -572,13 +598,15 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
         {selected && layout.panel === 'rail' && (
           <BookingPanel
             space={selected}
-            status={selected.bookable ? status.get(selected.id) ?? 'available' : 'closed'}
+            status={selected.bookable ? status.get(selected.id) ?? 'unknown' : 'closed'}
             date={date}
             from={from}
             to={to}
             bookings={bookings}
             memberName={memberName}
-            bookingEnabled={false}
+            bookingEnabled={!!selected.workspaceId && selected.bookable}
+            bookingState={bookingFor === selected.id ? 'working' : 'idle'}
+            bookError={shownBookError}
             dayStatus={loading ? 'loading' : dayError ? 'error' : 'ready'}
             onClose={() => {
               setSelectedId(null);
@@ -586,7 +614,6 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
             }}
             onChangeWindow={changeWindow}
             onBook={book}
-            onCancel={cancel}
             justBooked={justBooked}
             onDismissConfirmation={() => setJustBooked(null)}
           />
@@ -632,13 +659,15 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
           <BookingPanel
             variant="sheet"
             space={selected}
-            status={selected.bookable ? status.get(selected.id) ?? 'available' : 'closed'}
+            status={selected.bookable ? status.get(selected.id) ?? 'unknown' : 'closed'}
             date={date}
             from={from}
             to={to}
             bookings={bookings}
             memberName={memberName}
-            bookingEnabled={false}
+            bookingEnabled={!!selected.workspaceId && selected.bookable}
+            bookingState={bookingFor === selected.id ? 'working' : 'idle'}
+            bookError={shownBookError}
             dayStatus={loading ? 'loading' : dayError ? 'error' : 'ready'}
             onClose={() => {
               setSelectedId(null);
@@ -646,7 +675,6 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
             }}
             onChangeWindow={changeWindow}
             onBook={book}
-            onCancel={cancel}
             justBooked={justBooked}
             onDismissConfirmation={() => setJustBooked(null)}
           />

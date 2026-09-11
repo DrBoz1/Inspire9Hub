@@ -226,7 +226,7 @@ export function Sidebar({
               </h2>
               <ul>
                 {list.map((s) => {
-                  const st = s.bookable ? status.get(s.id) ?? 'available' : 'closed';
+                  const st = s.bookable ? status.get(s.id) ?? 'unknown' : 'closed';
                   const isSel = selectedId === s.id;
                   return (
                     <li key={s.id}>

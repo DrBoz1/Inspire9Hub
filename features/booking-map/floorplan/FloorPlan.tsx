@@ -229,7 +229,7 @@ export function FloorPlan({
           <g>
             {bookable.map((s) => {
               if (!visible.has(s.id)) return null;
-              const st = status.get(s.id) ?? 'available';
+              const st = status.get(s.id) ?? 'unknown';
               const hovered = hoveredId === s.id;
               const selected = selectedId === s.id;
               return (
@@ -269,7 +269,7 @@ export function FloorPlan({
             {spaces.map((s) => {
               const isVisible = visible.has(s.id);
               const canSelect = s.bookable || !!s.unlinked;
-              const st = s.bookable ? status.get(s.id) ?? 'available' : 'closed';
+              const st = s.bookable ? status.get(s.id) ?? 'unknown' : 'closed';
               const selected = selectedId === s.id;
               const hovered = hoveredId === s.id;
               const focused = keyboardFocus && rovingId === s.id;

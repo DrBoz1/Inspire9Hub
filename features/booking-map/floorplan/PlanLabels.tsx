@@ -11,6 +11,7 @@ export const STATUS_GLYPH: Record<Availability, string> = {
   booked: '✕',
   mine: '✓',
   closed: '',
+  unknown: '?',
 };
 
 const STATUS_COLOR: Record<Availability, string> = {
@@ -19,6 +20,7 @@ const STATUS_COLOR: Record<Availability, string> = {
   booked: 'var(--color-status-full-ink)',
   mine: 'var(--color-status-mine-ink)',
   closed: 'var(--color-ink-400)',
+  unknown: 'var(--color-ink-400)',
 };
 
 /** Names that must shorten before they fall back to a bare code. */
@@ -194,7 +196,7 @@ export function PlanLabels({
         continue;
       }
 
-      const st = status.get(s.id) ?? 'available';
+      const st = status.get(s.id) ?? 'unknown';
       const tierSub = forced || k >= 1.6;
       const tierCode = forced || k >= 2.6;
 

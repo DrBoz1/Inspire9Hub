@@ -179,6 +179,13 @@ export function availabilityOf(
   return largest >= 30 ? 'partial' : 'booked';
 }
 
+/** What to show for a space. Closed by opening hours is known either way;
+ *  anything else is unknown until the day's bookings have loaded. */
+export function statusFor(space: Space, bookings: Booking[], win: TimeWindow, dayLoaded: boolean): Availability {
+  const a = availabilityOf(space, bookings, win);
+  return a === 'closed' || dayLoaded ? a : 'unknown';
+}
+
 /** Earliest start on `date` that fits `duration` inside opening hours. */
 export function nextAvailableStart(
   space: Space,

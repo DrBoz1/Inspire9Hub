@@ -7,6 +7,7 @@ export const STATUS_LABEL: Record<Availability, string> = {
   booked: 'Fully booked',
   mine: 'Your booking',
   closed: 'Not bookable',
+  unknown: 'Availability unknown',
 };
 
 export const STATUS_STYLE: Record<Availability, { bg: string; fg: string; dot: string }> = {
@@ -31,6 +32,7 @@ export const STATUS_STYLE: Record<Availability, { bg: string; fg: string; dot: s
     dot: 'var(--color-status-mine)',
   },
   closed: { bg: 'var(--color-surface-2)', fg: 'var(--color-ink-500)', dot: 'var(--color-ink-400)' },
+  unknown: { bg: 'var(--color-surface-2)', fg: 'var(--color-ink-600)', dot: 'var(--color-ink-300)' },
 };
 
 /** Ordinal texture ladder — none → hatch → cross-hatch — as a CSS background. */
@@ -43,6 +45,7 @@ export const STATUS_TEXTURE: Record<Availability, string> = {
     'repeating-linear-gradient(-45deg, rgb(91 102 112 / .45) 0 1px, transparent 1px 6px)',
   mine: 'none',
   closed: 'none',
+  unknown: 'none',
 };
 
 export function StatusPill({ status, children }: { status: Availability; children?: React.ReactNode }) {
@@ -74,7 +77,7 @@ export function StatusSwatch({ status, size = 14 }: { status: Availability; size
         height: size,
         backgroundColor: s.bg,
         backgroundImage: STATUS_TEXTURE[status],
-        border: `1px ${status === 'closed' ? 'dashed' : 'solid'} ${s.dot}`,
+        border: `1px ${status === 'closed' || status === 'unknown' ? 'dashed' : 'solid'} ${s.dot}`,
       }}
     />
   );

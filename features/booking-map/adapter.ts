@@ -19,9 +19,12 @@
  */
 
 import type { Booking, Space, SpaceGroup, SpaceKind } from './booking/types';
-import { makeISO } from './booking/time';
+import { makeISO, SLOT } from './booking/time';
 import { toAmenityKeys } from '@/lib/amenities';
 import { wallClockAt, wallClockToUtc, isDateKey } from './zoned-time';
+
+/** createCheckoutSession refuses bookings under an hour; the map uses the same floor. */
+export const SERVER_MIN_MINUTES = 60;
 
 // ── inputs ────────────────────────────────────────────────────────────────────
 
@@ -128,8 +131,9 @@ export function mergeSpaces(plan: readonly Space[], rows: readonly WorkspaceRow[
     if (rate === undefined) {
       problems.push(`"${row.name}" has no valid hourly price, so it can't be booked.`);
     }
-    const min = positiveInt(row.min_minutes) ?? s.minMinutes;
-    let max = positiveInt(row.max_minutes) ?? s.maxMinutes;
+    // Limits come from the room, never the drawing, and never below the server's floor.
+    const min = Math.max(positiveInt(row.min_minutes) ?? SERVER_MIN_MINUTES, SERVER_MIN_MINUTES);
+    let max = positiveInt(row.max_minutes);
     if (min !== undefined && max !== undefined && max < min) {
       problems.push(`"${row.name}" has a maximum booking shorter than its minimum; ignoring the maximum.`);
       max = undefined;
@@ -240,5 +244,56 @@ export function windowToUtcRange(
   return {
     startISO: new Date(wallClockToUtc(day, from, tz)).toISOString(),
     endISO: new Date(wallClockToUtc(day, to, tz)).toISOString(),
+  };
+}
+
+// ── booking from the map ─────────────────────────────────────────────────────
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+export interface BookRequest {
+  workspaceId: string;
+  day: string;
+  from: number;
+  to: number;
+}
+
+/** Validate what the browser sends: a Server Function is a public endpoint. */
+export function parseBookRequest(
+  input: unknown,
+): { ok: true; value: BookRequest } | { ok: false; error: string } {
+  if (!input || typeof input !== 'object') return { ok: false, error: 'Nothing to book.' };
+  const { workspaceId, day, from, to } = input as Record<string, unknown>;
+  if (typeof workspaceId !== 'string' || !UUID.test(workspaceId)) return { ok: false, error: 'Unknown room.' };
+  if (typeof day !== 'string' || !isDateKey(day)) return { ok: false, error: 'That isn’t a valid date.' };
+  const onSlot = (m: unknown): m is number =>
+    typeof m === 'number' && Number.isInteger(m) && m >= 0 && m <= 1440 && m % SLOT === 0;
+  if (!onSlot(from) || !onSlot(to)) return { ok: false, error: `Times must be on a ${SLOT}-minute slot.` };
+  if (to <= from) return { ok: false, error: 'End time must be after the start time.' };
+  return { ok: true, value: { workspaceId, day, from, to } };
+}
+
+const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+
+/** The checkout request for a window on the map. Instants are worked out here from
+ *  wall-clock minutes, never taken from the browser. */
+export function buildCheckout(
+  room: { id: string; name: string; price_per_hour: number | string | null },
+  req: BookRequest,
+  tz: string,
+) {
+  const rate = price(room.price_per_hour);
+  const { startISO, endISO } = windowToUtcRange(req.day, req.from, req.to, tz);
+  return {
+    workspaceId: room.id,
+    roomName: room.name,
+    // Display only: createCheckoutSession recomputes the charge from the stored price.
+    amount: rate === undefined ? 0 : Math.round(rate * ((req.to - req.from) / 60) * 100) / 100,
+    date: req.day,
+    startTime: hhmm(req.from),
+    endTime: hhmm(req.to),
+    startISO,
+    endISO,
+    returnTo: '/dashboard',
   };
 }
