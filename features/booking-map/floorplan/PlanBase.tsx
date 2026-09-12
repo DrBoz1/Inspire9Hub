@@ -151,17 +151,7 @@ export const PlanInk = React.memo(function PlanInk({ furnitureOpacity }: { furni
           <Chair cx={KITCHEN.x + KITCHEN.w / 2} cy={KITCHEN.y - 26} r={14} rot={180} />
         </g>
 
-        {/* Training room in class layout */}
-        <g className="fp-furniture">
-          {[520, 620, 720].map((y) =>
-            [800, 950].map((x) => (
-              <g key={`tr${x}-${y}`}>
-                <rect x={x} y={y} width={112} height={44} />
-                <line x1={x + 56} y1={y} x2={x + 56} y2={y + 44} />
-              </g>
-            )),
-          )}
-        </g>
+        {/* The source leaves the training room open for flexible layouts. */}
 
         {/* Meeting rooms A + B */}
         <RoundTable cx={843} cy={878} r={40} seats={6} />
@@ -181,39 +171,13 @@ export const PlanInk = React.memo(function PlanInk({ furnitureOpacity }: { furni
           <rect x={1762} y={588} width={34} height={92} />
         </g>
 
-        {/* Boardroom */}
-        <g className="fp-furniture">
-          <rect x={1832} y={986} width={226} height={92} rx={44} />
-        </g>
-        <g className="fp-seat">
-          {[1870, 1920, 1970, 2020].map((x) => (
-            <Chair key={`bt${x}`} cx={x} cy={962} r={15} rot={180} />
-          ))}
-          {[1870, 1920, 1970, 2020].map((x) => (
-            <Chair key={`bb${x}`} cx={x} cy={1102} r={15} rot={0} />
-          ))}
-          <Chair cx={1804} cy={1032} r={15} rot={-90} />
-          <Chair cx={2086} cy={1032} r={15} rot={90} />
-        </g>
+        {/* The PDF names the boardroom without specifying a furniture layout. */}
 
         {/* West team bays + high workpoints */}
         <g className="fp-furniture">
           {[626, 809, 1010].map((y) => (
             <g key={`bay${y}`}>
               <rect x={113} y={y} width={410} height={82} />
-              <line x1={113} y1={y + 41} x2={523} y2={y + 41} />
-              {Array.from({ length: 6 }, (_, i) => (
-                <line
-                  key={i} x1={113 + ((i + 1) * 410) / 7} y1={y}
-                  x2={113 + ((i + 1) * 410) / 7} y2={y + 41}
-                />
-              ))}
-              {Array.from({ length: 5 }, (_, i) => (
-                <line
-                  key={`b${i}`} x1={113 + ((i + 1) * 410) / 6} y1={y + 41}
-                  x2={113 + ((i + 1) * 410) / 6} y2={y + 82}
-                />
-              ))}
             </g>
           ))}
           <rect x={105} y={464} width={425} height={42} />
@@ -244,10 +208,7 @@ export const PlanInk = React.memo(function PlanInk({ furnitureOpacity }: { furni
           </g>
         ))}
 
-        {/* Lounge pod banquette rings */}
-        {[POD_N, POD_S].map((p, i) => (
-          <polygon key={`pod${i}`} points={poly(octagonPoints(p.cx, p.cy, p.r - 26))} className="fp-pod-inner" />
-        ))}
+        {/* Octagonal islands retain the source's simple outline and planter. */}
 
         {/* Sofas beside meeting rooms A + B */}
         <g className="fp-lounge">
@@ -270,7 +231,7 @@ export const PlanInk = React.memo(function PlanInk({ furnitureOpacity }: { furni
         <Stairs x={1790} y={1216} w={300} h={136} steps={11} />
 
         {PLANTS.map(([x, y], i) => (
-          <Plant key={`pl${i}`} cx={x} cy={y} r={i >= 14 ? 30 : 20} />
+          <Plant key={`pl${i}`} cx={x} cy={y} r={i >= 16 ? 22 : 20} />
         ))}
       </g>
 

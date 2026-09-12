@@ -84,7 +84,8 @@ export const Door: React.FC<{ x: number; y: number; r: number; a: number; dir?: 
   const y2 = y + r * Math.sin(rad(a2));
   return (
     <g className="fp-door">
-      <line x1={x} y1={y} x2={x1} y2={y1} className="fp-door-leaf" />
+      <line x1={x} y1={y} x2={x1} y2={y1} className="fp-door-opening" />
+      <line x1={x} y1={y} x2={x2} y2={y2} className="fp-door-leaf" />
       <path d={`M ${x1} ${y1} A ${r} ${r} 0 0 ${dir > 0 ? 1 : 0} ${x2} ${y2}`} className="fp-door-arc" />
     </g>
   );

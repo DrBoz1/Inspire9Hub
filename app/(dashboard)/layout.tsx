@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner"; // 1. Import the Toaster
+import "./member-hub.css";
 
 export default async function DashboardLayout({
   children,
@@ -23,12 +24,12 @@ export default async function DashboardLayout({
 
   return (
     <TooltipProvider>
-      <SidebarProvider>
-        <div className="flex h-screen w-full bg-[#F8F9FA] dark:bg-slate-950 font-poppins transition-colors">
+      <SidebarProvider style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "3.5rem" } as React.CSSProperties}>
+        <div className="hub-shell">
           <AppSidebar userProfile={profile} />
-          <SidebarInset className="flex flex-col w-full">
+          <SidebarInset className="hub-inset">
             <DashboardHeader />
-            <main className="flex-1 overflow-y-auto p-8">{children}</main>
+            <main id="main-content" className="hub-main">{children}</main>
           </SidebarInset>
         </div>
       </SidebarProvider>

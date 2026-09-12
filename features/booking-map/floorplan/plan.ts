@@ -2,9 +2,8 @@
  * Inspire9 — Level 1 floor plan geometry.
  *
  * Every coordinate below is in **plan units**, which are the pixel coordinates of
- * `public/floorplan.png` (2196 × 1556). Keeping the source drawing's own coordinate
- * space means the traced vector plan and the original raster overlay perfectly —
- * see the "Trace overlay" toggle in the dev tools panel.
+ * the supplied Floor Layout.pdf rendered at 2196 × 1556. The UI keeps the
+ * drawing's coordinate space so room hit areas stay aligned with the walls.
  *
  * Wall centrelines and room boundaries were extracted from the drawing by scanning
  * dark-pixel runs across horizontal/vertical bands, so partitions land on the same
@@ -52,11 +51,16 @@ export const WALLS: Wall[] = [
   w(1403, 105, 1403, 350),
 
   // ─── Phone booth row (open to the north, 4 booths) ────────────────────────
-  w(762, 355, 762, 447),
-  w(841, 355, 841, 447),
-  w(924, 355, 924, 447),
-  w(1005, 355, 1005, 447),
-  w(1112, 355, 1112, 447),
+  w(762, 405, 762, 447),
+  w(762, 405, 780, 372),
+  w(780, 372, 790, 372),
+  w(841, 372, 841, 447),
+  w(841, 372, 872, 372),
+  w(924, 372, 924, 447),
+  w(924, 372, 955, 372),
+  w(1005, 372, 1005, 447),
+  w(1005, 372, 1040, 372),
+  w(1112, 372, 1112, 447),
   w(760, 447, 1112, 447),
 
   // ─── Training room ────────────────────────────────────────────────────────
@@ -140,31 +144,31 @@ const d = (x: number, y: number, r: number, a: number, dir: 1 | -1 = 1): DoorArc
 
 export const DOORS: DoorArc[] = [
   // Training room — three leaves onto the west corridor
-  d(760, 460, 62, 90, 1),
-  d(760, 600, 62, 90, 1),
-  d(760, 740, 62, 90, 1),
+  d(760, 460, 62, 90, -1),
+  d(760, 570, 72, 90, -1),
+  d(760, 712, 72, 90, -1),
   // Meeting rooms A + B
-  d(830, 955, 58, 270, -1),
-  d(1000, 955, 58, 270, -1),
+  d(801, 955, 58, 0, -1),
+  d(963, 955, 58, 0, -1),
   // Offices
-  d(1160, 503, 60, 0, 1),
-  d(1300, 503, 60, 0, -1),
-  d(1160, 959, 60, 180, 1),
-  d(1330, 959, 60, 180, -1),
-  d(1447, 760, 58, 180, 1),
+  d(1212, 503, 38, 0, 1),
+  d(1264, 503, 40, 0, 1),
+  d(1212, 959, 38, 0, -1),
+  d(1264, 959, 40, 0, -1),
+  d(1447, 714, 38, 90, 1),
   // East meeting rooms
-  d(1749, 548, 55, 0, -1),
-  d(1749, 912, 55, 180, 1),
+  d(1749, 548, 36, 90, -1),
+  d(1749, 873, 45, 90, -1),
   // Washroom stalls
-  d(2002, 545, 52, 0, -1),
-  d(2002, 604, 52, 0, -1),
-  d(2002, 662, 52, 0, -1),
-  d(2002, 718, 52, 0, -1),
-  d(2002, 780, 52, 0, -1),
-  d(2002, 842, 52, 0, -1),
+  d(2002, 545, 42, 90, -1),
+  d(2002, 604, 42, 90, -1),
+  d(2002, 662, 42, 90, -1),
+  d(2002, 718, 42, 90, -1),
+  d(2002, 780, 42, 90, -1),
+  d(2002, 842, 42, 90, -1),
   // Fire stairs
-  d(479, 1240, 62, 180, -1),
-  d(1731, 1290, 62, 0, 1),
+  d(390, 1225, 62, 0, 1),
+  d(1731, 1298, 62, 90, -1),
 ];
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -180,9 +184,9 @@ export interface RectItem { x: number; y: number; w: number; h: number; r?: numb
  * confirmed whether these are bookable, so they carry no space record.
  */
 export const NORTH_GRID_TABLES: RectItem[] = [
-  { x: 496, y: 112, w: 88, h: 272 },
-  { x: 1176, y: 112, w: 88, h: 272 },
-  { x: 1350, y: 112, w: 46, h: 278 },
+  { x: 496, y: 112, w: 88, h: 212 },
+  { x: 1176, y: 112, w: 88, h: 212 },
+  { x: 1350, y: 118, w: 46, h: 214 },
 ];
 
 /** Six workstation banks in the south zone: 6 desks each (2 × 3). */
@@ -212,7 +216,7 @@ export const POD_S = { cx: 1591, cy: 850, r: 104 };
 export function octagonPoints(cx: number, cy: number, r: number): Array<[number, number]> {
   const pts: Array<[number, number]> = [];
   for (let i = 0; i < 8; i++) {
-    const a = (Math.PI / 4) * i + Math.PI / 8;
+    const a = (Math.PI / 4) * i;
     pts.push([cx + r * Math.cos(a), cy + r * Math.sin(a)]);
   }
   return pts;
@@ -220,9 +224,10 @@ export function octagonPoints(cx: number, cy: number, r: number): Array<[number,
 
 /** Planters, drawn as the plan's little green rosettes. */
 export const PLANTS: Array<[number, number]> = [
-  [104, 292], [345, 205], [345, 258], [640, 645], [716, 470],
-  [975, 130], [1140, 130], [1500, 128], [1508, 402], [1235, 620],
-  [790, 990], [640, 1113], [1006, 1112], [1443, 1113], [1596, 598], [1591, 850],
+  [129, 257], [445, 202], [445, 238], [128, 484], [281, 484],
+  [499, 523], [750, 383], [740, 678], [499, 947], [1084, 987],
+  [778, 1116], [1425, 1116], [778, 138], [1118, 138], [1430, 130],
+  [1438, 339], [1596, 598], [1591, 850],
 ];
 
 /**
@@ -242,11 +247,11 @@ export const LOUNGE_CHAIRS: Array<{ x: number; y: number; rot: number }> = [
   { x: 1697, y: 152, rot: 18 },
 ];
 
-export const KITCHEN = { x: 1893, y: 158, w: 66, h: 344 };
+export const KITCHEN = { x: 1893, y: 158, w: 66, h: 258 };
 export const KITCHEN_CHAIR_X_L = 1869;
 export const KITCHEN_CHAIR_X_R = 1983;
-export const KITCHEN_CHAIRS_L = [198, 250, 302, 354, 406, 458];
-export const KITCHEN_CHAIRS_R = [214, 266, 318, 370, 422, 474];
+export const KITCHEN_CHAIRS_L = [177, 229, 281, 333, 385];
+export const KITCHEN_CHAIRS_R = [205, 257, 309, 361];
 
 export const POOL_TABLE = { x: 1595, y: 258, w: 182, h: 95 };
 

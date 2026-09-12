@@ -42,15 +42,15 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
     // Its own provider: nesting inside the dashboard's is harmless, and it means
     // the map still renders if it is ever mounted outside that layout.
     <TooltipProvider delayDuration={300}>
-    <header className="flex min-h-14 shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-100 bg-white px-3 py-2 @xl:gap-x-4 @xl:px-4 dark:border-slate-800 dark:bg-slate-900">
+    <header className="hub-map-topbar flex min-h-14 shrink-0 flex-wrap items-center gap-x-2 gap-y-1.5 border-b border-slate-100 bg-white px-3 py-2 @xl:gap-x-4 @xl:px-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {showSidebarToggle && (
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
               variant="ghost"
-              size="icon"
-              className="inline-flex h-8 w-8 shrink-0 rounded-lg"
+              size="sm"
+              className="inline-flex h-9 w-auto shrink-0 gap-2 rounded-lg px-2.5"
               aria-label={sidebarOpen ? "Hide space list" : "Show space list"}
               aria-pressed={sidebarOpen}
               onClick={onToggleSidebar}
@@ -60,6 +60,7 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
               ) : (
                 <PanelLeftOpen className="h-4 w-4" />
               )}
+              <span className="hidden text-xs font-medium @xl:inline">Browse spaces</span>
             </Button>
           </TooltipTrigger>
           <TooltipContent>{sidebarOpen ? "Hide space list" : "Show space list"}</TooltipContent>
@@ -68,7 +69,7 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
 
         {/* Which floor — genuine context, not branding */}
         <span className="hidden truncate text-[13px] font-medium text-slate-400 @4xl:block dark:text-slate-500">
-          Level 1 · Cremorne
+          Level 1
         </span>
       </div>
 
@@ -149,11 +150,11 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
       <div className="flex min-w-fit flex-1 items-center justify-end">
         <Tabs value={view} onValueChange={(v) => onViewChange(v as ViewMode)}>
           <TabsList className="h-9 rounded-lg">
-            <TabsTrigger value="map" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
+            <TabsTrigger value="map" aria-label="Map view" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
               <MapIcon className="h-3.5 w-3.5" />
               <span className="hidden @xl:inline">Map</span>
             </TabsTrigger>
-            <TabsTrigger value="schedule" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
+            <TabsTrigger value="schedule" aria-label="Schedule view" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
               <LayoutGrid className="h-3.5 w-3.5" />
               <span className="hidden @xl:inline">Schedule</span>
             </TabsTrigger>

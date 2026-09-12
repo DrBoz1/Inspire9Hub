@@ -103,22 +103,20 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
   const [date, setDate] = useState(initialDate);
   const [[from, to], setWindow] = useState<[number, number]>(() => defaultWindow(initialDate()));
   const [view, setView] = useState<ViewMode>('map');
-  // The schedule already names every space down its left edge, so the sidebar is a
-  // second copy of the same list eating the width the grid needs. Collapse it when
-  // switching to schedule, restore it for the map -- still manually togglable, so
-  // the filters stay reachable in either view.
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Start with the complete floor visible. The list and filters remain one click
+  // away in either view, and opening a room gives its details the available room.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const changeView = useCallback((v: ViewMode) => {
     setView(v);
-    setSidebarOpen(v === 'map');
+    setSidebarOpen(false);
   }, []);
   const [filters, setFilters] = useState<Filters>(EMPTY_FILTERS);
   const [hiddenStatuses, setHiddenStatuses] = useState<Availability[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [justBooked, setJustBooked] = useState<Booking | null>(null);
-  const [announcement, setAnnouncement] = useState('');
   const [listOpen, setListOpen] = useState(false);
+  const searchRequested = useRef(false);
 
   // Layout comes from the map's own width, not the window's. Inside the dashboard
   // the map loses 320px to the dashboard's sidebar and padding, which a window
@@ -138,6 +136,12 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
 
   const cameraRef = useRef<Camera | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (searchRequested.current && searchRef.current) {
+      searchRef.current.focus();
+      searchRequested.current = false;
+    }
+  }, [layout.sidebar, listOpen]);
 
   // The drawing, joined to the rooms admins have set up. See adapter.ts.
   const { spaces, linkedCount, problems } = useMemo(() => mergeSpaces(SPACES, workspaces), [workspaces]);
@@ -311,7 +315,6 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
       setBookError(null);
       const fail = (message: string) => {
         setBookError({ spaceId: space.id, date, from, to, message });
-        setAnnouncement(message);
         setBookingFor(null);
       };
       try {
@@ -345,7 +348,16 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
         return;
       }
       if (typing) return;
-      if (e.key === '/') { e.preventDefault(); searchRef.current?.focus(); }
+      if (e.key === '/') {
+        e.preventDefault();
+        if (compact) setListOpen(true);
+        else {
+          setSidebarOpen(true);
+          setOverlayFor(selectedId);
+        }
+        if (searchRef.current) searchRef.current.focus();
+        else searchRequested.current = true;
+      }
       else if (e.key === 'f') {
         e.preventDefault();
         setHiddenStatuses((h) =>
@@ -357,13 +369,10 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [changeWindow, from, jumpNow, selectedId, to]);
+  }, [changeWindow, compact, from, jumpNow, selectedId, to]);
 
-  useEffect(() => {
-    setAnnouncement(
-      `${formatRange(from, to)}. ${counts.available} of ${matching.filter((s) => s.bookable).length} spaces available.`,
-    );
-  }, [counts.available, from, matching, to]);
+  const announcement = shownBookError ??
+    `${formatRange(from, to)}. ${counts.available} of ${matching.filter((s) => s.bookable).length} spaces available.`;
 
   const mapLabel = `Inspire9 Level 1 floor plan, ${date}, ${formatRange(from, to)}`;
 
@@ -502,19 +511,14 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
         <main className="relative min-h-0 min-w-0 flex-1 overflow-hidden" style={{ background: 'var(--color-mat)' }}>
           {view === 'map' ? (
             <>
-              {/* The sheet takes the plan's own aspect ratio, so the paper is a
-                  sheet on a mat rather than a frame with the drawing stranded
-                  in the middle of it. */}
-              <div className="absolute inset-0 flex items-center justify-center p-3 sm:p-6">
+              {/* SVG and labels share the full viewport and its letterboxing.
+                  The separate toolbar row keeps controls clear of the floor. */}
+              <div className="fp-canvas absolute inset-x-0 top-0 bottom-14">
                 <div
-                  className="w-full overflow-hidden"
+                  className="h-full w-full overflow-hidden"
                   style={{
-                    aspectRatio: '211 / 136',
                     maxWidth: '100%',
                     maxHeight: '100%',
-                    background: 'var(--color-paper)',
-                    borderRadius: 'var(--radius-sheet)',
-                    boxShadow: 'var(--shadow-sheet)',
                   }}
                 >
                   <FloorPlan
@@ -531,21 +535,22 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
                     cameraRef={cameraRef}
                   />
                 </div>
+                {compact && !selected && <p className="fp-map-hint pointer-events-none absolute inset-x-0 bottom-5 text-center text-[11px]" style={{ color: 'var(--color-ink-500)' }}>Pinch to zoom · Tap a space to explore</p>}
               </div>
 
-              <div className="pointer-events-none absolute inset-0 p-3 sm:p-6">
+              <div className="fp-map-toolbar pointer-events-none absolute inset-x-0 bottom-0 h-14">
                 <div className="relative h-full w-full">
                   {/* Only float the legend when the sidebar isn't carrying it --
                       otherwise it sits on top of the drawing and collides with it. */}
                   <div
-                    className={`pointer-events-auto absolute bottom-4 left-4 ${
+                    className={`pointer-events-auto absolute bottom-2 left-3 ${
                       layout.floatLegend ? '' : 'hidden'
                     }`}
                   >
                     {legendEl}
                   </div>
                   <div
-                    className="pointer-events-auto absolute bottom-4 right-4 flex flex-col overflow-hidden rounded-lg border"
+                    className="fp-zoom-controls pointer-events-auto absolute bottom-2 right-3 flex overflow-hidden rounded-lg border"
                     style={{
                       background: 'var(--color-surface-0)',
                       borderColor: 'var(--color-border)',
@@ -553,19 +558,19 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
                     }}
                   >
                     {([
-                      ['Zoom in', Plus, () => cameraRef.current?.zoomIn()],
-                      ['Zoom out', Minus, () => cameraRef.current?.zoomOut()],
-                      ['Fit floor plan', Maximize2, () => cameraRef.current?.fit()],
-                    ] as const).map(([label, Icon, fn], i) => (
+                      ['Zoom in', Plus, 'zoomIn'],
+                      ['Zoom out', Minus, 'zoomOut'],
+                      ['Fit floor plan', Maximize2, 'fit'],
+                    ] as const).map(([label, Icon, action], i) => (
                       <button
                         key={label}
-                        onClick={fn}
+                        onClick={() => cameraRef.current?.[action]()}
                         aria-label={label}
                         title={label}
                         className="grid h-9 w-9 place-items-center hover:bg-[var(--color-surface-2)]"
                         style={{
                           color: 'var(--color-ink-600)',
-                          borderTop: i ? '1px solid var(--color-border)' : undefined,
+                          borderLeft: i ? '1px solid var(--color-border)' : undefined,
                         }}
                       >
                         <Icon size={15} />
@@ -655,7 +660,7 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
       )}
 
       {compact && selected && (
-        <div className="pointer-events-none absolute inset-x-0 top-14 bottom-0 z-40 flex items-end justify-center">
+        <div className="fp-booking-sheet pointer-events-none absolute inset-x-0 top-14 bottom-0 z-40 flex items-end justify-center">
           <BookingPanel
             variant="sheet"
             space={selected}

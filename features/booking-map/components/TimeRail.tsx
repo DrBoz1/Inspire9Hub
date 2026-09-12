@@ -92,7 +92,7 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
 
   return (
     <div
-      className="flex h-14 shrink-0 items-center gap-2 border-b px-3 @xl:gap-3 @xl:px-4"
+      className="fp-time-rail flex h-14 shrink-0 items-center gap-2 border-b px-3 @xl:gap-3 @xl:px-4"
       style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
     >
       <button
@@ -103,7 +103,7 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
         Now
       </button>
 
-      <div className="relative min-w-0 flex-1 select-none py-2">
+      <div className="fp-time-track relative min-w-0 flex-1 select-none py-2">
         <div className="relative h-6">
           <SliderPrimitive.Root
             className="absolute inset-0 flex touch-none items-center select-none"
@@ -210,7 +210,7 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
 
       {/* Every value here changes width as the window moves. Reserving space keeps
           the flex-1 track a fixed size, so the rail cannot re-lay-out mid-drag. */}
-      <div className="flex shrink-0 items-center justify-end gap-3">
+      <div className="fp-time-summary flex shrink-0 items-center justify-end gap-3">
         <span
           className="tnum inline-block min-w-[9.5rem] whitespace-nowrap text-right text-[13px] font-semibold"
           style={{ color: 'var(--color-ink-900)' }}

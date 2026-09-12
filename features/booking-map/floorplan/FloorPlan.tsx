@@ -173,7 +173,7 @@ export function FloorPlan({
   );
 
   // Furniture fades in between fit-to-view and ~1.3× (§5.3).
-  const furnitureOpacity = Math.max(0.5, Math.min(1, 0.5 + (k - 1) * 1.6));
+  const furnitureOpacity = Math.max(0.38, Math.min(0.85, 0.38 + (k - 1) * 0.65));
 
   return (
     <div

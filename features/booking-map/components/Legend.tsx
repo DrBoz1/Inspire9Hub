@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import type { Availability } from '../booking/types';
 import { StatusSwatch, STATUS_LABEL } from './ui';
 
-const ORDER: Availability[] = ['available', 'partial', 'booked', 'mine', 'closed'];
+const ORDER: Availability[] = ['available', 'partial', 'booked', 'mine', 'closed', 'unknown'];
 const STORE_KEY = 'i9.legend.open';
 
 interface Props {
@@ -19,16 +19,13 @@ interface Props {
 export function Legend({ counts, hidden, onToggle }: Props) {
   // Collapsed by default: the map column is only ~800 px tall at 900 px
   // viewport height, and an open legend would sit over real bookable spaces.
-  const [open, setOpen] = useState(false);
-
-  useEffect(() => {
+  const [open, setOpen] = useState(() => {
     try {
-      const v = localStorage.getItem(STORE_KEY);
-      if (v !== null) setOpen(v === '1');
+      return typeof window !== 'undefined' && localStorage.getItem(STORE_KEY) === '1';
     } catch {
-      /* storage unavailable — keep the default */
+      return false;
     }
-  }, []);
+  });
 
   const setOpenPersisted = (v: boolean) => {
     setOpen(v);
@@ -41,7 +38,7 @@ export function Legend({ counts, hidden, onToggle }: Props) {
 
   return (
     <div
-      className="w-52 overflow-hidden rounded-lg border"
+      className="fp-legend w-52 overflow-hidden rounded-lg border"
       style={{
         background: 'var(--color-surface-0)',
         borderColor: 'var(--color-border)',

@@ -25,22 +25,22 @@
 .fp-root {
 
   /* paper & surfaces */
-  --color-paper: #ffffff;
-  --color-mat: #edebe6;
-  --color-surface-0: #ffffff;
-  --color-surface-1: #f7f8f9;
-  --color-surface-2: #eff1f3;
-  --color-surface-3: #e4e7ea;
-  --color-border-subtle: #e9ecef;
-  --color-border: #d6dae0;
-  --color-border-strong: #b9c0c8;
+  --color-paper: #fffefa;
+  --color-mat: #f3f2ec;
+  --color-surface-0: #fffefa;
+  --color-surface-1: #f9f8f3;
+  --color-surface-2: #eeeee5;
+  --color-surface-3: #e4e5d9;
+  --color-border-subtle: #e9e9df;
+  --color-border: #dedfd4;
+  --color-border-strong: #b7bca9;
 
   /* ink */
-  --color-ink-900: #0a0c0e;
-  --color-ink-700: #2b3238;
-  --color-ink-600: #454e57;
-  --color-ink-500: #5b6670;
-  --color-ink-400: #7c8794;
+  --color-ink-900: #343d32;
+  --color-ink-700: #46503f;
+  --color-ink-600: #58614f;
+  --color-ink-500: #707766;
+  --color-ink-400: #89917e;
   --color-ink-300: #a8b0b8;
   --color-ink-200: #d6dae0;
 
@@ -119,10 +119,9 @@
   --color-focus: #1152d6;
 
   /* type */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
   "Helvetica Neue", Arial, sans-serif;
-  --font-plan: "Roboto Condensed", "Arial Narrow", "Helvetica Neue Condensed",
-  "Inter", sans-serif;
+  --font-plan: Arial, Helvetica, sans-serif;
   --font-mono: ui-monospace, "SF Mono", "Cascadia Mono", "Segoe UI Mono", Consolas,
   monospace;
 
@@ -158,8 +157,8 @@
 
 
   /* Linework weights in plan units (1 unit ≈ 24 mm). Ratio is the drawing's. */
-  --wall-w: 16;
-  --partition-w: 8;
+  --wall-w: 12;
+  --partition-w: 7;
   --glazing-w: 5;
   --furniture-w: 2;
   --swing-w: 1.6;
@@ -242,6 +241,11 @@
   stroke: var(--color-ink-400);
   stroke-width: var(--swing-w);
 }
+.fp-root .fp-door-opening {
+  stroke: var(--color-paper);
+  stroke-width: 17;
+  stroke-linecap: butt;
+}
 .fp-root .fp-door-arc {
   stroke: var(--color-ink-400);
   stroke-width: var(--swing-w);
@@ -249,20 +253,20 @@
   stroke-dasharray: none;
 }
 
-.fp-furniture,
-.fp-seat,
-.fp-seat-hotdesk,
-.fp-seat-lounge,
+.fp-root .fp-furniture,
+.fp-root .fp-seat,
+.fp-root .fp-seat-hotdesk,
+.fp-root .fp-seat-lounge,
 .fp-root .fp-lounge {
   fill: none;
   stroke: var(--color-ink-500);
   stroke-width: var(--furniture-w);
   stroke-linejoin: round;
 }
-.fp-furniture rect,
-.fp-furniture circle,
-.fp-furniture path,
-.fp-seat rect,
+.fp-root .fp-furniture rect,
+.fp-root .fp-furniture circle,
+.fp-root .fp-furniture path,
+.fp-root .fp-seat rect,
 .fp-root .fp-seat path {
   fill: var(--color-paper);
 }
@@ -286,13 +290,13 @@
 }
 
 /* The drawing's own two legend colours, quoted verbatim. */
-.fp-seat-hotdesk rect,
+.fp-root .fp-seat-hotdesk rect,
 .fp-root .fp-seat-hotdesk path {
   fill: var(--color-zone-hotdesk-key);
   stroke: var(--color-ink-500);
 }
-.fp-seat-lounge rect,
-.fp-seat-lounge path,
+.fp-root .fp-seat-lounge rect,
+.fp-root .fp-seat-lounge path,
 .fp-root .fp-lounge rect {
   fill: var(--color-zone-lounge-key);
   stroke: var(--color-ink-500);
@@ -380,16 +384,16 @@
 .fp-root .fp-status-available[data-hovered="true"] {
   fill-opacity: 0.18;
 }
-.fp-status-partial[data-hovered="true"],
-.fp-status-booked[data-hovered="true"],
+.fp-root .fp-status-partial[data-hovered="true"],
+.fp-root .fp-status-booked[data-hovered="true"],
 .fp-root .fp-status-mine[data-hovered="true"] {
   fill-opacity: 0.22;
 }
 .fp-root .fp-status-available[data-selected="true"] {
   fill-opacity: 0.22;
 }
-.fp-status-partial[data-selected="true"],
-.fp-status-booked[data-selected="true"],
+.fp-root .fp-status-partial[data-selected="true"],
+.fp-root .fp-status-booked[data-selected="true"],
 .fp-root .fp-status-mine[data-selected="true"] {
   fill-opacity: 0.26;
 }
@@ -597,9 +601,9 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
+  .fp-root *,
+  .fp-root *::before,
+  .fp-root *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -621,3 +625,52 @@
     stroke-width: 2;
   }
 }
+
+/* Quiet architectural canvas; toolbar occupies its own row below the drawing. */
+.fp-root .fp-canvas { padding: 22px 20px 12px; background-image: radial-gradient(#9ca58c35 .7px, transparent .7px); background-size: 16px 16px; }
+.fp-root .fp-map-toolbar { background: var(--color-surface-0); border-top: 1px solid var(--color-border-subtle); }
+.fp-root .fp-label { display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.fp-root .fp-label-card { display: flex; flex-direction: column; justify-content: center; width: 100%; height: 100%; padding: 4px 7px; border: 1px solid transparent; border-radius: 5px; background: color-mix(in srgb, var(--color-paper) 91%, transparent); }
+.fp-root .fp-label-card-active { background: var(--color-paper); border-color: var(--color-border-strong); box-shadow: 0 2px 6px #29342416; }
+.fp-root .fp-label-name { display: block; font-size: 11px; font-weight: 600; line-height: 14px; overflow: hidden; text-overflow: ellipsis; }
+.fp-root .fp-label-glyph { margin-right: 4px; font-size: 9px; }
+.fp-root .fp-label-sub { display: block; line-height: 15px; overflow: hidden; text-overflow: ellipsis; }
+.fp-root .fp-label-code { font-size: 10px; line-height: 13px; font-weight: 400; }
+.fp-root .fp-label-banner { font-size: 9px; font-weight: 500; letter-spacing: .09em; }
+.fp-root .fp-label-amenity { font-size: 9px; line-height: 16px; letter-spacing: .03em; }
+.fp-root .fp-legend { position: relative; overflow: visible; width: 165px; }
+.fp-root .fp-legend > button { min-height: 36px; }
+.fp-root .fp-map-toolbar .fp-legend:has(ul) { position: absolute; bottom: 0; background: var(--color-surface-0); box-shadow: var(--shadow-e3); }
+.fp-root .fp-outline-closed { stroke-opacity: .3; stroke-width: .7; }
+.fp-root .fp-status-available { fill-opacity: .08; }
+.fp-root .fp-outline-available { stroke-opacity: .6; stroke-width: .8; }
+.fp-root .fp-space[data-selected="true"] .fp-outline { stroke-opacity: 1; }
+.fp-root .fp-zoom-controls button { width: 36px; height: 36px; }
+.fp-root .fp-time-rail { container-type: inline-size; }
+@container (max-width: 480px) {
+  .fp-root .fp-time-rail { display: grid; grid-template-columns: auto minmax(0, 1fr); height: 84px; column-gap: 12px; row-gap: 0; }
+  .fp-root .fp-time-rail > button { grid-column: 1; grid-row: 1; }
+  .fp-root .fp-time-track { grid-column: 1 / -1; grid-row: 2; width: 100%; padding-top: 0; }
+  .fp-root .fp-time-summary { grid-column: 2; grid-row: 1; justify-content: space-between; }
+  .fp-root .fp-time-summary > span:first-child { min-width: 0; text-align: left; }
+  .fp-root .fp-time-summary > span:nth-child(2) { display: inline-block; min-width: 0; }
+  .fp-root .fp-booking-sheet { top: 84px; }
+}
+
+/* The map follows the member theme without changing the page's global tokens. */
+.dark .fp-root {
+  color-scheme: dark;
+  --color-paper: #29312a; --color-mat: #202620;
+  --color-surface-0: #242c25; --color-surface-1: #272f27; --color-surface-2: #333d31; --color-surface-3: #424d3d;
+  --color-border-subtle: #384233; --color-border: #46513f; --color-border-strong: #79876c;
+  --color-ink-900: #e1e7d9; --color-ink-700: #c3cdb9; --color-ink-600: #b2bea7; --color-ink-500: #a2b095; --color-ink-400: #8d9c80; --color-ink-300: #65735c; --color-ink-200: #46513f;
+  --color-status-available: #74b193; --color-status-available-ink: #9ccdb1; --color-status-available-wash: #2d4335;
+  --color-status-partial: #caa15d; --color-status-partial-ink: #e4bd7e; --color-status-partial-wash: #493c27;
+  --color-status-full: #9fa99a; --color-status-full-ink: #c4ccbe; --color-status-full-wash: #3a4237;
+  --color-status-mine: #8eacdf; --color-status-mine-ink: #b4c9ed; --color-status-mine-wash: #303e50;
+  --color-zone-hotdesk-key: #526e69; --color-zone-hotdesk-pod: #344d43; --color-zone-lounge-key: #6b6574;
+  --color-brand: #e86062; --color-brand-hover: #e34c50; --color-brand-wash: #4a2e2f;
+  --color-danger-ink: #f3a29c; --color-danger-wash: #482f2b; --color-warn-ink: #e4bd7e; --color-warn-wash: #443b27;
+  --color-plan-green: #83a573; --color-plan-red: #cf9287;
+}
+@media (max-width: 767px) { .fp-root .fp-canvas { padding: 12px 5px; } }

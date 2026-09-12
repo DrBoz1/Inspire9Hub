@@ -219,7 +219,7 @@ export const SPACES: Space[] = [
       group: 'rooms' as const,
       capacity: 1,
       bookable: true,
-      shape: { t: 'rect' as const, x: bounds[0], y: 355, w: bounds[1] - bounds[0], h: 92 },
+      shape: { t: 'rect' as const, x: bounds[0], y: 372, w: bounds[1] - bounds[0], h: 75 },
       label: 'code' as const,
       zone: 'Central Core' as const,
       amenities: ['quiet' as const, 'power' as const],
