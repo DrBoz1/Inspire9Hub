@@ -1,0 +1,8 @@
+import { bookingInstant } from "@/app/(dashboard)/bookings/booking-time";
+import { todayIn, addDaysToKey } from "@/features/booking-map/zoned-time";
+const today = todayIn("Australia/Melbourne");
+const tomorrow = addDaysToKey(today, 1);
+export const rooms = ["Dream Room", "Elbow Room", "Pool Room", "Boardroom"].map((name, i) => ({ id: "room-" + i, name, location: "Inspire9 · Level 1", capacity: [8, 4, 6, 12][i], price_per_hour: [50, 30, 40, 80][i], amenities: ["wifi", "whiteboard", "tv"], image_url: "/images/login-side.jpg", busyToday: i === 0 }));
+export const bookings = rooms.slice(0, 3).map((r, i) => ({ id: "booking-" + i, member_id: "member", booking_status: i === 1 ? "pending" : "confirmed", start_date_time: bookingInstant(i === 2 ? addDaysToKey(today, -2) : tomorrow, 10 + i), end_date_time: bookingInstant(i === 2 ? addDaysToKey(today, -2) : tomorrow, 12 + i), workspaces: r }));
+export const activity = [{ id: "entry-1", entry_type: "Room Booking", entry_description: "Dream Room · your next conversation is on the calendar.", tags: "Approved", added_date: new Date().toISOString() }, { id: "entry-2", entry_type: "Induction", entry_description: "Your induction was approved. Make yourself at home.", tags: "Approved", added_date: new Date().toISOString() }];
+export const context = { firstName: "Sam", memberSince: "2025-01-01T00:00:00Z", inductionStatus: "Complete", memberStatus: "Active", totalPaid: 220, totalRefunded: 50, netSpend: 170, payments: [], confirmedBookings: 3, cancelledBookings: 1, upcomingBookings: [], activePasses: 2, rooms: rooms.map(r => ({ id: r.id, name: r.name, location: r.location, capacity: r.capacity, pricePerHour: r.price_per_hour, amenities: r.amenities })) };

@@ -1,0 +1,38 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e5]:
+    - generic [ref=e8]:
+      - img "Inspire9 Hub" [ref=e10]
+      - generic [ref=e11]:
+        - heading "Welcome back." [level=1] [ref=e12]
+        - paragraph [ref=e13]: Sign in to your Inspire9 Hub account.
+      - generic [ref=e14]:
+        - generic [ref=e15]:
+          - generic [ref=e16]: Email
+          - textbox "Email" [ref=e18]:
+            - /placeholder: you@example.com
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - generic [ref=e21]: Password
+            - link "Forgot?" [ref=e22] [cursor=pointer]:
+              - /url: /forgot-password
+          - generic [ref=e23]:
+            - textbox "Password" [ref=e24]:
+              - /placeholder: Enter your password
+            - button "Show password" [ref=e25]
+        - button "Sign In" [ref=e29]
+      - paragraph [ref=e34]:
+        - text: Don't have an account?
+        - link "Sign up" [ref=e35] [cursor=pointer]:
+          - /url: /signup
+    - generic [ref=e36]:
+      - img "Inspire9 coworking space" [ref=e37]
+      - generic [ref=e39]:
+        - generic [ref=e40]: Inspire9 Hub · Richmond, Melbourne
+        - paragraph [ref=e42]: Where ideasfind their home.
+        - paragraph [ref=e43]: Book workspaces, connect with the community, and grow your business — all in one place.
+        - generic [ref=e44]:
+          - generic [ref=e45]: Coworking
+          - generic [ref=e46]: Meeting Rooms
+          - generic [ref=e47]: Events
+          - generic [ref=e48]: Community
+  - button "Open Next.js Dev Tools" [ref=e54] [cursor=pointer]

@@ -7,7 +7,7 @@ import { format, parseISO } from "date-fns";
 import { getAnnouncementType } from "@/lib/announcement-types";
 import { MEMBER_STATUS } from "@/lib/constants";
 import { ActivityMark } from "@/components/activity-mark";
-import BookingSuccessModal from "./BookingSuccessModal";
+function BookingSuccessModal() { return null; }
 import { useHubClock } from "@/components/use-hub-clock";
 
 type AnnouncementRow = { id: string; title: string; message: string; type: string; created_at: string };

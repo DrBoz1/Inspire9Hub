@@ -6,6 +6,7 @@ import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner"; // 1. Import the Toaster
 import "./member-hub.css";
+import "./member-pages.css";
 
 export default async function DashboardLayout({
   children,

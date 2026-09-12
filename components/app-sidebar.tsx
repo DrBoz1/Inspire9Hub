@@ -41,14 +41,12 @@ export function AppSidebar({ userProfile }: { userProfile: MemberProfile | null 
 
   return (
     <Sidebar variant="floating" collapsible="icon" className="hub-sidebar">
-      <SidebarHeader className="hub-sidebar-header">
+      {!isCollapsed && <SidebarHeader className="hub-sidebar-header">
         <Link href="/dashboard" onClick={closeMobile} aria-label="Inspire9 Hub home" className="hub-brand">
-          {isCollapsed ? <span className="hub-monogram">i<span>9</span></span> : <>
-            <Image src="/images/inspire9Logo.png" alt="Inspire9" width={132} height={46} className="h-auto w-[132px]" priority />
+            <Image src="/images/inspire9Logo.png" alt="Inspire9" width={132} height={70} className="h-auto w-[132px]" priority />
             <span className="hub-brand-caption">The member hub</span>
-          </>}
         </Link>
-      </SidebarHeader>
+      </SidebarHeader>}
       <SidebarContent className="hub-sidebar-content">
         {groups.map(group => <div key={group.label} className="hub-nav-group">
           {!isCollapsed && <p className="hub-nav-label">{group.label}</p>}

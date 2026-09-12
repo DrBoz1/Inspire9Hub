@@ -7,8 +7,8 @@ import { ArrowRight, ArrowUpRight, Check, Download, Loader2, MessageSquareText, 
 import { ChatsCircleIcon } from "@phosphor-icons/react/dist/csr/ChatsCircle";
 import { matchIntent, isBookingAttempt, progressBooking, isRoomOptionsTrigger, describeRoomOption, type AssistantContext, type BotReply, type BookingDraft, type BookingQuote } from "@/lib/assistant/engine";
 import { formatAssistantHour as formatHour, paymentTime } from "@/lib/assistant/time";
-import { getAssistantContext } from "./actions";
-import { checkRoomAvailability, createCheckoutSession, getBookingConfirmation } from "@/app/(dashboard)/bookings/actions";
+import { getAssistantContext } from "./mocks";
+import { checkRoomAvailability, createCheckoutSession, getBookingConfirmation } from "./mocks";
 import { bookingInstant } from "@/app/(dashboard)/bookings/booking-time";
 
 type ChatMessage = BotReply & { id: number; role: "user" | "bot"; quote?: BookingQuote; receiptBookingId?: string };
@@ -134,7 +134,7 @@ export default function AssistantWidget({ onEscalate }: { onEscalate: (question:
       reply({ text: err instanceof Error ? err.message : "I couldn't finish that request. Your draft is saved; please try again.", suggestions: draft ? ["Check availability", "Message the team"] : undefined, escalate: true });
     } finally {
       requestLock.current = false;
-      if (alive.current) setBusy(false);
+      if (alive.current) { setBusy(false); requestAnimationFrame(() => inputRef.current?.focus({ preventScroll: true })); }
     }
   }
 

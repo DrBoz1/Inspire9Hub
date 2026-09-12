@@ -1,0 +1,161 @@
+- generic [active] [ref=f3e1]:
+  - generic [ref=f3e3]:
+    - generic [ref=f3e6]:
+      - link "Inspire9 Hub home" [ref=f3e8] [cursor=pointer]:
+        - /url: /dashboard
+        - img "Inspire9" [ref=f3e9]
+        - generic [ref=f3e10]: The member hub
+      - generic [ref=f3e11]:
+        - generic [ref=f3e12]:
+          - paragraph [ref=f3e13]: Your workspace
+          - list [ref=f3e14]:
+            - listitem [ref=f3e15]:
+              - link "Overview" [ref=f3e16] [cursor=pointer]:
+                - /url: /dashboard
+            - listitem [ref=f3e23]:
+              - link "Spaces" [ref=f3e24] [cursor=pointer]:
+                - /url: /spaces
+            - listitem [ref=f3e28]:
+              - link "Bookings" [ref=f3e29] [cursor=pointer]:
+                - /url: /bookings
+            - listitem [ref=f3e33]:
+              - link "Activity" [ref=f3e34] [cursor=pointer]:
+                - /url: /history
+        - generic [ref=f3e40]:
+          - paragraph [ref=f3e41]: Membership
+          - list [ref=f3e42]:
+            - listitem [ref=f3e43]:
+              - link "My profile" [ref=f3e44] [cursor=pointer]:
+                - /url: /profile
+            - listitem [ref=f3e49]:
+              - link "Help & support" [ref=f3e50] [cursor=pointer]:
+                - /url: /support
+        - link "Your place to connect Find your space Explore Level 1" [ref=f3e59] [cursor=pointer]:
+          - /url: /spaces
+          - generic [ref=f3e60]: Your place to connect
+          - generic [ref=f3e141]:
+            - strong [ref=f3e142]: Find your space
+            - generic [ref=f3e143]: Explore Level 1
+      - generic [ref=f3e148]:
+        - link "View your profile" [ref=f3e149] [cursor=pointer]:
+          - /url: /profile
+          - generic [ref=f3e150]: ST
+          - generic [ref=f3e152]:
+            - strong [ref=f3e153]: Sam Taylor
+            - generic [ref=f3e154]: Active member
+        - button "Log out" [ref=f3e157]
+    - main [ref=f3e161]:
+      - generic [ref=f3e162]:
+        - button "Toggle sidebar" [ref=f3e163]:
+          - generic [ref=f3e164]: Toggle Sidebar
+        - generic [ref=f3e165]:
+          - generic [ref=f3e166]: Member hub
+          - strong [ref=f3e169]: Inspire9
+        - generic [ref=f3e170]: Melbourne
+      - main [ref=f3e176]:
+        - generic [ref=f3e177]:
+          - generic [ref=f3e178]:
+            - generic [ref=f3e179]:
+              - paragraph [ref=f3e180]: A little help goes a long way
+              - heading "We're here for you." [level=1] [ref=f3e181]
+              - paragraph [ref=f3e182]: Hi Sam. Let's get you back to the good stuff.
+            - link "Talk to the team" [ref=f3e183] [cursor=pointer]:
+              - /url: "#support-form"
+          - generic [ref=f3e187]:
+            - region "Hub assistant" [ref=f3e188]:
+              - generic [ref=f3e189]:
+                - generic [ref=f3e194]:
+                  - heading "Hub assistant" [level=2] [ref=f3e195]
+                  - paragraph [ref=f3e196]: Connecting to your account
+                - button "New conversation" [disabled] [ref=f3e198]
+              - log "Conversation" [ref=f3e200]:
+                - generic [ref=f3e201]:
+                  - text: Your hub, a conversation away
+                  - heading [level=3] [ref=f3e202]:
+                    - text: A little guidance.
+                    - emphasis [ref=f3e203]: A lot less admin.
+                  - paragraph [ref=f3e204]: Ask a question, check your account, or tell me the room and time you have in mind.
+                  - generic [ref=f3e205]:
+                    - button "Find a space A room for your next idea" [disabled] [ref=f3e206]:
+                      - strong [ref=f3e207]: Find a space
+                      - generic [ref=f3e211]: A room for your next idea
+                    - button "My account Your hub at a glance" [disabled] [ref=f3e212]:
+                      - strong [ref=f3e213]: My account
+                      - generic [ref=f3e217]: Your hub at a glance
+                    - button "My next booking See what's coming up" [disabled] [ref=f3e218]:
+                      - strong [ref=f3e219]: My next booking
+                      - generic [ref=f3e223]: See what's coming up
+                    - button "A quick question Cancellations & refunds" [disabled] [ref=f3e224]:
+                      - strong [ref=f3e225]: A quick question
+                      - generic [ref=f3e229]: Cancellations & refunds
+                  - paragraph [ref=f3e230]: Try “Dream Room tomorrow, 2:30 to 4 pm”.
+              - generic [ref=f3e231]:
+                - generic [ref=f3e232]:
+                  - textbox "Message the Hub assistant" [disabled] [ref=f3e233]:
+                    - /placeholder: What can I help you with?
+                  - button "Send message" [disabled] [ref=f3e234]
+                - generic [ref=f3e238]: Account-aware help · Booking times in Melbourne
+            - complementary [ref=f3e241]:
+              - generic [ref=f3e242]:
+                - generic [ref=f3e244]:
+                  - paragraph [ref=f3e245]: Good to know
+                  - heading "The usual questions" [level=2] [ref=f3e246]
+                - group [ref=f3e247]:
+                  - generic "01 What happens if I cancel?" [ref=f3e248] [cursor=pointer]:
+                    - generic [ref=f3e249]: "01"
+                    - text: What happens if I cancel?
+                - group [ref=f3e251]:
+                  - generic "02 Can I move a booking to another time?" [ref=f3e252] [cursor=pointer]:
+                    - generic [ref=f3e253]: "02"
+                    - text: Can I move a booking to another time?
+                - group [ref=f3e255]:
+                  - generic "03 Where is my access pass?" [ref=f3e256] [cursor=pointer]:
+                    - generic [ref=f3e257]: "03"
+                    - text: Where is my access pass?
+                - group [ref=f3e259]:
+                  - generic "04 Why is booking locked?" [ref=f3e260] [cursor=pointer]:
+                    - generic [ref=f3e261]: "04"
+                    - text: Why is booking locked?
+                - group [ref=f3e263]:
+                  - generic "05 I paid, but my booking still says pending." [ref=f3e264] [cursor=pointer]:
+                    - generic [ref=f3e265]: "05"
+                    - text: I paid, but my booking still says pending.
+              - generic [ref=f3e267]:
+                - text: Good people, close by
+                - paragraph [ref=f3e268]:
+                  - text: Sometimes, a conversation
+                  - emphasis [ref=f3e269]: makes all the difference.
+                - link "hello@inspire9.com" [ref=f3e270] [cursor=pointer]:
+                  - /url: mailto:hello@inspire9.com
+                - generic [ref=f3e277]: 41 Stewart St, Richmond VIC
+                - generic [ref=f3e281]: Staffed Monday–Friday, 9 am–5 pm
+          - generic [ref=f3e285]:
+            - generic [ref=f3e286]:
+              - paragraph [ref=f3e287]: From your screen to our team
+              - heading "A human touch." [level=2] [ref=f3e288]
+              - paragraph [ref=f3e289]: Tell us what's on your mind. The Inspire9 team will reply to your account email.
+              - generic [ref=f3e290]: Straight to the people who can help.
+            - group "What's it about?" [ref=f3e295]:
+              - generic [ref=f3e297]:
+                - generic [ref=f3e298] [cursor=pointer]:
+                  - radio "Booking Issue" [ref=f3e299]
+                  - text: Booking Issue
+                - generic [ref=f3e300] [cursor=pointer]:
+                  - radio "Payments & Refunds" [ref=f3e301]
+                  - text: Payments & Refunds
+                - generic [ref=f3e302] [cursor=pointer]:
+                  - radio "Induction" [ref=f3e303]
+                  - text: Induction
+                - generic [ref=f3e304] [cursor=pointer]:
+                  - radio "Access Pass" [ref=f3e305]
+                  - text: Access Pass
+                - generic [ref=f3e306] [cursor=pointer]:
+                  - radio "General Enquiry" [ref=f3e307]
+                  - text: General Enquiry
+              - generic [ref=f3e308]: Your message
+              - textbox "Your message" [ref=f3e309]:
+                - /placeholder: A few details will help us help you…
+              - generic [ref=f3e310]:
+                - generic [ref=f3e311]: 0 / 2,000
+                - button "Send message" [ref=f3e312] [cursor=pointer]
+  - button "Open Next.js Dev Tools" [ref=f3e321] [cursor=pointer]

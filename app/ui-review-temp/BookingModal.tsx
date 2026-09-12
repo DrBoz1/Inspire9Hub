@@ -6,12 +6,12 @@ import { format, parseISO } from "date-fns";
 import { ArrowUpRight, ArrowRight, Clock, Loader2, ShieldCheck, RotateCcw } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
-import { checkRoomAvailability, createCheckoutSession, getBookedSlotsForDate } from "./actions";
+import { checkRoomAvailability, createCheckoutSession, getBookedSlotsForDate } from "./mocks";
 import { formatHour, padTime } from "@/lib/datetime";
 import { HUB_TIMEZONE } from "@/lib/datetime";
 import { addDaysToKey, dayBoundsUtc, todayIn } from "@/features/booking-map/zoned-time";
 import { useHubClock } from "@/components/use-hub-clock";
-import { bookingInstant, rangeUnavailable, type BookedSlot } from "./booking-time";
+import { bookingInstant, rangeUnavailable, type BookedSlot } from "@/app/(dashboard)/bookings/booking-time";
 import type { BookingRoom } from "./RoomCard";
 
 const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);

@@ -1,4 +1,4 @@
-import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { createClient, getCurrentUser } from "./mock-server";
 import {
   CalendarDays,
   CreditCard,
@@ -12,7 +12,7 @@ import { HUB_TIMEZONE } from "@/lib/datetime";
 import { ActivityMark } from "@/components/activity-mark";
 import Link from "next/link";
 import { summarizePayments } from "@/lib/member-stats";
-import HistoryHero from "./HistoryHero";
+import HistoryHero from "@/app/(dashboard)/history/HistoryHero";
 
 const PAGE_SIZE = 10;
 
@@ -73,7 +73,7 @@ function historyHref(current: Required<SearchParams>, overrides: Partial<SearchP
   for (const [key, value] of Object.entries(merged)) {
     if (value && value !== "all" && value !== "1") params.set(key, value);
   }
-  return `/history${params.size > 0 ? `?${params.toString()}` : ""}`;
+  return `/ui-review-temp?page=history&${params.size > 0 ? `${params.toString()}` : ""}`;
 }
 
 function pickValid<T extends string>(value: string | undefined, allowed: readonly T[], fallback: T): T {

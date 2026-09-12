@@ -5,7 +5,7 @@ import Link from "next/link";
 import { CalendarDays, LayoutGrid, Clock, Search, ArrowUpRight, XCircle } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { cancelConfirmedBooking } from "./actions";
+import { cancelConfirmedBooking } from "./mocks";
 import { getRefundPolicy } from "@/lib/refund-policy";
 import { HUB_TIMEZONE } from "@/lib/datetime";
 import { useHubClock } from "@/components/use-hub-clock";

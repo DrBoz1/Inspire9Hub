@@ -2,7 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { Mail, MapPin, Clock, Plus, ArrowUpRight, Send, Check, Loader2 } from "lucide-react";
-import { sendSupportRequest } from "./actions";
+import { sendSupportRequest } from "./mocks";
 import AssistantWidget from "./AssistantWidget";
 
 const TOPICS = ["Booking Issue", "Payments & Refunds", "Induction", "Access Pass", "General Enquiry"];
@@ -23,7 +23,7 @@ export default function SupportClient({ firstName }: { firstName: string }) {
   const messageRef = useRef<HTMLTextAreaElement>(null);
   function escalateFromBot(question: string) {
     setSent(false); setTopic("General Enquiry"); setMessage(question.slice(0, 2000)); setError("");
-    requestAnimationFrame(() => { document.getElementById("support-form")?.scrollIntoView({ behavior: window.matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "center" }); messageRef.current?.focus({ preventScroll: true }); });
+    requestAnimationFrame(() => { document.getElementById("support-form")?.scrollIntoView({ behavior: "smooth", block: "center" }); messageRef.current?.focus({ preventScroll: true }); });
   }
   return <div className="hub-page hub-support">
     <div className="hub-page-heading"><div><p className="hub-eyebrow">A little help goes a long way</p><h1>We're here for you<span className="hub-red">.</span></h1><p>Hi {firstName}. Let's get you back to the good stuff.</p></div><a className="hub-button hub-button-outline" href="#support-form">Talk to the team<ArrowUpRight size={15} /></a></div>
