@@ -1,58 +1,27 @@
 import { Skeleton } from "@/components/ui/skeleton";
+import BookingsHero from "./BookingsHero";
+import { CalendarDays, LayoutGrid } from "lucide-react";
 
 export default function BookingsLoading() {
-  return (
-    <div className="space-y-10 font-poppins pb-20 animate-pulse">
-      {/* Header */}
-      <div className="space-y-2">
-        <Skeleton className="h-10 w-56 rounded-xl" />
-        <Skeleton className="h-4 w-96 rounded-lg" />
-      </div>
-
-      {/* Tab bar */}
-      <div className="flex justify-between items-center">
-        <Skeleton className="h-14 w-72 rounded-2xl" />
-        <Skeleton className="h-4 w-40 rounded" />
-      </div>
-
-      {/* Room card grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-        {[...Array(5)].map((_, i) => (
-          <div
-            key={i}
-            className="rounded-[40px] bg-white shadow-xl overflow-hidden flex flex-col"
-          >
-            {/* Image area */}
-            <Skeleton className="h-52 w-full rounded-none" />
-
-            {/* Content */}
-            <div className="p-7 flex flex-col gap-4 flex-1">
-              <div className="flex justify-between items-start">
-                <Skeleton className="h-7 w-36 rounded-lg" />
-                <Skeleton className="h-4 w-8 rounded" />
-              </div>
-
-              {/* Capacity + location chips */}
-              <div className="flex gap-2">
-                <Skeleton className="h-8 w-24 rounded-xl" />
-                <Skeleton className="h-8 w-28 rounded-xl" />
-              </div>
-
-              {/* Amenity grid */}
-              <div className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {[...Array(8)].map((_, j) => (
-                  <Skeleton key={j} className="h-3 w-28 rounded" />
-                ))}
-              </div>
-
-              {/* Book button */}
-              <div className="mt-auto pt-2">
-                <Skeleton className="h-16 w-full rounded-2xl" />
-              </div>
+  return <div className="hub-page hub-bookings hub-loading" role="status" aria-label="Loading your spaces" aria-busy="true">
+    <div aria-hidden="true" inert>
+      <BookingsHero />
+      <div className="hub-loading-tabs-layout">
+        <div className="hub-tabs"><span className="hub-loading-tab"><LayoutGrid size={16} />Browse rooms<Skeleton className="h-[19px] w-[21px]" /></span><span className="hub-loading-tab"><CalendarDays size={16} />My schedule<Skeleton className="h-[19px] w-[21px]" /></span></div>
+        <div>
+          <div className="hub-browse-tools"><div className="hub-search"><Skeleton className="size-4 shrink-0" /><Skeleton className="h-3 w-48 max-w-full" /></div><div className="hub-capacity"><Skeleton className="h-3 w-10" /><Skeleton className="h-10 w-28 rounded-lg" /></div><span className="hub-record-note"><Skeleton className="h-3 w-12" /></span></div>
+          <div className="hub-room-grid">{[0, 1, 2].map(i => <div key={i} className="hub-room-card hub-surface">
+            <Skeleton className="hub-room-photo rounded-none" />
+            <div className="hub-room-body">
+              <div className="hub-room-location"><Skeleton className="h-3 w-28" /></div>
+              <h2><Skeleton className="h-[30px] w-40 max-w-full" /></h2>
+              <div className="hub-room-features"><Skeleton className="h-[15px] w-16" /><Skeleton className="h-[15px] w-24" /></div>
+              <div className="hub-room-rate"><Skeleton className="h-[34px] w-28" /><Skeleton className="h-3 w-32" /></div>
+              <Skeleton className="hub-room-book rounded-lg" />
             </div>
-          </div>
-        ))}
+          </div>)}</div>
+        </div>
       </div>
     </div>
-  );
+  </div>;
 }

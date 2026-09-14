@@ -7,7 +7,6 @@ import {
   startOfWeek,
   endOfWeek,
   startOfYear,
-  startOfDay,
   subMonths,
   subWeeks,
   subYears,
@@ -158,35 +157,20 @@ type TimeWindow = { label: string; from: Date; to: Date };
 
 function extractTimeWindow(query: string): TimeWindow | null {
   const q = query.toLowerCase();
-  const now = new Date();
-  if (/\blast\s+month\b/.test(q)) {
-    const m = subMonths(now, 1);
-    return { label: "last month", from: startOfMonth(m), to: endOfMonth(m) };
-  }
-  if (/\bthis\s+month\b/.test(q))
-    return { label: "this month", from: startOfMonth(now), to: now };
-  if (/\blast\s+week\b/.test(q)) {
-    const w = subWeeks(now, 1);
-    return {
-      label: "last week",
-      from: startOfWeek(w, { weekStartsOn: 1 }),
-      to: endOfWeek(w, { weekStartsOn: 1 }),
-    };
-  }
-  if (/\bthis\s+week\b/.test(q))
-    return {
-      label: "this week",
-      from: startOfWeek(now, { weekStartsOn: 1 }),
-      to: now,
-    };
-  if (/\blast\s+year\b/.test(q)) {
-    const y = subYears(now, 1);
-    return { label: "last year", from: startOfYear(y), to: endOfYear(y) };
-  }
-  if (/\bthis\s+year\b/.test(q))
-    return { label: "this year", from: startOfYear(now), to: now };
-  if (/\btoday\b/.test(q))
-    return { label: "today", from: startOfDay(now), to: now };
+  const instant = new Date();
+  const day = parseISO(todayIn(HUB_TIMEZONE, instant.getTime()));
+  const window = (label: string, from: Date, through?: Date): TimeWindow => ({
+    label,
+    from: new Date(wallClockToUtc(format(from, "yyyy-MM-dd"), 0, HUB_TIMEZONE)),
+    to: through ? new Date(wallClockToUtc(addDaysToKey(format(through, "yyyy-MM-dd"), 1), 0, HUB_TIMEZONE) - 1) : instant,
+  });
+  if (/\blast\s+month\b/.test(q)) { const m = subMonths(day, 1); return window("last month", startOfMonth(m), endOfMonth(m)); }
+  if (/\bthis\s+month\b/.test(q)) return window("this month", startOfMonth(day));
+  if (/\blast\s+week\b/.test(q)) { const w = subWeeks(day, 1); return window("last week", startOfWeek(w, { weekStartsOn: 1 }), endOfWeek(w, { weekStartsOn: 1 })); }
+  if (/\bthis\s+week\b/.test(q)) return window("this week", startOfWeek(day, { weekStartsOn: 1 }));
+  if (/\blast\s+year\b/.test(q)) { const y = subYears(day, 1); return window("last year", startOfYear(y), endOfYear(y)); }
+  if (/\bthis\s+year\b/.test(q)) return window("this year", startOfYear(day));
+  if (/\btoday\b/.test(q)) return window("today", day);
   return null;
 }
 
@@ -352,8 +336,8 @@ type Intent = {
 };
 
 function describeBooking(b: UpcomingBooking): string {
-  const when = format(parseISO(b.startISO), "EEE d MMM, h:mm a");
-  const until = format(parseISO(b.endISO), "h:mm a");
+  const when = new Date(b.startISO).toLocaleString("en-AU", { timeZone: HUB_TIMEZONE, weekday: "short", day: "numeric", month: "short", hour: "numeric", minute: "2-digit" });
+  const until = new Date(b.endISO).toLocaleTimeString("en-AU", { timeZone: HUB_TIMEZONE, hour: "numeric", minute: "2-digit" });
   const note = b.status === "pending" ? " · awaiting confirmation" : "";
   return `${b.room} — ${when} to ${until}${note}`;
 }
@@ -368,7 +352,7 @@ const INTENTS: Intent[] = [
     reply: (ctx) => {
       const next = ctx.upcomingBookings[0];
       return {
-        text: `Hey ${ctx.firstName}! Here's your live snapshot:\n\n• Net spend: ${aud.format(ctx.netSpend)}\n• Upcoming bookings: ${ctx.upcomingBookings.length || "none"}${next ? ` (next: ${next.room}, ${format(parseISO(next.startISO), "d MMM h:mm a")})` : ""}\n• Induction: ${ctx.inductionStatus}\n• Active passes: ${ctx.activePasses}\n\nAsk me anything — I can even break spending down by month.`,
+        text: `Hey ${ctx.firstName}! Here's your account snapshot:\n\n• Net spend: ${aud.format(ctx.netSpend)}\n• Upcoming bookings: ${ctx.upcomingBookings.length || "none"}${next ? ` (next: ${next.room}, ${new Date(next.startISO).toLocaleString("en-AU", { timeZone: HUB_TIMEZONE, day: "numeric", month: "short", hour: "numeric", minute: "2-digit" })})` : ""}\n• Induction: ${ctx.inductionStatus}\n• Active passes: ${ctx.activePasses}\n\nAsk me anything — I can even break spending down by month.`,
         suggestions: ["How much did I spend this month?", "When's my next booking?"],
       };
     },
@@ -440,15 +424,15 @@ const INTENTS: Intent[] = [
     reply: (ctx) => {
       if (ctx.inductionStatus === "Complete")
         return {
-          text: `Your induction is approved and your account is fully verified — booking is unlocked. If a slot looks greyed out, someone else simply got there first.`,
+          text: `Your induction is approved and booking is unlocked. Unavailable times may already be booked or have passed.`,
           action: { label: "Book a space", href: "/bookings" },
         };
       if (ctx.inductionStatus === "Submitted")
         return {
-          text: `Your induction is submitted and with the Hub team right now. Reviews take 24–48 hours and you'll get an email the moment a decision lands — booking unlocks automatically after approval.`,
+          text: `Your induction is submitted and with the Hub team right now. You'll receive an email when the team has reviewed it. Booking opens after approval.`,
         };
       return {
-        text: `Your induction hasn't been completed yet — that's what's keeping the booking page locked. It's a 5-minute safety form, then the team reviews within 24–48 hours.`,
+        text: `Your induction hasn't been completed yet — that's what's keeping the booking page locked. Complete the safety form so the team can review your access.`,
         action: { label: "Start induction now", href: "/induction" },
       };
     },
@@ -539,7 +523,7 @@ const INTENTS: Intent[] = [
           ? `You have ${ctx.activePasses} active access pass${ctx.activePasses === 1 ? "" : "es"} right now. `
           : `You don't have an active access pass at the moment. `
       }A digital pass is issued automatically with every confirmed booking, valid for the booking day — all listed in your history.`,
-      action: { label: "View my passes", href: "/history" },
+      action: { label: "View my passes", href: "/history?tab=passes" },
     }),
   },
   {
@@ -560,7 +544,7 @@ const INTENTS: Intent[] = [
     stems: ["email", "download", "copy", "tax", "gst"],
     reply: () => ({
       text: `Every confirmed booking emails you a PDF tax invoice automatically, GST breakdown included. Need one re-sent? Message the team below with the booking date and we'll sort it.`,
-      action: { label: "Check past payments", href: "/history" },
+      action: { label: "Check past payments", href: "/history?tab=payments" },
     }),
   },
   {
@@ -707,8 +691,7 @@ export function isBookingAttempt(query: string, ctx: AssistantContext): boolean 
 
 // True when the user is modifying an existing in-progress booking rather than
 // starting a fresh one — e.g. "change the time, 1pm-7pm", "different date".
-// The widget uses this to restore the last known draft after a quote is cancelled,
-// so the user doesn't have to re-specify room and date from scratch.
+// Only the named field is cleared; the other details stay in the active draft.
 export function isBookingCorrectionAttempt(query: string): boolean {
   const q = query.toLowerCase();
   return (
@@ -782,9 +765,13 @@ export function progressBooking(query: string, ctx: AssistantContext, draft: Boo
   const room = matchRoomName(query, ctx.rooms);
   const date = extractBookingDate(query, now);
   let range = extractTimeRange(query);
+  const negatedTime = /\b(?:not|except)\s+\d{1,2}(?::\d{2})?\s*(?:am|pm)?\s*(?:to|until|[-–—])/.test(q);
+  if (negatedTime) { range = null; delete next.startHour; delete next.endHour; }
+  if (!date && /\b(?:not|except)\s+(?:today|tomorrow|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/.test(q)) delete next.dateISO;
+  if (!room && ctx.rooms.some(r => q.includes("not " + r.name.toLowerCase()))) { delete next.roomId; delete next.roomName; }
   // A single start-time correction preserves the duration, never invents one.
   const singleTime = q.match(/(?:at\s+|make it\s+|start(?:ing)?(?: at)?\s+|from\s+|^)(\d{1,2}(?::\d{2})?\s*(?:am|pm)?)(?!\d)/);
-  if (!range && singleTime && draft.startHour !== undefined && draft.endHour !== undefined) {
+  if (!negatedTime && !range && singleTime && draft.startHour !== undefined && draft.endHour !== undefined) {
     const start = parseHourToken(singleTime[1]);
     if (start !== null) range = { start, end: start + draft.endHour - draft.startHour };
   }

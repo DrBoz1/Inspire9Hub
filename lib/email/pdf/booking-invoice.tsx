@@ -1,12 +1,4 @@
-import {
-  Document,
-  Page,
-  Text,
-  View,
-  StyleSheet,
-  Font,
-  Image,
-} from "@react-pdf/renderer";
+import { Document, Page, Text, View, StyleSheet, Image } from "@react-pdf/renderer";
 
 export type BookingInvoiceData = {
   bookingRef: string;
@@ -24,334 +16,89 @@ export type BookingInvoiceData = {
   logoDataUrl?: string;
 };
 
-const brand = "#E31E24";
-const dark = "#0f172a";
-const muted = "#64748b";
-const light = "#f8fafc";
-const border = "#e2e8f0";
-
+const ink = "#292e27";
+const muted = "#697064";
+const line = "#dfe3d8";
+const sage = "#45543c";
 const s = StyleSheet.create({
-  page: {
-    backgroundColor: "#ffffff",
-    padding: 52,
-    fontFamily: "Helvetica",
-    fontSize: 10,
-    color: dark,
-  },
-
-  // Header
-  header: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "flex-start",
-    marginBottom: 40,
-    paddingBottom: 28,
-    borderBottomWidth: 2,
-    borderBottomColor: dark,
-  },
-  brandName: {
-    fontSize: 26,
-    fontFamily: "Helvetica-Bold",
-    color: dark,
-    letterSpacing: -0.5,
-  },
-  brandAccent: { color: brand },
-  brandSub: {
-    fontSize: 9,
-    color: muted,
-    letterSpacing: 1.5,
-    marginTop: 3,
-    textTransform: "uppercase",
-  },
-  invoiceLabel: {
-    fontSize: 28,
-    fontFamily: "Helvetica-Bold",
-    color: dark,
-    textAlign: "right",
-    letterSpacing: -1,
-  },
-  invoiceRef: {
-    fontSize: 10,
-    color: muted,
-    textAlign: "right",
-    marginTop: 4,
-  },
-
-  // Status badge
-  paidBadge: {
-    backgroundColor: "#dcfce7",
-    borderRadius: 100,
-    paddingVertical: 5,
-    paddingHorizontal: 14,
-    alignSelf: "flex-end",
-    marginTop: 8,
-  },
-  paidText: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    color: "#166534",
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-  },
-
-  // Meta row (Bill To + Invoice Details)
-  metaRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 36,
-    gap: 24,
-  },
-  metaBlock: { flex: 1 },
-  metaLabel: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    color: muted,
-    letterSpacing: 1.2,
-    textTransform: "uppercase",
-    marginBottom: 8,
-  },
-  metaValue: { fontSize: 11, fontFamily: "Helvetica-Bold", color: dark },
-  metaValueSub: { fontSize: 10, color: muted, marginTop: 2 },
-
-  // Line items table
-  table: {
-    marginBottom: 0,
-    borderWidth: 1,
-    borderColor: border,
-    borderRadius: 8,
-    overflow: "hidden",
-  },
-  tableHeader: {
-    flexDirection: "row",
-    backgroundColor: dark,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-  },
-  tableHeaderText: {
-    fontSize: 9,
-    fontFamily: "Helvetica-Bold",
-    color: "#ffffff",
-    letterSpacing: 0.8,
-    textTransform: "uppercase",
-  },
-  tableRow: {
-    flexDirection: "row",
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: border,
-    backgroundColor: "#ffffff",
-  },
-  tableRowAlt: { backgroundColor: light },
-  colDesc: { flex: 1 },
-  colQty: { width: 50, textAlign: "center" },
-  colRate: { width: 70, textAlign: "right" },
-  colAmount: { width: 80, textAlign: "right" },
-  cellText: { fontSize: 10, color: dark },
-  cellSub: { fontSize: 9, color: muted, marginTop: 3 },
-
-  // Totals section
-  totalsSection: {
-    marginTop: 0,
-    borderWidth: 1,
-    borderTopWidth: 0,
-    borderColor: border,
-    borderRadius: "0 0 8 8",
-    overflow: "hidden",
-  },
-  totalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: border,
-  },
-  totalLabel: { fontSize: 10, color: muted },
-  totalValue: { fontSize: 10, color: dark },
-  grandTotalRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    backgroundColor: dark,
-  },
-  grandTotalLabel: {
-    fontSize: 12,
-    fontFamily: "Helvetica-Bold",
-    color: "#ffffff",
-    letterSpacing: 0.5,
-  },
-  grandTotalValue: {
-    fontSize: 18,
-    fontFamily: "Helvetica-Bold",
-    color: "#ffffff",
-    letterSpacing: -0.5,
-  },
-
-  // Footer
-  footer: {
-    position: "absolute",
-    bottom: 40,
-    left: 52,
-    right: 52,
-    borderTopWidth: 1,
-    borderTopColor: border,
-    paddingTop: 16,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  footerText: { fontSize: 9, color: muted },
-  footerBrand: { fontSize: 9, fontFamily: "Helvetica-Bold", color: dark },
+  page: { padding: 48, paddingBottom: 96, fontFamily: "Helvetica", fontSize: 10, lineHeight: 1.35, color: ink, backgroundColor: "#fffefa" },
+  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingBottom: 24, borderBottomWidth: 1, borderBottomColor: line },
+  brand: { fontSize: 23, fontFamily: "Helvetica-Bold", letterSpacing: -1 },
+  eyebrow: { fontSize: 8, letterSpacing: 1.4, textTransform: "uppercase", color: muted },
+  title: { fontFamily: "Times-Roman", fontSize: 36, lineHeight: 1.15, letterSpacing: -1, marginTop: 14 },
+  sub: { color: muted, fontSize: 9, marginTop: 4 },
+  intro: { marginTop: 26, marginBottom: 22 },
+  status: { color: sage, fontSize: 8, letterSpacing: 1.3, textTransform: "uppercase" },
+  meta: { flexDirection: "row", gap: 32, marginBottom: 24 },
+  metaBlock: { flex: 1, minWidth: 0 },
+  name: { fontSize: 12, marginTop: 8, marginBottom: 3 },
+  detail: { flexDirection: "row", gap: 10, marginTop: 5 },
+  detailLabel: { width: 68, color: muted, fontSize: 9 },
+  detailValue: { flex: 1, fontSize: 9 },
+  tableHead: { flexDirection: "row", borderTopWidth: 1.5, borderTopColor: sage, borderBottomWidth: 1, borderBottomColor: line, paddingVertical: 11 },
+  tableBody: { flexDirection: "row", paddingTop: 16, paddingBottom: 18, borderBottomWidth: 1, borderBottomColor: line },
+  description: { flex: 1, paddingRight: 20 },
+  qty: { width: 44, textAlign: "center" },
+  rate: { width: 68, textAlign: "right" },
+  amount: { width: 80, textAlign: "right" },
+  room: { fontFamily: "Times-Roman", fontSize: 19, lineHeight: 1.25, marginBottom: 7 },
+  totals: { width: 248, marginLeft: "auto", marginTop: 16 },
+  totalRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7 },
+  totalLabel: { fontSize: 9, color: muted },
+  paid: { marginTop: 12, padding: 17, backgroundColor: "#eef0e7", flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  paidAmount: { fontSize: 25, fontFamily: "Times-Roman", lineHeight: 1.2 },
+  thanks: { marginTop: 25, fontFamily: "Times-Roman", fontSize: 15, color: sage },
+  footer: { position: "absolute", left: 48, right: 48, bottom: 36, height: 45, borderTopWidth: 1, borderTopColor: line, paddingTop: 14, flexDirection: "row", justifyContent: "space-between" },
 });
 
-export function BookingInvoice({
-  bookingRef,
-  invoiceDate,
-  memberName,
-  memberEmail,
-  roomName,
-  location,
-  bookingDate,
-  startTime,
-  endTime,
-  durationHours,
-  hourlyRate,
-  totalAUD,
-  logoDataUrl,
-}: BookingInvoiceData) {
-  const subtotal = totalAUD;
-  const gst = +(totalAUD * (1 / 11)).toFixed(2); // GST is 1/11 of GST-inclusive price
+export function BookingInvoice({ bookingRef, invoiceDate, memberName, memberEmail, roomName, location, bookingDate, startTime, endTime, durationHours, hourlyRate, totalAUD, logoDataUrl }: BookingInvoiceData) {
+  const gst = +(totalAUD * (1 / 11)).toFixed(2);
   const exGst = +(totalAUD - gst).toFixed(2);
+  const money = (amount: number) => `$${amount.toFixed(2)}`;
 
-  return (
-    <Document title={`Invoice ${bookingRef} — Inspire9 Hub`}>
-      <Page size="A4" style={s.page}>
-        {/* ── Header ─────────────────────────────────────────── */}
-        <View style={s.header}>
-          <View style={{ justifyContent: "center" }}>
-            {logoDataUrl ? (
-              <Image
-                src={logoDataUrl}
-                style={{ width: 130, objectFit: "contain" }}
-              />
-            ) : (
-              <>
-                <Text style={s.brandName}>
-                  inspire<Text style={s.brandAccent}>9</Text> Hub
-                </Text>
-                <Text style={s.brandSub}>Richmond, Melbourne VIC 3121</Text>
-              </>
-            )}
-          </View>
-          <View style={{ alignItems: "flex-end" }}>
-            <Text style={s.invoiceLabel}>INVOICE</Text>
-            <Text style={s.invoiceRef}>#{bookingRef}</Text>
-            <View style={s.paidBadge}>
-              <Text style={s.paidText}>✓ Paid</Text>
-            </View>
-          </View>
+  return <Document title={`Invoice ${bookingRef} — Inspire9 Hub`} author="Inspire9 Hub" subject="Workspace booking invoice" language="en-AU">
+    <Page size="A4" style={s.page}>
+      <View style={s.header} wrap={false}>
+        {logoDataUrl
+          // Embed a fresh image for each document; reused decoded PNGs can disappear on later renders.
+          // eslint-disable-next-line jsx-a11y/alt-text
+          ? <Image src={logoDataUrl} cache={false} style={{ width: 105, height: 42, objectFit: "contain", objectPosition: "left center" }} />
+          : <Text style={s.brand}>inspire<Text style={{ color: "#d92d32" }}>9</Text><Text style={{ fontSize: 11, letterSpacing: 1 }}>  HUB</Text></Text>}
+        <Text style={s.eyebrow}>Space to belong.</Text>
+      </View>
+      <View style={s.intro} wrap={false}>
+        <Text style={s.status}>Payment received</Text>
+        <Text style={s.title}>Booking invoice.</Text>
+        <Text style={s.sub}>Your space, reserved. Your details, all in one place.</Text>
+      </View>
+      <View style={s.meta} wrap={false}>
+        <View style={s.metaBlock}>
+          <Text style={s.eyebrow}>Billed to</Text>
+          <Text style={s.name}>{memberName}</Text>
+          <Text style={s.sub}>{memberEmail}</Text>
         </View>
-
-        {/* ── Bill To + Invoice Details ───────────────────────── */}
-        <View style={s.metaRow}>
-          <View style={s.metaBlock}>
-            <Text style={s.metaLabel}>Bill To</Text>
-            <Text style={s.metaValue}>{memberName}</Text>
-            <Text style={s.metaValueSub}>{memberEmail}</Text>
-          </View>
-
-          <View style={s.metaBlock}>
-            <Text style={s.metaLabel}>Invoice Details</Text>
-            {[
-              ["Date Issued", invoiceDate],
-              ["Reference", bookingRef],
-              ["Payment Method", "Card"],
-              ["Status", "Paid in Full"],
-            ].map(([label, val]) => (
-              <View
-                key={label}
-                style={{
-                  flexDirection: "row",
-                  justifyContent: "space-between",
-                  marginBottom: 4,
-                }}
-              >
-                <Text style={{ fontSize: 10, color: muted }}>{label}</Text>
-                <Text
-                  style={{
-                    fontSize: 10,
-                    fontFamily: "Helvetica-Bold",
-                    color: dark,
-                  }}
-                >
-                  {val}
-                </Text>
-              </View>
-            ))}
-          </View>
+        <View style={s.metaBlock}>
+          <Text style={s.eyebrow}>Invoice details</Text>
+          {[["Reference", bookingRef], ["Issued", invoiceDate], ["Payment", "Card · Paid in full"]].map(([label, value]) =>
+            <View key={label} style={s.detail}><Text style={s.detailLabel}>{label}</Text><Text style={s.detailValue}>{value}</Text></View>)}
         </View>
-
-        {/* ── Line Items Table ────────────────────────────────── */}
-        <View style={s.table}>
-          {/* Table header */}
-          <View style={s.tableHeader}>
-            <Text style={[s.tableHeaderText, s.colDesc]}>Description</Text>
-            <Text style={[s.tableHeaderText, s.colQty]}>Qty</Text>
-            <Text style={[s.tableHeaderText, s.colRate]}>Rate</Text>
-            <Text style={[s.tableHeaderText, s.colAmount]}>Amount</Text>
-          </View>
-
-          {/* Single line item */}
-          <View style={s.tableRow}>
-            <View style={s.colDesc}>
-              <Text style={[s.cellText, { fontFamily: "Helvetica-Bold" }]}>
-                {roomName} — Workspace Booking
-              </Text>
-              <Text style={s.cellSub}>{location}</Text>
-              <Text style={s.cellSub}>{bookingDate}</Text>
-              <Text style={s.cellSub}>
-                {startTime} → {endTime} ({durationHours}{" "}
-                {durationHours === 1 ? "hour" : "hours"})
-              </Text>
-            </View>
-            <Text style={[s.cellText, s.colQty]}>{durationHours}</Text>
-            <Text style={[s.cellText, s.colRate]}>
-              ${hourlyRate.toFixed(2)}
-            </Text>
-            <Text style={[s.cellText, s.colAmount, { fontFamily: "Helvetica-Bold" }]}>
-              ${subtotal.toFixed(2)}
-            </Text>
-          </View>
+      </View>
+      <View wrap={false}>
+        <View style={s.tableHead}>
+          <Text style={[s.eyebrow, s.description]}>Workspace</Text><Text style={[s.eyebrow, s.qty]}>Hours</Text><Text style={[s.eyebrow, s.rate]}>Rate</Text><Text style={[s.eyebrow, s.amount]}>Amount</Text>
         </View>
-
-        {/* ── Totals ─────────────────────────────────────────── */}
-        <View style={s.totalsSection}>
-          <View style={s.totalRow}>
-            <Text style={s.totalLabel}>Subtotal (ex. GST)</Text>
-            <Text style={s.totalValue}>${exGst.toFixed(2)} AUD</Text>
-          </View>
-          <View style={s.totalRow}>
-            <Text style={s.totalLabel}>GST (10%)</Text>
-            <Text style={s.totalValue}>${gst.toFixed(2)} AUD</Text>
-          </View>
-          <View style={s.grandTotalRow}>
-            <Text style={s.grandTotalLabel}>TOTAL</Text>
-            <Text style={s.grandTotalValue}>${totalAUD.toFixed(2)} AUD</Text>
-          </View>
+        <View style={s.tableBody}>
+          <View style={s.description}><Text style={s.room}>{roomName}</Text><Text style={s.sub}>{location}</Text><Text style={s.sub}>{bookingDate}</Text><Text style={s.sub}>{startTime} – {endTime}</Text><Text style={{ ...s.sub, fontSize: 8 }}>Melbourne time</Text></View>
+          <Text style={s.qty}>{durationHours}</Text><Text style={s.rate}>{money(hourlyRate)}</Text><Text style={s.amount}>{money(totalAUD)}</Text>
         </View>
-
-        {/* ── Footer ─────────────────────────────────────────── */}
-        <View style={s.footer} fixed>
-          <View>
-            <Text style={s.footerBrand}>Inspire9 Hub</Text>
-            <Text style={s.footerText}>Richmond, Melbourne VIC 3121</Text>
-          </View>
-          <Text style={s.footerText}>
-            Generated {invoiceDate} · Ref {bookingRef}
-          </Text>
-        </View>
-      </Page>
-    </Document>
-  );
+      </View>
+      <View style={s.totals} wrap={false}>
+        <View style={s.totalRow}><Text style={s.totalLabel}>Subtotal (ex. GST)</Text><Text>{money(exGst)}</Text></View>
+        <View style={s.totalRow}><Text style={s.totalLabel}>GST (10%)</Text><Text>{money(gst)}</Text></View>
+        <View style={s.paid}><View><Text style={{ ...s.eyebrow, color: sage }}>Total paid</Text><Text style={{ ...s.sub, fontSize: 8 }}>AUD · Including GST</Text></View><Text style={s.paidAmount}>{money(totalAUD)}</Text></View>
+      </View>
+      <View wrap={false}><Text style={s.thanks}>Thank you for making space for good work.</Text><Text style={s.sub}>Keep this invoice for your records.</Text></View>
+      <View style={s.footer} fixed><View><Text style={{ fontSize: 9 }}>Inspire9 Hub</Text><Text style={{ ...s.sub, fontSize: 8 }}>Richmond, Melbourne VIC 3121</Text></View><Text style={{ width: 180, fontSize: 8, color: muted, textAlign: "right" }}>All amounts in AUD</Text></View>
+    </Page>
+  </Document>;
 }

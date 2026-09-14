@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { isBookingAttempt, matchIntent, progressBooking, type AssistantContext, type BookingDraft } from "./engine";
 import { formatAssistantHour, paymentTime } from "./time";
 
@@ -10,8 +10,17 @@ const ctx: AssistantContext = {
 };
 const draft: BookingDraft = { roomId: "dream", roomName: "Dream Room", dateISO: "2026-09-20", startHour: 10, endHour: 12 };
 const step = (query: string, previous: BookingDraft = draft) => progressBooking(query, ctx, previous, now);
+afterEach(() => vi.useRealTimers());
 
 describe("conversational booking", () => {
+  it.each([["not tomorrow", "date"], ["not 2pm to 4pm", "time"], ["not Dream Room", "room"]])("asks for a replacement after '%s'", (query, field) => {
+    const result = step(query);
+    expect(result.readyToQuote).toBe(false);
+    expect(result.nextMissing).toBe(field);
+  });
+  it("interprets a named room with a time as a booking request", () => {
+    expect(isBookingAttempt("Dream Room tomorrow 2:30 to 4pm", ctx)).toBe(true);
+  });
   it("collects a room, Melbourne date and explicit time", () => {
     expect(step("Book Dream Room tomorrow from 2pm to 4pm", {}).draft).toEqual({ roomId: "dream", roomName: "Dream Room", dateISO: "2026-09-13", startHour: 14, endHour: 16 });
   });
@@ -97,6 +106,16 @@ describe("conversational booking", () => {
 });
 
 describe("intent boundaries", () => {
+  it("uses Melbourne boundaries for monthly spending", () => {
+    vi.useFakeTimers(); vi.setSystemTime("2026-10-01T02:00:00Z");
+    const result = matchIntent("How much did I spend this month?", { ...ctx, payments: [
+      { amount: 50, refunded: 0, status: "paid", dateISO: "2026-09-30T15:00:00Z" },
+      { amount: 30, refunded: 0, status: "paid", dateISO: "2026-09-30T13:00:00Z" },
+    ] });
+    expect(result.intentId).toBe("spending");
+    expect(result.reply.text).toContain("$50.00");
+    expect(result.reply.text).toContain("1 payment");
+  });
   it.each(["Tell me about Dream Room", "How much does Dream Room cost?", "Does Dream Room have wifi?", "I don't want to book a room"])("doesn't start booking for '%s'", query => {
     expect(isBookingAttempt(query, ctx)).toBe(false);
   });

@@ -1,6 +1,0 @@
-import { bookings, activity } from "./data";
-export async function getCurrentUser() { return { id: "member" }; }
-export async function createClient() {
-  const tables: Record<string, any[]> = { bookings, community_entries: activity, payments: [{ id: "payment-1", member_id: "member", amount: 100, refunded_amount: 0, payment_status: "paid", payment_method: "card", payment_date: new Date().toISOString(), bookings: { workspaces: { name: "Dream Room" } } }, { id: "payment-2", member_id: "member", amount: 80, refunded_amount: 40, payment_status: "refunded", payment_method: "card", payment_date: new Date().toISOString(), bookings: { workspaces: { name: "Pool Room" } } }], access_passes: [{ id: "pass-1", member_id: "member", pass_status: "active", pass_type: "room_booking", issued_date: "2026-09-01", expiry_date: "2026-12-01" }] };
-  return { from(table: string) { let data = [...(tables[table] ?? [])]; const query = { select(...args: unknown[]) { return query; }, eq(key: string, value: string) { data = data.filter(row => row[key] === value); return query; }, order(...args: unknown[]) { return query; }, range(...args: unknown[]) { return query; }, limit(...args: unknown[]) { return query; }, then(resolve: (result: any) => unknown) { return Promise.resolve(resolve({ data, count: data.length, error: null })); } }; return query; } };
-}

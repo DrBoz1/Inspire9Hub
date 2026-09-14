@@ -23,7 +23,7 @@ export default function RoomCard({ room }: { room: BookingRoom }) {
       <p className="hub-room-location"><MapPin size={12} />{room.location || "Inspire9 · Level 1"}</p>
       <h2>{room.name}</h2>
       <div className="hub-room-features">{features.length ? features.map(a => <span key={a.key}><Check size={12} />{a.label}</span>) : <span>A place to focus and connect.</span>}</div>
-      <div className="hub-room-rate"><div>{priceDrop && <del>${priceDrop.regularPrice}</del>}<strong>${Number(room.price_per_hour).toFixed(0)}</strong><span> AUD / hour</span></div><span>{room.busyToday ? "Bookings today" : "Check your preferred time"}</span></div>
+      <div className="hub-room-rate"><div>{priceDrop && <del>${priceDrop.regularPrice}</del>}<strong>${Number(room.price_per_hour).toLocaleString("en-AU", { maximumFractionDigits: 2 })}</strong><span> AUD / hour</span></div><span>{room.busyToday ? "Bookings today" : "Check your preferred time"}</span></div>
       <BookingModal room={room} />
     </div>
   </article>;

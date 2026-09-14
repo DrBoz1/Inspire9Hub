@@ -1,11 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Slider } from "radix-ui";
+import { useEffect, useId, useRef, useState } from "react";
 import { format, parseISO } from "date-fns";
-import { ArrowUpRight, ArrowRight, Clock, Loader2, ShieldCheck, RotateCcw } from "lucide-react";
+import { ArrowUpRight, ArrowRight, CalendarDays, ChevronDown, Check, Loader2, LockKeyhole } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { checkRoomAvailability, createCheckoutSession, getBookedSlotsForDate } from "./actions";
 import { formatHour, padTime } from "@/lib/datetime";
 import { HUB_TIMEZONE } from "@/lib/datetime";
@@ -18,7 +18,9 @@ const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
 type Availability = { date: string; slots: BookedSlot[]; error?: string };
 
 export default function BookingModal({ room }: { room: BookingRoom }) {
+  const dateFieldId = useId();
   const [open, setOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
   const [date, setDate] = useState(() => todayIn(HUB_TIMEZONE));
   const [range, setRange] = useState<[number, number] | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
@@ -34,7 +36,9 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
   const blocked = !!range && rangeUnavailable(date, range[0], range[1], slots, now);
   const duration = range ? range[1] - range[0] : 0;
   const total = duration * Number(room.price_per_hour);
-  const ready = !!range && !blocked && !loading && !availability?.error && total > 0 && !checking;
+  const availabilityError = availability?.date === date ? availability.error : undefined;
+  const noTimes = !loading && !availabilityError && HOURS.every(hour => rangeUnavailable(date, hour, hour + 1, slots, now));
+  const ready = !!range && !blocked && !loading && !availabilityError && total > 0 && !checking;
 
   useEffect(() => {
     if (!open) return;
@@ -70,39 +74,73 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
   return <Dialog open={open} onOpenChange={value => {
     if (checkoutLock.current) return;
     setOpen(value);
+    if (!value) setDatePickerOpen(false);
     if (value) { if (date < todayIn(HUB_TIMEZONE)) { setDate(todayIn(HUB_TIMEZONE)); setRange(null); } refreshSlots(); setError(""); }
   }}>
     <DialogTrigger asChild><button className="hub-button hub-room-book">Find a time<ArrowUpRight size={16} /></button></DialogTrigger>
-    <DialogContent className="hub-dialog hub-booking-dialog">
-      <DialogHeader className="hub-booking-dialog-header"><p className="hub-eyebrow">A space for your next idea</p><DialogTitle>{room.name}</DialogTitle><DialogDescription>{room.location || "Inspire9"} · Up to {room.capacity} people · Times in Melbourne</DialogDescription></DialogHeader>
-      <div className="hub-reservation-layout">
-        <div className="hub-reservation-calendar"><p className="hub-eyebrow">01 · Choose your day</p><Calendar mode="single" required selected={parseISO(date)} onSelect={d => { if (!checking && d) { setDate(format(d, "yyyy-MM-dd")); setRange(null); setError(""); } }} disabled={d => checking || format(d, "yyyy-MM-dd") < today || format(d, "yyyy-MM-dd") > addDaysToKey(today, 180)} />
-          <p className="hub-calendar-note"><Clock size={14} />Book between 8 am and 8 pm.<br />One-hour minimum.</p>
+    <DialogContent className="hub-dialog hub-booking-dialog" overlayClassName="hub-booking-overlay">
+      <DialogHeader className="hub-booking-dialog-header">
+        <p className="hub-eyebrow">Reserve a space</p>
+        <DialogTitle>{room.name}</DialogTitle>
+        <DialogDescription>{room.location || "Inspire9"} · Up to {room.capacity} people</DialogDescription>
+      </DialogHeader>
+      <div className="hub-reservation-detail">
+        <div className="hub-booking-date-field">
+          <span className="hub-booking-field-label" id={dateFieldId + "-label"}>Date</span>
+          <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+            <PopoverTrigger asChild>
+              <button className="hub-date-choice" disabled={checking} aria-labelledby={dateFieldId + "-label " + dateFieldId + "-value"}>
+                <CalendarDays size={17} strokeWidth={1.5} /><span id={dateFieldId + "-value"}>{format(parseISO(date), "EEE, d MMMM yyyy")}</span><ChevronDown size={15} />
+              </button>
+            </PopoverTrigger>
+            <PopoverContent className="hub-dialog hub-booking-date-popover" align="start" sideOffset={8} collisionPadding={16}>
+              <Calendar mode="single" required autoFocus selected={parseISO(date)} defaultMonth={parseISO(date)}
+                onSelect={d => {
+                  if (!checking && d) {
+                    setDate(format(d, "yyyy-MM-dd")); setRange(null); setError(""); setDatePickerOpen(false);
+                  }
+                }}
+                disabled={d => checking || format(d, "yyyy-MM-dd") < today || format(d, "yyyy-MM-dd") > addDaysToKey(today, 180)}
+              />
+            </PopoverContent>
+          </Popover>
         </div>
-        <div className="hub-reservation-detail"><div className="hub-section-top"><p className="hub-eyebrow">02 · Make it your time</p><button className="hub-text-link" onClick={() => { setRange(null); setError(""); }} disabled={checking || !range}><RotateCcw size={12} />Reset</button></div>
-          <h3>{format(parseISO(date), "EEEE, d MMMM")}</h3>
-          {availability?.error ? <div className="hub-inline-error" role="alert">{availability.error}<button onClick={refreshSlots}>Try again</button></div> : <>
-            <p className="hub-time-help" role="status">{loading ? "Loading the day's schedule…" : "Choose an hour below, then adjust how long you'll stay."}</p>
-            <div className="hub-day-timeline" aria-label="Hourly availability">{HOURS.map(hour => {
-              const unavailable = rangeUnavailable(date, hour, hour + 1, slots, now);
-              return <button key={hour} title={`${formatHour(hour)}–${formatHour(hour + 1)}${unavailable ? " · unavailable" : ""}`} aria-label={`${formatHour(hour)} to ${formatHour(hour + 1)}, ${unavailable ? "unavailable" : "select time"}`} disabled={loading || checking || unavailable} data-selected={!!range && hour >= range[0] && hour < range[1]} onClick={() => updateRange([hour, hour + 1])}><span>{hour > 12 ? hour - 12 : hour}</span></button>;
-            })}</div>
-            <div className="hub-time-legend"><span><i />Available</span><span><i data-state="booked" />Unavailable</span><span><i data-state="selected" />Your time</span></div>
-            <div className="hub-range-wrap">
-              <Slider.Root className="hub-time-range" min={8} max={20} step={1} minStepsBetweenThumbs={1} value={range ?? [9, 10]} disabled={loading || checking} onValueChange={values => updateRange([values[0], values[1]])}>
-                <Slider.Track className="hub-time-range-track"><Slider.Range className="hub-time-range-fill" /></Slider.Track>
-                <Slider.Thumb className="hub-time-range-thumb" aria-label="Booking start time" aria-valuetext={formatHour(range?.[0] ?? 9)} />
-                <Slider.Thumb className="hub-time-range-thumb" aria-label="Booking end time" aria-valuetext={formatHour(range?.[1] ?? 10)} />
-              </Slider.Root><div className="hub-range-labels"><span>8 am</span><span>12 pm</span><span>4 pm</span><span>8 pm</span></div>
-            </div>
-            <div className="hub-time-selects"><label>Start time<select aria-label="Start time" disabled={loading || checking} value={range?.[0] ?? ""} onChange={e => { const h = Number(e.target.value); updateRange([h, range && range[1] > h ? range[1] : h + 1]); }}><option value="" disabled>Choose a time</option>{HOURS.map(h => <option key={h} value={h} disabled={rangeUnavailable(date, h, h + 1, slots, now)}>{formatHour(h)}</option>)}</select></label><ArrowRight size={16} /><label>End time<select aria-label="End time" disabled={loading || checking || !range} value={range?.[1] ?? ""} onChange={e => { if (range) updateRange([range[0], Number(e.target.value)]); }}><option value="" disabled>Choose a time</option>{HOURS.map(h => h + 1).filter(h => !range || h > range[0]).map(h => <option key={h} value={h}>{formatHour(h)}</option>)}</select></label></div>
-          </>}
-          {blocked && <p className="hub-inline-error" role="alert">Your selection includes unavailable time. Move the handles or choose another hour.</p>}
-          <div className="hub-reservation-total"><div><span className="hub-eyebrow">Your reservation</span><p>{duration ? `${duration} hour${duration === 1 ? "" : "s"} × $${Number(room.price_per_hour).toFixed(2)}` : `$${Number(room.price_per_hour).toFixed(2)} per hour`}</p></div><strong>{duration ? `$${total.toFixed(2)}` : "—"}<small>AUD</small></strong></div>
-          {error && <p className="hub-inline-error" role="alert">{error}</p>}
-          <button className="hub-button hub-button-primary hub-checkout-button" disabled={!ready} onClick={handlePay}>{checking ? <><Loader2 size={16} className="animate-spin" />Opening checkout…</> : <>Continue to payment<ArrowRight size={16} /></>}</button>
-          <p className="hub-checkout-note"><ShieldCheck size={13} />Availability is checked again before secure checkout.</p>
+        <div className="hub-time-selects">
+          <label>Start time<select aria-label="Start time" disabled={loading || checking || !!availabilityError || noTimes} value={range?.[0] ?? ""} onChange={e => {
+            const h = Number(e.target.value);
+            const end = range && range[1] > h && !rangeUnavailable(date, h, range[1], slots, now) ? range[1] : h + 1;
+            updateRange([h, end]);
+          }}>
+            <option value="" disabled>Select start</option>
+            {HOURS.map(h => {
+              const unavailable = rangeUnavailable(date, h, h + 1, slots, now);
+              return <option key={h} value={h} disabled={unavailable}>{formatHour(h)}{unavailable ? " · unavailable" : ""}</option>;
+            })}
+          </select></label>
+          <span className="hub-time-separator" aria-hidden="true">–</span>
+          <label>End time<select aria-label="End time" disabled={loading || checking || !!availabilityError || !range || noTimes} value={range?.[1] ?? ""} onChange={e => {
+            if (range) updateRange([range[0], Number(e.target.value)]);
+          }}>
+            <option value="" disabled>Select end</option>
+            {HOURS.map(h => h + 1).filter(h => !range || h > range[0]).map(h => <option key={h} value={h} disabled={!!range && rangeUnavailable(date, range[0], h, slots, now)}>{formatHour(h)}</option>)}
+          </select></label>
         </div>
+        <p className="hub-booking-hours">Melbourne time · 8 am–8 pm · 1-hour minimum</p>
+        <div className="hub-booking-availability" role="status" aria-live="polite" data-available={ready}>
+          {loading ? <><Loader2 size={13} className="animate-spin" />Checking available times…</>
+            : availabilityError ? <span>{availabilityError} <button onClick={refreshSlots}>Try again</button></span>
+            : noTimes ? "No times left on this date. Try another day."
+            : blocked ? "That time is no longer available. Choose another start time."
+            : range ? <><Check size={14} />Your selected time is available.</>
+            : "Choose a start time. Unavailable times are disabled."}
+        </div>
+        <div className="hub-reservation-total" aria-live="polite" aria-atomic="true">
+          <div><span className="hub-booking-field-label">Total</span><p>{duration ? `${duration} hour${duration === 1 ? "" : "s"} × $${Number(room.price_per_hour).toFixed(2)}` : `$${Number(room.price_per_hour).toFixed(2)} per hour`}</p></div>
+          <strong>{duration ? `$${total.toFixed(2)}` : "—"}<small>AUD</small></strong>
+        </div>
+        {error && <p className="hub-inline-error" role="alert">{error}</p>}
+        <button className="hub-button hub-button-primary hub-checkout-button" disabled={!ready} onClick={handlePay}>{checking ? <><Loader2 size={16} className="animate-spin" />Opening checkout…</> : <>Continue to payment<ArrowRight size={16} /></>}</button>
+        <p className="hub-checkout-note"><LockKeyhole size={12} />Secure checkout · Confirm before you pay</p>
       </div>
     </DialogContent>
   </Dialog>;
