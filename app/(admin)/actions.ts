@@ -9,48 +9,80 @@ import { getLogoUrl } from "@/lib/email/logo";
 import InductionApproved from "@/lib/email/templates/induction-approved";
 import InductionRejected from "@/lib/email/templates/induction-rejected";
 import { createElement } from "react";
+import { hubDateKey } from "@/lib/admin-dashboard";
+import { isUuid } from "@/lib/admin-compliance";
 
-export async function approveInduction(formData: FormData) {
+type ActionResult = { error?: string };
+
+/** Server actions are public endpoints, so each admin action checks its caller itself. */
+async function requireAdmin() {
   const supabase = await createClient();
-  const memberId = formData.get("memberId") as string;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Your session has ended. Sign in again." } as const;
 
-  //fetch directly to avoid the joiny issues — include email + name for notification
-  const { data: member } = await supabase
-    .from("members")
-    .select("mobile_number, email, full_name")
-    .eq("id", memberId)
-    .single();
+  const { data: actor } = await supabase.from("admins").select("role").eq("id", user.id).maybeSingle();
+  if (actor?.role !== "admin" && actor?.role !== "super_admin") return { error: "Only admins can do that." } as const;
+  return { supabase } as const;
+}
 
-  const { data: induction } = await supabase
-    .from("induction_records")
-    .select("health_emergency_info")
-    .eq("member_id", memberId)
-    .single();
+function revalidateReviews() {
+  revalidatePath("/admin", "layout");
+  revalidatePath("/dashboard");
+}
 
-  const medicalData = induction?.health_emergency_info || "None provided";
+async function loadSubmission(supabase: Awaited<ReturnType<typeof createClient>>, memberId: string) {
+  const [{ data: member }, { data: induction }] = await Promise.all([
+    supabase.from("members").select("mobile_number, email, full_name, induction_status").eq("id", memberId).maybeSingle(),
+    supabase.from("induction_records").select("health_emergency_info").eq("member_id", memberId).maybeSingle(),
+  ]);
+  return { member, medicalData: induction?.health_emergency_info || "None provided" };
+}
 
-  await supabase
+export async function approveInduction(memberId: string): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
+  const { supabase } = guard;
+  if (!isUuid(memberId)) return { error: "That member couldn’t be found." };
+
+  const { member, medicalData } = await loadSubmission(supabase, memberId);
+  if (!member) return { error: "That member couldn’t be found." };
+  if (member.induction_status !== INDUCTION_STATUS.SUBMITTED) return { error: "This induction has already been reviewed." };
+
+  const { error: recordError } = await supabase
     .from("induction_records")
     .update({ approval_status: "Approved" })
     .eq("member_id", memberId);
+  if (recordError) {
+    console.error("[approveInduction] record:", recordError.message);
+    return { error: "Couldn’t approve this induction. Please try again." };
+  }
 
-  await supabase
+  // A blocked update returns no error and no rows, so ask for the row back.
+  const { data: updated, error: memberError } = await supabase
     .from("members")
     .update({
       induction_status: INDUCTION_STATUS.COMPLETE,
       member_status: MEMBER_STATUS.ACTIVE,
     })
-    .eq("id", memberId);
+    .eq("id", memberId)
+    .select("id");
+  if (memberError || !updated?.length) {
+    console.error("[approveInduction] member:", memberError?.message ?? "no rows updated");
+    return { error: "Couldn’t approve this induction. Please try again." };
+  }
 
   //log to history
-  await supabase.from("community_entries").insert({
+  const { error: logError } = await supabase.from("community_entries").insert({
     member_id: memberId,
-    member_contact: member?.mobile_number || "No contact",
+    member_contact: member.mobile_number || "No contact",
     tags: "Approved",
     entry_type: "Induction",
     entry_description: medicalData,
-    entry_date: new Date().toISOString().split("T")[0],
+    entry_date: hubDateKey(new Date()),
   });
+  if (logError) console.error("[approveInduction] history:", logError.message);
 
   // Send approval email — non-blocking
   try {
@@ -70,51 +102,49 @@ export async function approveInduction(formData: FormData) {
     console.error("[induction] Approval email failed:", emailErr);
   }
 
-  revalidatePath("/admin/approvals");
-  revalidatePath("/admin/history");
-  revalidatePath("/dashboard");
+  revalidateReviews();
+  return {};
 }
 
-export async function rejectInduction(formData: FormData) {
-  const supabase = await createClient();
-  const memberId = formData.get("memberId") as string;
+export async function rejectInduction(memberId: string): Promise<ActionResult> {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
+  const { supabase } = guard;
+  if (!isUuid(memberId)) return { error: "That member couldn’t be found." };
 
   //fetch the data from the source before deleting — include email + name for notification
-  const { data: member } = await supabase
-    .from("members")
-    .select("mobile_number, email, full_name")
-    .eq("id", memberId)
-    .single();
-
-  const { data: induction } = await supabase
-    .from("induction_records")
-    .select("health_emergency_info")
-    .eq("member_id", memberId)
-    .single();
-
-  const medicalData = induction?.health_emergency_info || "None provided";
+  const { member, medicalData } = await loadSubmission(supabase, memberId);
+  if (!member) return { error: "That member couldn’t be found." };
+  if (member.induction_status !== INDUCTION_STATUS.SUBMITTED) return { error: "This induction has already been reviewed." };
 
   //reset member status
-  await supabase
+  const { data: updated, error: memberError } = await supabase
     .from("members")
     .update({
       induction_status: INDUCTION_STATUS.PENDING,
       member_status: MEMBER_STATUS.INACTIVE,
     })
-    .eq("id", memberId);
+    .eq("id", memberId)
+    .select("id");
+  if (memberError || !updated?.length) {
+    console.error("[rejectInduction] member:", memberError?.message ?? "no rows updated");
+    return { error: "Couldn’t reject this induction. Please try again." };
+  }
 
-  // 3. Delete the record
-  await supabase.from("induction_records").delete().eq("member_id", memberId);
+  // Delete the record so they can start again; a leftover row is harmless, their next submission upserts it.
+  const { error: deleteError } = await supabase.from("induction_records").delete().eq("member_id", memberId);
+  if (deleteError) console.error("[rejectInduction] record:", deleteError.message);
 
   //log rejection with persistent medical data
-  await supabase.from("community_entries").insert({
+  const { error: logError } = await supabase.from("community_entries").insert({
     member_id: memberId,
-    member_contact: member?.mobile_number || "N/A",
+    member_contact: member.mobile_number || "N/A",
     tags: "Rejected",
     entry_type: "Induction",
     entry_description: medicalData,
-    entry_date: new Date().toISOString().split("T")[0],
+    entry_date: hubDateKey(new Date()),
   });
+  if (logError) console.error("[rejectInduction] history:", logError.message);
 
   // Send rejection email — non-blocking
   try {
@@ -134,9 +164,8 @@ export async function rejectInduction(formData: FormData) {
     console.error("[induction] Rejection email failed:", emailErr);
   }
 
-  revalidatePath("/admin/approvals");
-  revalidatePath("/admin/history");
-  revalidatePath("/dashboard");
+  revalidateReviews();
+  return {};
 }
 
 export async function createAdmin(formData: FormData) {
