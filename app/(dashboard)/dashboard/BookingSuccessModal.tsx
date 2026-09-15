@@ -1,227 +1,164 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "framer-motion";
-import { format, parseISO } from "date-fns";
-import { X, Download } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import Link from "next/link";
+import { AlertCircle, ArrowRight, Clock, Download, LifeBuoy, Loader2 } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { getBookingById } from "@/app/(dashboard)/bookings/actions";
+import { afterCheck, CHECK_INTERVAL_MS, describeBooking, successBookingId, type SuccessBooking, type SuccessState } from "./booking-success";
 
-type BookingInfo = {
-  id: string;
-  booking_status: string;
-  start_date_time: string;
-  end_date_time: string;
-  workspaces: { name: string } | { name: string }[] | null;
-  amount: number | null;
-};
-
-const PARTICLE_COLORS = ["#E31E24", "#0f172a", "#fbbf24", "#ffffff"];
-
-function workspaceName(w: BookingInfo["workspaces"]): string {
-  const room = Array.isArray(w) ? w[0] : w;
-  return room?.name ?? "your room";
-}
-
-// Reads ?status=success&bookingId=... left behind by Stripe's redirect after
-// a MANUAL (booking-modal) checkout — the chat-initiated flow has its own
-// separate resume path inside AssistantWidget and never touches this. The
-// query string is never trusted on its own: it only triggers a lookup
-// (getBookingById) scoped server-side to the authenticated owner, which is
-// what actually confirms anything happened.
+/**
+ * Stripe returns members here with ?status=success&bookingId=…. The dialog opens
+ * straight away and confirms in place. The query string only triggers a lookup
+ * scoped to the signed-in owner, which is what actually confirms anything.
+ */
 export default function BookingSuccessModal() {
-  const [booking, setBooking] = useState<BookingInfo | null>(null);
-  const [visible, setVisible] = useState(false);
-
-  // Frozen once per mount — re-rolling on every render would make the
-  // particles visibly jump mid-animation.
-  const particles = useMemo(
-    () =>
-      Array.from({ length: 16 }, (_, i) => {
-        const angle = (i / 16) * Math.PI * 2 + (Math.random() - 0.5) * 0.4;
-        const distance = 55 + Math.random() * 55;
-        return {
-          id: i,
-          x: Math.cos(angle) * distance,
-          y: Math.sin(angle) * distance,
-          rotate: Math.random() * 360,
-          color: PARTICLE_COLORS[i % PARTICLE_COLORS.length],
-          delay: Math.random() * 0.2,
-          square: i % 3 !== 0,
-        };
-      }),
-    [],
-  );
+  const [state, setState] = useState<SuccessState>({ phase: "closed" });
+  const bookingId = useRef<string | null>(undefined);
+  const dismissed = useRef(false);
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    if (params.get("status") !== "success") return;
-    const bookingId = params.get("bookingId");
-    window.history.replaceState({}, "", window.location.pathname);
-    if (!bookingId) return;
+    // Read once: dev runs effects twice, and the first pass cleans the URL.
+    if (bookingId.current === undefined) {
+      bookingId.current = successBookingId(window.location.search);
+      if (bookingId.current) window.history.replaceState(null, "", window.location.pathname);
+    }
+    const id = bookingId.current;
+    if (!id) return;
 
-    const verify = (attempt: number) => {
-      getBookingById(bookingId).then((data) => {
-        if (data?.booking_status === "confirmed" || attempt >= 4) {
-          setBooking(data as BookingInfo | null);
-          setVisible(true);
-          return;
-        }
-        setTimeout(() => verify(attempt + 1), 1500);
-      });
+    let cancelled = false;
+    let timer: ReturnType<typeof setTimeout>;
+    const check = (attempt: number) => {
+      getBookingById(id)
+        .then((b) => b as SuccessBooking | null, () => "error" as const)
+        .then((result) => {
+          if (cancelled || dismissed.current) return;
+          const next = afterCheck(result, attempt);
+          setState(next.state);
+          if (next.retry) timer = setTimeout(() => check(attempt + 1), CHECK_INTERVAL_MS);
+        });
     };
-    setTimeout(() => verify(0), 600);
+    timer = setTimeout(() => {
+      if (dismissed.current) return;
+      setState({ phase: "confirming" });
+      check(0);
+    }, 0);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, []);
 
-  useEffect(() => {
-    if (!visible) return;
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setVisible(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [visible]);
+  return (
+    <BookingSuccessDialog
+      state={state}
+      onClose={() => {
+        dismissed.current = true;
+        setState({ phase: "closed" });
+      }}
+    />
+  );
+}
 
-  const confirmed = booking?.booking_status === "confirmed";
+const COPY = {
+  confirming: { eyebrow: "Payment received", title: "Confirming your booking", mark: "…", body: "This usually takes a few seconds." },
+  confirmed: { eyebrow: "Booking confirmed", title: "You’re booked", mark: ".", body: "" },
+  processing: { eyebrow: "Payment received", title: "Almost there", mark: ".", body: "We’re still finishing your booking. It’ll appear in Bookings shortly." },
+  attention: { eyebrow: "Needs attention", title: "We couldn’t confirm this booking", mark: ".", body: "Your payment may have gone through, but the booking wasn’t confirmed. Check Bookings, or get in touch and we’ll sort it out." },
+};
 
-  // Rendered via a portal straight to <body>, same as every Dialog/AlertDialog
-  // in this app (Radix does this internally for its own modals). Without it,
-  // this sits deep inside the sidebar/main layout tree, where `fixed inset-0`
-  // only spans the true viewport if nothing between here and <body> sets
-  // transform/filter/contain on an ancestor — that's what was clipping the
-  // backdrop to less than the full screen.
-  if (typeof document === "undefined") return null;
+export function BookingSuccessDialog({ state, onClose }: { state: SuccessState; onClose: () => void }) {
+  const phase = state.phase === "closed" ? "confirming" : state.phase;
+  const copy = COPY[phase];
+  const view = state.phase === "confirmed" ? describeBooking(state.booking) : null;
 
-  return createPortal(
-    <AnimatePresence>
-      {visible && (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/70 p-4 backdrop-blur-sm"
-          onClick={() => setVisible(false)}
-        >
-          <motion.div
-            initial={{ opacity: 0, scale: 0.85, y: 30 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 10 }}
-            transition={{ type: "spring", stiffness: 280, damping: 24 }}
-            onClick={(e) => e.stopPropagation()}
-            className="relative w-full max-w-sm rounded-[2rem] bg-white dark:bg-slate-900 p-8 text-center shadow-2xl"
-          >
-            <button
-              onClick={() => setVisible(false)}
-              aria-label="Close"
-              className="absolute right-4 top-4 rounded-full p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-slate-600 dark:hover:bg-slate-800 dark:hover:text-slate-300"
-            >
-              <X className="h-4 w-4" />
-            </button>
-
-            {/* Icon: a hand-drawn circle + checkmark, plus a one-shot
-                particle burst timed to land right as the check completes. */}
-            <div className="relative mx-auto mb-5 h-20 w-20">
-              {confirmed &&
-                particles.map((p) => (
-                  <motion.span
-                    key={p.id}
-                    initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
-                    animate={{ x: p.x, y: p.y + 26, opacity: 0, rotate: p.rotate }}
-                    transition={{ duration: 0.9, delay: 0.7 + p.delay, ease: "easeOut" }}
-                    className={`absolute left-1/2 top-1/2 h-2 w-2 ${p.square ? "rounded-sm" : "rounded-full"}`}
-                    style={{ backgroundColor: p.color }}
-                  />
-                ))}
-              <svg viewBox="0 0 80 80" className="relative h-20 w-20">
-                <motion.circle
-                  cx="40"
-                  cy="40"
-                  r="36"
-                  fill="none"
-                  stroke="#E31E24"
-                  strokeWidth="4"
-                  initial={{ pathLength: 0, opacity: 0 }}
-                  animate={{ pathLength: 1, opacity: 1 }}
-                  transition={{ duration: 0.5, ease: "easeOut" }}
-                />
-                {confirmed && (
-                  <motion.path
-                    d="M24 42 L36 54 L58 28"
-                    fill="none"
-                    stroke="#E31E24"
-                    strokeWidth="5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    initial={{ pathLength: 0, opacity: 0 }}
-                    animate={{ pathLength: 1, opacity: 1 }}
-                    transition={{ duration: 0.35, delay: 0.5, ease: "easeOut" }}
-                  />
-                )}
+  return (
+    <Dialog open={state.phase !== "closed"} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent
+        className="hub-dialog hub-success-dialog"
+        overlayClassName="hub-booking-overlay"
+        // Focus the dialog, not its first button: a ring on arrival reads as an error.
+        onOpenAutoFocus={(e) => { e.preventDefault(); (e.currentTarget as HTMLElement | null)?.focus(); }}
+      >
+        <div className="hub-success-top">
+          <span className="hub-success-mark" data-phase={phase} aria-hidden="true">
+            {phase === "confirmed" ? (
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <path className="hub-success-check" d="M5 12.5l4.5 4.5L19 7.5" pathLength={24} stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
+            ) : phase === "attention" ? <AlertCircle size={20} strokeWidth={1.8} />
+              : phase === "processing" ? <Clock size={20} strokeWidth={1.8} />
+              : <Loader2 size={20} strokeWidth={1.8} className="animate-spin" />}
+          </span>
+          <DialogHeader className="hub-success-header">
+            <p className="hub-eyebrow">{copy.eyebrow}</p>
+            <DialogTitle>{copy.title}<span className="hub-red">{copy.mark}</span></DialogTitle>
+            <DialogDescription>
+              {view ? `${view.room} is yours on ${view.weekday} ${view.day} ${view.monthLong}.` : copy.body}
+            </DialogDescription>
+          </DialogHeader>
+        </div>
+
+        {phase === "confirming" && (
+          <div aria-hidden="true">
+            <div className="hub-success-ticket">
+              <span className="hub-success-skel hub-success-skel-tile" />
+              <span className="hub-success-when">
+                <span className="hub-success-skel" style={{ width: "46%" }} />
+                <span className="hub-success-skel" style={{ width: "72%" }} />
+              </span>
             </div>
+            <div className="hub-success-receipt">
+              <div><span className="hub-success-skel" style={{ width: "22%" }} /><span className="hub-success-skel" style={{ width: "26%" }} /></div>
+              <div><span className="hub-success-skel" style={{ width: "30%" }} /><span className="hub-success-skel" style={{ width: "22%" }} /></div>
+            </div>
+          </div>
+        )}
 
-            <motion.div
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.6 }}
-            >
-              <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">
-                {confirmed ? "You're All Set!" : "Almost There…"}
-              </h2>
-              <p className="mt-1.5 text-sm font-medium text-slate-500">
-                {confirmed
-                  ? `${workspaceName(booking?.workspaces ?? null)} is booked and waiting for you.`
-                  : `Your payment went through — we're just finishing up the booking. Check your history in a moment.`}
-              </p>
-
-              {booking && confirmed && (
-                <div className="mt-6 space-y-2 rounded-2xl bg-slate-50 dark:bg-slate-800 p-4 text-left">
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-slate-400">From</span>
-                    <span className="text-slate-700 dark:text-slate-200">
-                      {format(parseISO(booking.start_date_time), "EEE d MMM, h:mm a")}
-                    </span>
-                  </div>
-                  <div className="flex justify-between text-xs font-bold">
-                    <span className="text-slate-400">Until</span>
-                    <span className="text-slate-700 dark:text-slate-200">
-                      {format(parseISO(booking.end_date_time), "h:mm a")}
-                    </span>
-                  </div>
-                  {booking.amount !== null && (
-                    <div className="flex justify-between border-t border-slate-200 dark:border-slate-700 pt-2 text-xs font-bold">
-                      <span className="text-slate-400">Total Paid</span>
-                      <span className="text-slate-900 dark:text-white">
-                        ${booking.amount.toFixed(2)} AUD
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <div className="mt-6 flex gap-2">
-                {confirmed && booking && (
-                  <a
-                    href={`/api/invoice/${booking.id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-xl border border-slate-200 dark:border-slate-700 py-3 text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 transition-colors hover:bg-slate-50 dark:hover:bg-slate-800"
-                  >
-                    <Download className="h-3.5 w-3.5" /> Invoice
-                  </a>
-                )}
-                <button
-                  onClick={() => setVisible(false)}
-                  className="flex-1 rounded-xl bg-[#E31E24] py-3 text-[11px] font-black uppercase tracking-wider text-white transition-all hover:bg-red-700 active:scale-95"
-                >
-                  Done
-                </button>
+        {view && (
+          <>
+            <div className="hub-success-ticket">
+              <div className="hub-date-tile"><span>{view.month}</span><strong>{view.day}</strong></div>
+              <div className="hub-success-when">
+                <strong>{view.room}</strong>
+                <span>{view.timeRange}</span>
+                <span>{view.duration}</span>
               </div>
-            </motion.div>
-          </motion.div>
-        </motion.div>
-      )}
-    </AnimatePresence>,
-    document.body,
+              <span className="hub-status-badge" data-status="confirmed">Confirmed</span>
+            </div>
+            <dl className="hub-success-receipt">
+              {view.amount && <div><dt>Paid</dt><dd>{view.amount}<small>AUD</small></dd></div>}
+              <div><dt>Reference</dt><dd>{view.reference}</dd></div>
+            </dl>
+          </>
+        )}
+
+        <div className="hub-success-actions">
+          {state.phase === "confirmed" ? (
+            <>
+              <a className="hub-button hub-button-outline" href={`/api/invoice/${state.booking.id}`} target="_blank" rel="noopener noreferrer">
+                <Download size={15} />Invoice
+              </a>
+              <button className="hub-button hub-button-primary" onClick={onClose}>Done<ArrowRight size={15} /></button>
+            </>
+          ) : state.phase === "processing" ? (
+            <>
+              <Link className="hub-button hub-button-outline" href="/bookings" onClick={onClose}>View bookings</Link>
+              <button className="hub-button hub-button-primary" onClick={onClose}>Got it</button>
+            </>
+          ) : state.phase === "attention" ? (
+            <>
+              <Link className="hub-button hub-button-outline" href="/support" onClick={onClose}><LifeBuoy size={15} />Get help</Link>
+              <Link className="hub-button hub-button-primary" href="/bookings" onClick={onClose}>View bookings<ArrowRight size={15} /></Link>
+            </>
+          ) : (
+            <>
+              <button className="hub-button hub-button-outline" disabled><Download size={15} />Invoice</button>
+              <button className="hub-button hub-button-primary" disabled>Done<ArrowRight size={15} /></button>
+            </>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

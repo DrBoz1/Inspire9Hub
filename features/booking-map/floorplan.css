@@ -25,24 +25,24 @@
 .fp-root {
 
   /* paper & surfaces */
-  --color-paper: #fffefa;
-  --color-mat: #f3f2ec;
-  --color-surface-0: #fffefa;
-  --color-surface-1: #f9f8f3;
-  --color-surface-2: #eeeee5;
-  --color-surface-3: #e4e5d9;
-  --color-border-subtle: #e9e9df;
-  --color-border: #dedfd4;
-  --color-border-strong: #b7bca9;
+  --color-paper: #ffffff;
+  --color-mat: #f4f2f1;
+  --color-surface-0: #ffffff;
+  --color-surface-1: #faf8f7;
+  --color-surface-2: #f1eeec;
+  --color-surface-3: #e7e3e1;
+  --color-border-subtle: #ebe7e5;
+  --color-border: #e1dcd9;
+  --color-border-strong: #bcb4b0;
 
   /* ink */
-  --color-ink-900: #343d32;
-  --color-ink-700: #46503f;
-  --color-ink-600: #58614f;
-  --color-ink-500: #707766;
-  --color-ink-400: #89917e;
-  --color-ink-300: #a8b0b8;
-  --color-ink-200: #d6dae0;
+  --color-ink-900: #2a2626;
+  --color-ink-700: #463f3d;
+  --color-ink-600: #5a5250;
+  --color-ink-500: #726b68;
+  --color-ink-400: #8d8683;
+  --color-ink-300: #aaa3a0;
+  --color-ink-200: #dcd7d4;
 
   /* plan-native (sampled from the source drawing — do not drift) */
   --color-zone-hotdesk-key: #aae6ee;
@@ -627,11 +627,11 @@
 }
 
 /* Quiet architectural canvas; toolbar occupies its own row below the drawing. */
-.fp-root .fp-canvas { padding: 22px 20px 12px; background-image: radial-gradient(#9ca58c35 .7px, transparent .7px); background-size: 16px 16px; }
+.fp-root .fp-canvas { padding: 22px 20px 12px; background-image: radial-gradient(#a39a9635 .7px, transparent .7px); background-size: 16px 16px; }
 .fp-root .fp-map-toolbar { background: var(--color-surface-0); border-top: 1px solid var(--color-border-subtle); }
 .fp-root .fp-label { display: flex; align-items: center; justify-content: center; overflow: hidden; }
 .fp-root .fp-label-card { display: flex; flex-direction: column; justify-content: center; width: 100%; height: 100%; padding: 4px 7px; border: 1px solid transparent; border-radius: 5px; background: color-mix(in srgb, var(--color-paper) 91%, transparent); }
-.fp-root .fp-label-card-active { background: var(--color-paper); border-color: var(--color-border-strong); box-shadow: 0 2px 6px #29342416; }
+.fp-root .fp-label-card-active { background: var(--color-paper); border-color: var(--color-border-strong); box-shadow: 0 2px 6px #2a1f1f16; }
 .fp-root .fp-label-name { display: block; font-size: 11px; font-weight: 600; line-height: 14px; overflow: hidden; text-overflow: ellipsis; }
 .fp-root .fp-label-glyph { margin-right: 4px; font-size: 9px; }
 .fp-root .fp-label-sub { display: block; line-height: 15px; overflow: hidden; text-overflow: ellipsis; }
@@ -660,15 +660,15 @@
 /* The map follows the member theme without changing the page's global tokens. */
 .dark .fp-root {
   color-scheme: dark;
-  --color-paper: #29312a; --color-mat: #202620;
-  --color-surface-0: #242c25; --color-surface-1: #272f27; --color-surface-2: #333d31; --color-surface-3: #424d3d;
-  --color-border-subtle: #384233; --color-border: #46513f; --color-border-strong: #79876c;
-  --color-ink-900: #e1e7d9; --color-ink-700: #c3cdb9; --color-ink-600: #b2bea7; --color-ink-500: #a2b095; --color-ink-400: #8d9c80; --color-ink-300: #65735c; --color-ink-200: #46513f;
+  --color-paper: #242121; --color-mat: #1a1818;
+  --color-surface-0: #201e1e; --color-surface-1: #232121; --color-surface-2: #2e2a29; --color-surface-3: #3b3736;
+  --color-border-subtle: #352f2f; --color-border: #443d3c; --color-border-strong: #7b726f;
+  --color-ink-900: #ede8e6; --color-ink-700: #d2cbc8; --color-ink-600: #bfb7b4; --color-ink-500: #aaa29f; --color-ink-400: #948c89; --color-ink-300: #675f5c; --color-ink-200: #443d3c;
   --color-status-available: #74b193; --color-status-available-ink: #9ccdb1; --color-status-available-wash: #2d4335;
   --color-status-partial: #caa15d; --color-status-partial-ink: #e4bd7e; --color-status-partial-wash: #493c27;
-  --color-status-full: #9fa99a; --color-status-full-ink: #c4ccbe; --color-status-full-wash: #3a4237;
+  --color-status-full: #a8a19e; --color-status-full-ink: #cdc7c4; --color-status-full-wash: #3b3736;
   --color-status-mine: #8eacdf; --color-status-mine-ink: #b4c9ed; --color-status-mine-wash: #303e50;
-  --color-zone-hotdesk-key: #526e69; --color-zone-hotdesk-pod: #344d43; --color-zone-lounge-key: #6b6574;
+  --color-zone-hotdesk-key: #4d6f77; --color-zone-hotdesk-pod: #2e4c54; --color-zone-lounge-key: #6b6574;
   --color-brand: #e86062; --color-brand-hover: #e34c50; --color-brand-wash: #4a2e2f;
   --color-danger-ink: #f3a29c; --color-danger-wash: #482f2b; --color-warn-ink: #e4bd7e; --color-warn-wash: #443b27;
   --color-plan-green: #83a573; --color-plan-red: #cf9287;
