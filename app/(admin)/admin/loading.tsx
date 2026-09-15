@@ -1,71 +1,50 @@
 import { Skeleton } from "@/components/ui/skeleton";
 
+function PanelSkeleton({ className, rows }: { className: string; rows: number }) {
+  return (
+    <section className={`hub-surface admin-panel ${className}`}>
+      <div className="admin-panel-head">
+        <div><Skeleton className="h-2.5 w-16" /><Skeleton className="mt-2.5 h-5 w-32" /></div>
+      </div>
+      {Array.from({ length: rows }, (_, i) => (
+        <div key={i} className="flex items-center gap-4 border-t border-(--hub-line) px-5.5 py-4 first-of-type:border-t-0">
+          <Skeleton className="h-8 w-8 shrink-0 rounded-full" />
+          <div className="flex-1 space-y-2"><Skeleton className="h-3 w-2/5" /><Skeleton className="h-2.5 w-3/5" /></div>
+          <Skeleton className="h-5 w-16" />
+        </div>
+      ))}
+    </section>
+  );
+}
+
 export default function AdminDashboardLoading() {
   return (
-    <div className="space-y-10 font-poppins pb-10 animate-pulse">
-      {/* Header */}
-      <div className="space-y-2">
-        <Skeleton className="h-10 w-56 rounded-xl" />
-        <Skeleton className="h-4 w-64 rounded-lg" />
+    <div className="hub-page admin-dashboard hub-loading" aria-busy="true" aria-label="Loading the dashboard">
+      <div className="admin-page-heading">
+        <div>
+          <Skeleton className="h-2.5 w-48" />
+          <Skeleton className="mt-3 h-9 w-80 max-w-full" />
+          <Skeleton className="mt-3 h-3 w-96 max-w-full" />
+        </div>
+        <div className="admin-page-actions"><Skeleton className="h-10 w-36" /><Skeleton className="h-10 w-40" /></div>
       </div>
-
-      {/* Stat cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        {[...Array(4)].map((_, i) => (
-          <div
-            key={i}
-            className="rounded-3xl bg-white border border-slate-100 shadow-sm"
-          >
-            <div className="p-6 flex items-center gap-4">
-              <Skeleton className="h-11 w-11 rounded-2xl shrink-0" />
-              <div className="space-y-2">
-                <Skeleton className="h-3 w-20 rounded" />
-                <Skeleton className="h-8 w-10 rounded-lg" />
-              </div>
-            </div>
+      <div className="admin-stats">
+        {Array.from({ length: 4 }, (_, i) => (
+          <div key={i} className="hub-surface admin-stat">
+            <div className="admin-stat-top"><Skeleton className="h-2.5 w-24" /><Skeleton className="h-8 w-8 rounded-[10px]" /></div>
+            <Skeleton className="h-7 w-14" />
+            <Skeleton className="h-2.5 w-28" />
           </div>
         ))}
       </div>
-
-      {/* Two-column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Upcoming bookings */}
-        <div className="lg:col-span-2 rounded-[32px] bg-white border border-slate-100 shadow-sm overflow-hidden">
-          <div className="bg-slate-50/50 border-b border-slate-100 px-8 py-5">
-            <Skeleton className="h-5 w-44 rounded-lg" />
-          </div>
-          <div className="divide-y divide-slate-50">
-            {[...Array(6)].map((_, i) => (
-              <div key={i} className="flex items-center justify-between px-8 py-4">
-                <div className="flex items-center gap-4">
-                  <Skeleton className="h-10 w-10 rounded-xl shrink-0" />
-                  <div className="space-y-1.5">
-                    <Skeleton className="h-4 w-24 rounded" />
-                    <Skeleton className="h-3 w-40 rounded" />
-                  </div>
-                </div>
-                <Skeleton className="h-6 w-20 rounded-full" />
-              </div>
-            ))}
-          </div>
+      <div className="admin-dash-grid">
+        <div className="admin-dash-col">
+          <PanelSkeleton className="admin-dash-today" rows={5} />
+          <PanelSkeleton className="admin-dash-spaces" rows={4} />
         </div>
-
-        {/* Pending panel */}
-        <div className="rounded-[32px] bg-white border border-slate-100 shadow-sm overflow-hidden">
-          <div className="bg-slate-50/50 border-b border-slate-100 px-8 py-5">
-            <Skeleton className="h-5 w-24 rounded-lg" />
-          </div>
-          <div className="divide-y divide-slate-50">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="flex items-center gap-3 px-6 py-4">
-                <Skeleton className="h-9 w-9 rounded-xl shrink-0" />
-                <div className="space-y-1.5">
-                  <Skeleton className="h-4 w-28 rounded" />
-                  <Skeleton className="h-3 w-20 rounded" />
-                </div>
-              </div>
-            ))}
-          </div>
+        <div className="admin-dash-col">
+          <PanelSkeleton className="admin-dash-review" rows={3} />
+          <PanelSkeleton className="admin-dash-upcoming" rows={3} />
         </div>
       </div>
     </div>
