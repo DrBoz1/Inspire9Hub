@@ -1,48 +1,52 @@
 "use client";
 
 import { useState } from "react";
-import { Eye, EyeOff } from "lucide-react";
-import { Input } from "@/components/ui/input";
+import { Eye, EyeOff, LockKeyhole } from "lucide-react";
 
 export function PasswordInput({
   name,
   id,
-  placeholder = "Enter your password",
+  placeholder = "Your password",
   required = true,
   minLength,
+  autoComplete = "current-password",
+  onValueChange,
+  describedBy,
 }: {
   name: string;
   id: string;
   placeholder?: string;
   required?: boolean;
   minLength?: number;
+  autoComplete?: "current-password" | "new-password";
+  onValueChange?: (value: string) => void;
+  describedBy?: string;
 }) {
   const [visible, setVisible] = useState(false);
 
   return (
-    <div className="relative">
-      <Input
-        name={name}
+    <div className="auth-input auth-input-password">
+      <LockKeyhole size={16} strokeWidth={1.8} aria-hidden />
+      <input
         id={id}
+        name={name}
         type={visible ? "text" : "password"}
         placeholder={placeholder}
         required={required}
         minLength={minLength}
-        autoComplete={name === "password" ? "current-password" : "new-password"}
-        className="h-12 rounded-xl border-slate-200 bg-white pr-10 text-sm dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-100"
+        autoComplete={autoComplete}
+        aria-describedby={describedBy}
+        onChange={onValueChange ? (e) => onValueChange(e.target.value) : undefined}
       />
       <button
         type="button"
-        tabIndex={-1}
-        aria-label={visible ? "Hide password" : "Show password"}
+        className="auth-reveal"
         onClick={() => setVisible((v) => !v)}
-        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors"
+        aria-label={visible ? "Hide password" : "Show password"}
+        aria-pressed={visible}
+        aria-controls={id}
       >
-        {visible ? (
-          <EyeOff className="h-4 w-4" aria-hidden />
-        ) : (
-          <Eye className="h-4 w-4" aria-hidden />
-        )}
+        {visible ? <EyeOff size={16} strokeWidth={1.8} aria-hidden /> : <Eye size={16} strokeWidth={1.8} aria-hidden />}
       </button>
     </div>
   );

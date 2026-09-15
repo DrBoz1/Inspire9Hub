@@ -7,6 +7,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Toaster } from "sonner"; // 1. Import the Toaster
 import "./member-hub.css";
 import "./member-pages.css";
+import "./member-account.css";
 
 export default async function DashboardLayout({
   children,

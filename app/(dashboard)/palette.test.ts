@@ -12,6 +12,8 @@ const ROOT = join(import.meta.dirname, "..", "..");
 const FILES = [
   "app/(dashboard)/member-hub.css",
   "app/(dashboard)/member-pages.css",
+  "app/(dashboard)/member-account.css",
+  "app/(auth)/auth.css",
   "features/booking-map/floorplan.css",
 ];
 const SEMANTIC_GREENS = new Set(["#2f7d52", "#6fcf97"]);

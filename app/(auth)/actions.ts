@@ -4,6 +4,16 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { HUB_TIMEZONE } from "@/lib/datetime";
+import {
+  hasErrors,
+  inductionStage,
+  readInduction,
+  readProfile,
+  validateInduction,
+  validateProfile,
+  type FormState,
+} from "@/lib/member-forms";
 import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import InductionSubmitted from "@/lib/email/templates/induction-submitted";
@@ -47,24 +57,25 @@ export async function logout() {
   redirect("/login");
 }
 
-export async function updateProfile(formData: FormData) {
+export async function updateProfile(_prev: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { status: "error", message: "Your session has ended. Sign in again to save changes." };
 
-  const { error } = await supabase
-    .from("members")
-    .update({
-      full_name: formData.get("full_name") as string,
-      company_name: formData.get("company") as string,
-    })
-    .eq("id", user.id);
+  const values = readProfile(formData);
+  const errors = validateProfile(values);
+  if (hasErrors(errors)) return { status: "error", message: "A couple of details need another look.", errors };
 
-  if (error) return;
+  const { error } = await supabase.from("members").update(values).eq("id", user.id);
+  if (error) {
+    console.error("[profile] update failed:", error.message);
+    return { status: "error", message: "We couldn’t save your changes. Please try again." };
+  }
+
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  return { status: "saved", values, savedAt: Date.now() };
 }
 
 export async function login(formData: FormData) {
@@ -153,24 +164,40 @@ export async function updatePassword(formData: FormData) {
   );
 }
 
-export async function submitInduction(formData: FormData) {
+export async function submitInduction(_prev: FormState, formData: FormData): Promise<FormState> {
   const supabase = await createClient();
   const {
     data: { user },
   } = await supabase.auth.getUser();
-  if (!user) return;
+  if (!user) return { status: "error", message: "Your session has ended. Sign in again to continue." };
+
+  // Only once: resubmitting would reset an approved member back to inactive.
+  const { data: member } = await supabase
+    .from("members")
+    .select("induction_status")
+    .eq("id", user.id)
+    .maybeSingle();
+  if (inductionStage(member?.induction_status) !== "not_started") redirect("/induction");
+
+  const values = readInduction(formData);
+  const errors = validateInduction(values);
+  if (hasErrors(errors)) return { status: "error", message: "A few details need another look.", errors };
 
   //update Member Table
-  await supabase
+  const { error: memberError } = await supabase
     .from("members")
     .update({
-      full_name: formData.get("full_name") as string,
-      mobile_number: formData.get("mobile_number") as string,
-      company_name: formData.get("company_name") as string,
+      full_name: values.full_name,
+      mobile_number: values.mobile_number,
+      company_name: values.company_name,
       induction_status: INDUCTION_STATUS.SUBMITTED,
       member_status: MEMBER_STATUS.INACTIVE,
     })
     .eq("id", user.id);
+  if (memberError) {
+    console.error("[induction] member update failed:", memberError.message);
+    return { status: "error", message: "We couldn’t submit your induction. Please try again." };
+  }
 
   //upsert Induction Record (Prevents Duplicate Key Errors)
   const { error: recordError } = await supabase
@@ -178,28 +205,30 @@ export async function submitInduction(formData: FormData) {
     .upsert(
       {
         member_id: user.id,
-        completion_date: new Date().toISOString().split("T")[0],
-        acknowledged_terms: formData.get("acknowledged_terms") === "on",
-        health_emergency_info: formData.get("health_emergency_info") as string,
+        // Melbourne's date: a morning submission shouldn't be filed under yesterday.
+        completion_date: new Intl.DateTimeFormat("en-CA", { timeZone: HUB_TIMEZONE }).format(new Date()),
+        acknowledged_terms: values.acknowledged_terms,
+        health_emergency_info: values.health_emergency_info,
         approval_status: "Pending",
       },
       { onConflict: "member_id" },
     );
 
-  if (recordError)
-    return redirect(
-      `/induction?error=${encodeURIComponent(recordError.message)}`,
-    );
+  if (recordError) {
+    console.error("[induction] record upsert failed:", recordError.message);
+    // Undo the status change so they can try again.
+    await supabase.from("members").update({ induction_status: INDUCTION_STATUS.PENDING }).eq("id", user.id);
+    return { status: "error", message: "We couldn’t submit your induction. Please try again." };
+  }
 
   // Send confirmation email — non-blocking
   try {
-    const fullName = formData.get("full_name") as string;
     if (user.email) {
       await sendEmail({
         to: user.email,
         subject: "We've received your induction — Inspire9 Hub",
         react: createElement(InductionSubmitted, {
-          memberName: fullName || "Member",
+          memberName: values.full_name || "Member",
           memberEmail: user.email,
           dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/dashboard`,
           logoDataUrl: getLogoUrl(),
@@ -211,7 +240,7 @@ export async function submitInduction(formData: FormData) {
   }
 
   revalidatePath("/", "layout");
-  redirect("/dashboard");
+  redirect("/induction");
 }
 
 export async function approveInduction(formData: FormData) {

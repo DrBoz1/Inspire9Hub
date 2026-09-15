@@ -70,7 +70,7 @@ export default function DashboardClient({ firstName, memberStatus, isInducted, i
 
     <div className="hub-membership-strip hub-surface">
       <Link href="/profile" className="hub-membership-item"><span className="hub-strip-icon"><IdCard size={20} /></span><div><span className="hub-eyebrow">Your membership</span><strong><i className="hub-status-dot" data-active={isActive} />{memberStatus} member</strong></div><ArrowUpRight size={16} /></Link>
-      <Link href={isInducted || isSubmitted ? "/profile" : "/induction"} className="hub-membership-item"><span className="hub-strip-icon">{isInducted ? <ShieldCheck size={20} /> : <BookOpen size={20} />}</span><div><span className="hub-eyebrow">Hub induction</span><strong>{isInducted ? "You're all set" : isSubmitted ? "Under review" : "Let's get you settled"}{isInducted && <Check size={14} className="hub-green" />}</strong></div><ArrowUpRight size={16} /></Link>
+      <Link href="/induction" className="hub-membership-item"><span className="hub-strip-icon">{isInducted ? <ShieldCheck size={20} /> : <BookOpen size={20} />}</span><div><span className="hub-eyebrow">Hub induction</span><strong>{isInducted ? "You're all set" : isSubmitted ? "Under review" : "Let's get you settled"}{isInducted && <Check size={14} className="hub-green" />}</strong></div><ArrowUpRight size={16} /></Link>
       <Link href="/support" className="hub-membership-item"><span className="hub-strip-icon"><LifeBuoy size={20} /></span><div><span className="hub-eyebrow">Here for you</span><strong>A helping hand</strong></div><ArrowUpRight size={16} /></Link>
     </div>
 

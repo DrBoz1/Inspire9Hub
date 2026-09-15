@@ -1,87 +1,43 @@
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
-import { updateProfile } from "@/app/(auth)/actions";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { BOOKING_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { HUB_TIMEZONE } from "@/lib/datetime";
+import { inductionStage } from "@/lib/member-forms";
+import ProfileClient from "./ProfileClient";
+
+export const metadata: Metadata = { title: "My profile | Inspire9 Hub" };
 
 export default async function ProfilePage() {
-  const supabase = await createClient();
   const user = await getCurrentUser();
-  const { data: profile } = await supabase
-    .from("members")
-    .select("*") // <--- YOU NEED THIS
-    .eq("id", user?.id)
-    .single();
+  if (!user) redirect("/login");
+
+  const supabase = await createClient();
+  const [{ data: profile }, { count }] = await Promise.all([
+    supabase
+      .from("members")
+      .select("full_name, email, company_name, mobile_number, member_status, induction_status")
+      .eq("id", user.id)
+      .maybeSingle(),
+    supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .eq("member_id", user.id)
+      .in("booking_status", [BOOKING_STATUS.CONFIRMED, BOOKING_STATUS.COMPLETED]),
+  ]);
 
   return (
-    <div className="max-w-2xl mx-auto space-y-6 font-poppins">
-      <div>
-        <h1 className="text-3xl font-bold text-slate-900">Account Settings</h1>
-        <p className="text-slate-500">
-          Manage your profile information and how it appears on the hub.
-        </p>
-      </div>
-
-      <Card className="rounded-2xl border-slate-100 shadow-sm">
-        <CardHeader>
-          <CardTitle>Personal Information</CardTitle>
-          <CardDescription>
-            Update your name and contact details.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form action={updateProfile} className="space-y-4">
-            <div className="grid gap-2">
-              <Label htmlFor="full_name">Full Name</Label>
-              <Input
-                id="full_name"
-                name="full_name"
-                defaultValue={profile?.full_name}
-                className="bg-white"
-              />
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="email">Email Address</Label>
-              <Input
-                id="email"
-                disabled
-                value={profile?.email}
-                className="bg-slate-50 cursor-not-allowed"
-              />
-              <p className="text-[10px] text-slate-400 italic">
-                Email cannot be changed manually.
-              </p>
-            </div>
-
-            <div className="grid gap-2">
-              <Label htmlFor="company">Company / Organization</Label>
-              <Input
-                id="company"
-                name="company"
-                defaultValue={profile?.company}
-                className="bg-white"
-              />
-            </div>
-
-            <div className="pt-4">
-              <Button
-                type="submit"
-                className="bg-[#E31E24] hover:bg-red-700 text-white rounded-xl px-8"
-              >
-                Save Changes
-              </Button>
-            </div>
-          </form>
-        </CardContent>
-      </Card>
-    </div>
+    <ProfileClient
+      member={{
+        full_name: profile?.full_name ?? "",
+        mobile_number: profile?.mobile_number ?? "",
+        company_name: profile?.company_name ?? "",
+        email: profile?.email ?? user.email ?? "",
+        memberStatus: profile?.member_status ?? MEMBER_STATUS.INACTIVE,
+        inductionStage: inductionStage(profile?.induction_status),
+      }}
+      memberSince={new Intl.DateTimeFormat("en-AU", { month: "short", year: "numeric", timeZone: HUB_TIMEZONE }).format(new Date(user.created_at))}
+      bookingCount={count ?? 0}
+    />
   );
 }
