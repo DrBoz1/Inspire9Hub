@@ -118,9 +118,13 @@ export function formatLongDay(date: Date) {
   return `${hubPart(date, { weekday: "long" })} ${hubPart(date, { day: "numeric" })} ${hubPart(date, { month: "long" })}`;
 }
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+/** Fixed short names: Node and browsers disagree on some ("June" or "Jun"), which breaks hydration. */
 export function dateTile(iso: string) {
-  const date = new Date(iso);
-  return { weekday: hubPart(date, { weekday: "short" }), day: hubPart(date, { day: "numeric" }), month: hubPart(date, { month: "short" }) };
+  const [year, month, day] = hubDateKey(new Date(iso)).split("-").map(Number);
+  return { weekday: WEEKDAYS[new Date(Date.UTC(year, month - 1, day)).getUTCDay()], day: String(day), month: MONTHS[month - 1] };
 }
 
 // ─── Bookings ────────────────────────────────────────────────────────────────

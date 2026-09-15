@@ -326,6 +326,99 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
 }
 @media (max-width: 360px) { .admin-amenity-picker > div { grid-template-columns: minmax(0, 1fr); } }
 
+/* The shared amber and violet badges are too faint for small text on white. */
+:root:not(.dark) :is(.admin-shell, .hub-dialog) .hub-status-badge[data-status="pending"] { color: #7a4b08; }
+:root:not(.dark) :is(.admin-shell, .hub-dialog) .hub-status-badge[data-status="refunded"] { color: #6b5a80; }
+
+/* Announcements */
+.admin-typed { --type: #5f5856; }
+.admin-typed[data-type="general"] { --type: #2f5fb3; }
+.admin-typed[data-type="event"] { --type: #2f7d52; }
+.admin-typed[data-type="maintenance"] { --type: #7a4b08; }
+.admin-typed[data-type="alert"] { --type: #b4161c; }
+.admin-typed[data-type="hours"] { --type: #6b4fa0; }
+.dark .admin-typed { --type: #a8a19e; }
+.dark .admin-typed[data-type="general"] { --type: #8fb0f0; }
+.dark .admin-typed[data-type="event"] { --type: #6fcf97; }
+.dark .admin-typed[data-type="maintenance"] { --type: #e3a54a; }
+.dark .admin-typed[data-type="alert"] { --type: #ff9a9d; }
+.dark .admin-typed[data-type="hours"] { --type: #b9a2e6; }
+.admin-announce-new { gap: 8px; }
+.admin-announce-layout { display: grid; grid-template-columns: minmax(0, 1fr) 320px; align-items: start; gap: 20px; }
+.admin-announce-list { container-type: inline-size; }
+.admin-announce-list > li + li { border-top: 1px solid var(--hub-line); }
+.admin-announce { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: start; gap: 12px 16px; padding: 18px 20px; transition: background .15s; }
+.admin-announce:hover { background: color-mix(in srgb, var(--hub-soft) 45%, transparent); }
+.admin-announce-icon { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--type) 11%, transparent); color: var(--type); }
+.admin-announce-body { min-width: 0; }
+.admin-announce-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.admin-announce-type { color: var(--type); font-size: 10px; font-weight: 500; }
+.admin-announce-meta .hub-status-badge { text-transform: none; }
+.admin-announce h3 { margin-top: 7px; font-size: 14px; font-weight: 500; letter-spacing: -.02em; line-height: 1.4; overflow-wrap: anywhere; }
+.admin-announce-message { display: -webkit-box; margin-top: 4px; overflow: hidden; color: var(--hub-muted); font-size: 12px; line-height: 1.7; white-space: pre-line; overflow-wrap: anywhere; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+.admin-announce-dates { margin-top: 9px; color: var(--hub-muted); font-size: 10px; }
+.admin-announce[data-state="archived"] .admin-announce-icon { background: var(--hub-soft); color: var(--hub-muted); }
+.admin-announce[data-state="archived"] h3 { color: var(--hub-muted); }
+.admin-announce-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.admin-announce-actions .hub-button { min-height: 32px; padding: 0 12px; gap: 7px; font-size: 10px; }
+.admin-danger-button { color: #b4161c; }
+.dark .admin-danger-button { color: #ff9a9d; }
+@container (max-width: 560px) {
+  .admin-announce { grid-template-columns: auto minmax(0, 1fr); padding: 16px 18px; }
+  .admin-announce-actions { grid-column: 2; justify-content: flex-start; }
+}
+.admin-noticeboard { position: sticky; top: 0; overflow: hidden; }
+.admin-noticeboard .hub-announcements { padding-bottom: 6px; }
+.admin-noticeboard-note { margin: 0 24px 20px; padding: 10px 12px; border-radius: 9px; background: var(--hub-soft); color: var(--hub-muted); font-size: 10px; line-height: 1.7; }
+@media (max-width: 1180px) {
+  .admin-announce-layout { grid-template-columns: minmax(0, 1fr); }
+  .admin-noticeboard { position: static; }
+}
+
+/* Announcement composer: the form on the left, a live preview of the member noticeboard on the right. */
+.admin-announce-dialog { max-width: 880px !important; }
+.admin-announce-form { grid-template-columns: minmax(0, 1fr) 280px; align-items: start; gap: 24px 28px; }
+.admin-announce-fields { display: grid; gap: 22px; min-width: 0; }
+.admin-announce-field { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.admin-announce-field > legend { width: 100%; margin-bottom: 8px; }
+.admin-type-picker { min-width: 0; margin: 0; padding: 0; border: 0; }
+.admin-type-picker > legend { width: 100%; margin-bottom: 10px; }
+.admin-type-picker > div { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.admin-type-picker > p { margin-top: 8px; }
+.admin-type-picker label { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 40px; padding: 8px 11px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); color: var(--hub-muted); font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, color .18s; }
+.admin-type-picker label > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.admin-type-picker label > svg { flex-shrink: 0; color: var(--type); }
+.admin-type-picker label:hover { border-color: color-mix(in srgb, var(--hub-ink) 20%, var(--hub-line)); }
+.admin-type-picker label[data-on] { border-color: color-mix(in srgb, var(--type) 60%, var(--hub-line)); background: color-mix(in srgb, var(--type) 8%, var(--hub-paper)); color: var(--hub-ink); }
+.admin-type-picker input { position: absolute; opacity: 0; pointer-events: none; }
+.admin-type-picker label:has(input:focus-visible) { outline: 2px solid var(--hub-red); outline-offset: 2px; }
+.admin-text-input { width: 100%; height: 44px; padding: 0 13px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); color: var(--hub-ink); font-size: 13px; outline: none; transition: border-color .18s, box-shadow .18s; }
+textarea.admin-text-input { display: block; height: auto; min-height: 128px; padding: 11px 13px; line-height: 1.7; resize: vertical; }
+.admin-text-input::placeholder { color: var(--hub-muted); opacity: .75; }
+.admin-text-input:hover { border-color: color-mix(in srgb, var(--hub-ink) 18%, var(--hub-line)); }
+.admin-text-input:focus { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-red) 11%, transparent); }
+.admin-text-input[aria-invalid="true"] { border-color: var(--hub-red); }
+.admin-date-input { max-width: 220px; font-variant-numeric: tabular-nums; }
+.dark .admin-date-input { color-scheme: dark; }
+.admin-form-label small[data-near] { color: #7a4b08; }
+.dark .admin-form-label small[data-near] { color: var(--hub-amber); }
+.admin-end-presets { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-end-presets button { min-height: 32px; padding: 0 11px; border: 1px solid var(--hub-line); border-radius: 8px; background: var(--hub-paper); color: var(--hub-muted); font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, color .18s; }
+.admin-end-presets button:hover { color: var(--hub-ink); }
+.admin-end-presets button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); background: color-mix(in srgb, var(--hub-red) 6%, var(--hub-paper)); color: var(--hub-ink); }
+.admin-announce-fields .hub-field-error { font-size: 11px; }
+.admin-announce-fields .hub-inline-error { margin-top: 0; }
+.admin-announce-preview { position: sticky; top: 0; display: grid; gap: 10px; min-width: 0; }
+.admin-preview-card { overflow: hidden; border-radius: 14px; box-shadow: 0 18px 40px -30px #2a1f1f55; }
+.admin-preview-card .hub-feed-heading { padding: 16px 18px 12px; }
+.admin-preview-card .hub-announcements { padding: 0 18px 4px; }
+.hub-announcement [data-placeholder] { color: var(--hub-muted); font-style: italic; opacity: .8; }
+@media (max-width: 760px) {
+  .admin-announce-form { grid-template-columns: minmax(0, 1fr); }
+  .admin-announce-preview { position: static; }
+  .admin-type-picker > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
 /* Members */
 .admin-members-page .hub-status-badge, .admin-member-sheet .hub-status-badge { text-transform: none; }
 .admin-member-cell { display: flex; align-items: center; gap: 12px; min-width: 0; }

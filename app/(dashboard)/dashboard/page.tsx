@@ -1,6 +1,7 @@
 // app/(dashboard)/dashboard/page.tsx
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
+import { NOTICEBOARD_LIMIT, notExpiredFilter } from "@/lib/admin-announcements";
 import DashboardClient from "./DashboardClient";
 
 export default async function MemberDashboard() {
@@ -37,8 +38,9 @@ export default async function MemberDashboard() {
       .from("announcements")
       .select("id, title, message, type, created_at")
       .eq("status", "active")
+      .or(notExpiredFilter(new Date()))
       .order("created_at", { ascending: false })
-      .limit(5),
+      .limit(NOTICEBOARD_LIMIT),
   ]);
 
   const firstName = profile?.full_name?.split(" ")[0] ?? "Member";

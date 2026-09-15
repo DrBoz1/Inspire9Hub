@@ -47,7 +47,7 @@ export function AdminDashboardView({ adminName, ...data }: Props) {
             </>
           ) : (
             <>
-              <Link href="/admin/announcements" className="hub-button hub-button-outline">Post an announcement</Link>
+              <Link href="/admin/announcements?new=1" className="hub-button hub-button-outline">Post an announcement</Link>
               <Link href="/admin/bookings" className="hub-button hub-button-primary">Booking schedule<ArrowRight size={15} aria-hidden /></Link>
             </>
           )
