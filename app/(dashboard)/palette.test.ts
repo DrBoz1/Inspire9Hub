@@ -17,7 +17,8 @@ const FILES = [
   "app/(admin)/admin.css",
   "features/booking-map/floorplan.css",
 ];
-const SEMANTIC_GREENS = new Set(["#2f7d52", "#6fcf97"]);
+// #276b45 is the success green darkened so 9px badge text stays readable on its tint.
+const SEMANTIC_GREENS = new Set(["#2f7d52", "#276b45", "#6fcf97"]);
 const MEANINGFUL_TOKEN = /--color-(status-available|cat-|zone-|plan-)/;
 
 /** Green at least as strong as red, and clearly above blue: sage, olive, green. */

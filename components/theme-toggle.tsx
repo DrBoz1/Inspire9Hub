@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { Sun, Moon } from "lucide-react";
 
+const subscribeToNothing = () => () => {};
+
 export function ThemeToggle() {
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => setMounted(true), []);
+  // False on the server and while hydrating, true after: the theme is only known in the browser.
+  const mounted = useSyncExternalStore(subscribeToNothing, () => true, () => false);
 
   const toggle = (e: React.MouseEvent<HTMLButtonElement>) => {
     const next = resolvedTheme === "dark" ? "light" : "dark";

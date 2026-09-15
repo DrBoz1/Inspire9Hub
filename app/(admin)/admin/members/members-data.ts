@@ -10,6 +10,7 @@ export async function loadMembers(): Promise<MemberRow[]> {
     .from("members")
     .select("id, full_name, email, company_name, mobile_number, member_status, induction_status")
     .order("full_name", { ascending: true });
-  if (error) console.error("[members] load:", error.message);
+  // Thrown so the page shows its error screen, not an empty list that looks real.
+  if (error) throw new Error(`[members] load: ${error.message}`);
   return ((data ?? []) as RawMember[]).map(toMemberRow);
 }

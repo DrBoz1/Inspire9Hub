@@ -68,11 +68,15 @@
 .hub-refunded { text-decoration: line-through; color: var(--hub-muted); }
 .hub-status-badge { display: inline-flex; align-items: center; gap: 5px; width: fit-content; padding: 4px 9px; background: var(--hub-soft); color: var(--hub-muted); font-size: 9px; font-weight: 500; line-height: 1.6; text-transform: capitalize; border-radius: 5px; white-space: nowrap; }
 .hub-status-badge::before { content: ""; width: 4px; height: 4px; flex-shrink: 0; border-radius: 50%; background: currentColor; }
-.hub-status-badge:is([data-status="confirmed"], [data-status="paid"], [data-status="active"], [data-status="approved"]) { color: #2f7d52; background: #2f7d5214; }
-.hub-status-badge[data-status="pending"] { color: #9b783c; background: #c09d6114; }
-.hub-status-badge:is([data-status="cancelled"], [data-status="rejected"], [data-status="refund_failed"]) { color: #b05251; background: #bb555510; }
-.hub-status-badge[data-status="refunded"] { color: #827195; background: #8e76ad14; }
-.dark .hub-status-badge { filter: brightness(1.4); }
+.hub-status-badge:is([data-status="confirmed"], [data-status="paid"], [data-status="active"], [data-status="approved"]) { color: #276b45; background: #2f7d5214; }
+.hub-status-badge[data-status="pending"] { color: #7a4b08; background: #c09d6114; }
+.hub-status-badge:is([data-status="cancelled"], [data-status="rejected"], [data-status="refund_failed"]) { color: #a3403f; background: #bb555510; }
+.hub-status-badge[data-status="refunded"] { color: #6b5a80; background: #8e76ad14; }
+/* Badge text is 9px, so every colour clears 4.5:1 on its own tint in both themes. */
+.dark .hub-status-badge:is([data-status="confirmed"], [data-status="paid"], [data-status="active"], [data-status="approved"]) { color: #6fcf97; background: #6fcf971a; }
+.dark .hub-status-badge[data-status="pending"] { color: #e3a54a; background: #e3a54a1a; }
+.dark .hub-status-badge:is([data-status="cancelled"], [data-status="rejected"], [data-status="refund_failed"]) { color: #ff8a8d; background: #ff8a8d17; }
+.dark .hub-status-badge[data-status="refunded"] { color: #b9a2e6; background: #b9a2e61a; }
 .hub-empty-state { padding: 55px 24px; display: flex; align-items: center; flex-direction: column; text-align: center; color: var(--hub-muted); }
 .hub-empty-state h3 { font-size: 17px; color: var(--hub-ink); font-weight: 400; letter-spacing: -.03em; margin-top: 18px; }
 .hub-empty-state p { margin-top: 7px; font-size: 11px; line-height: 1.8; }

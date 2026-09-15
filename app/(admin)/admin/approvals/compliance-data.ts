@@ -34,9 +34,10 @@ export async function loadCompliance(params: { view?: string; page?: string; out
     history.order("entry_date", { ascending: false }).range(from, to),
   ]);
 
-  if (pending.error) console.error("[compliance] pending:", pending.error.message);
+  // Thrown so the page shows its error screen, not an empty queue that looks real.
+  if (pending.error) throw new Error(`[compliance] pending: ${pending.error.message}`);
   // Asking for a page past the end is an error in PostgREST; treat it as an empty page.
-  if (decisions.error && decisions.error.code !== "PGRST103") console.error("[compliance] history:", decisions.error.message);
+  if (decisions.error && decisions.error.code !== "PGRST103") throw new Error(`[compliance] history: ${decisions.error.message}`);
 
   const historyCount = decisions.count ?? 0;
   return {

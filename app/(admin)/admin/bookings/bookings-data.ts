@@ -50,7 +50,8 @@ export async function loadSchedule(params: { filter?: string; page?: string; q?:
   ]);
 
   // Asking for a page past the end is an error in PostgREST; treat it as an empty page.
-  if (result.error && result.error.code !== "PGRST103") console.error("[schedule] bookings:", result.error.message);
+  // Anything else is thrown so the page shows its error screen, not an empty schedule that looks real.
+  if (result.error && result.error.code !== "PGRST103") throw new Error(`[schedule] bookings: ${result.error.message}`);
   const total = result.count ?? 0;
 
   return {

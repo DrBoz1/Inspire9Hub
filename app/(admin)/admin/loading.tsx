@@ -19,7 +19,7 @@ function PanelSkeleton({ className, rows }: { className: string; rows: number })
 
 export default function AdminDashboardLoading() {
   return (
-    <div className="hub-page admin-dashboard hub-loading" aria-busy="true" aria-label="Loading the dashboard">
+    <div className="hub-page admin-dashboard hub-loading" role="status" aria-busy="true" aria-label="Loading the dashboard">
       <div className="admin-page-heading">
         <div>
           <Skeleton className="h-2.5 w-48" />

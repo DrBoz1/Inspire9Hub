@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ComplianceLoading() {
   return (
-    <div className="hub-page admin-compliance hub-loading" aria-busy="true" aria-label="Loading compliance">
+    <div className="hub-page admin-compliance hub-loading" role="status" aria-busy="true" aria-label="Loading compliance">
       <div className="admin-page-heading">
         <div>
           <Skeleton className="h-2.5 w-20" />

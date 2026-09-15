@@ -2,7 +2,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AnnouncementsLoading() {
   return (
-    <div className="hub-page admin-announcements-page hub-loading" aria-busy="true" aria-label="Loading announcements">
+    <div className="hub-page admin-announcements-page hub-loading" role="status" aria-busy="true" aria-label="Loading announcements">
       <div className="admin-page-heading">
         <div>
           <Skeleton className="h-2.5 w-20" />

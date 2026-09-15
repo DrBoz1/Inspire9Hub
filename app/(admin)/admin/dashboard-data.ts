@@ -45,9 +45,9 @@ export async function loadDashboardData(now = new Date()): Promise<DashboardData
     supabase.from("workspaces").select("id, name, active, bookable").order("name"),
   ]);
 
-  for (const result of [pendingCount, activeMembers, totalMembers, nextWeek, today, upcoming, pending, rooms]) {
-    if (result.error) console.error("[admin dashboard] query failed:", result.error.message);
-  }
+  // Thrown so the page shows its error screen: zeros from a failed query would look like a quiet day.
+  const failed = [pendingCount, activeMembers, totalMembers, nextWeek, today, upcoming, pending, rooms].find((result) => result.error);
+  if (failed?.error) throw new Error(`[admin dashboard] query failed: ${failed.error.message}`);
 
   return {
     now: now.toISOString(),

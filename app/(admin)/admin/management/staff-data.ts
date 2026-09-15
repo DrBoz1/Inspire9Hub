@@ -18,7 +18,8 @@ type Db = ReturnType<typeof createAdminClient>;
  */
 export async function loadStaff(db: Db = createAdminClient()): Promise<StaffMember[]> {
   const { data, error } = await db.from("admins").select("id, full_name, email, role");
-  if (error) console.error("[staff] load:", error.message);
+  // Thrown so the page shows its error screen, not an empty roster that looks real.
+  if (error) throw new Error(`[staff] load: ${error.message}`);
 
   const staff = await Promise.all(
     ((data ?? []) as RawStaff[]).map(async (row) => {
@@ -34,7 +35,7 @@ export async function loadStaff(db: Db = createAdminClient()): Promise<StaffMemb
 /** People with a hub account who aren't staff yet. */
 export async function loadCandidates(staffIds: string[], db: Db = createAdminClient()): Promise<StaffCandidate[]> {
   const { data, error } = await db.from("members").select("id, full_name, email, company_name").order("full_name", { ascending: true });
-  if (error) console.error("[staff] candidates:", error.message);
+  if (error) throw new Error(`[staff] candidates: ${error.message}`);
   const taken = new Set(staffIds);
   return ((data ?? []) as RawCandidate[]).filter((m) => !taken.has(m.id)).map(toCandidate);
 }

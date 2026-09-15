@@ -7,6 +7,7 @@ export async function loadAnnouncements(): Promise<Announcement[]> {
     .from("announcements")
     .select(ANNOUNCEMENT_COLUMNS)
     .order("created_at", { ascending: false });
-  if (error) console.error("[announcements] load:", error.message);
+  // Thrown so the page shows its error screen, not an empty list that looks real.
+  if (error) throw new Error(`[announcements] load: ${error.message}`);
   return ((data ?? []) as RawAnnouncement[]).map(toAnnouncement);
 }
