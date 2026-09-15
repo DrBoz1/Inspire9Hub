@@ -47,10 +47,11 @@ export function getRefundPolicy(bookingStartISO: string): RefundPolicy {
   };
 }
 
-// Convert a percent + original amount (in dollars) to the refund amount in Stripe cents
+// Convert a percent + original amount (in dollars) to the refund amount in Stripe cents.
+// Rounds to the cent, not the dollar: rounding dollars first could refund more than was paid ($12.50 -> $13).
 export function calcRefundCents(
   originalAmountDollars: number,
   percent: 0 | 50 | 100,
 ): number {
-  return Math.round((originalAmountDollars * percent) / 100) * 100; // in cents
+  return Math.round(originalAmountDollars * percent); // dollars x 100 cents x percent / 100
 }

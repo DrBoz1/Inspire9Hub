@@ -11,21 +11,9 @@ import InductionRejected from "@/lib/email/templates/induction-rejected";
 import { createElement } from "react";
 import { hubDateKey } from "@/lib/admin-dashboard";
 import { isUuid } from "@/lib/admin-compliance";
+import { requireAdmin } from "@/lib/admin-guard";
 
 type ActionResult = { error?: string };
-
-/** Server actions are public endpoints, so each admin action checks its caller itself. */
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { error: "Your session has ended. Sign in again." } as const;
-
-  const { data: actor } = await supabase.from("admins").select("role").eq("id", user.id).maybeSingle();
-  if (actor?.role !== "admin" && actor?.role !== "super_admin") return { error: "Only admins can do that." } as const;
-  return { supabase } as const;
-}
 
 function revalidateReviews() {
   revalidatePath("/admin", "layout");

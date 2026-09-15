@@ -26,6 +26,7 @@ export function AdminConfirm({
   confirmLabel,
   pendingLabel = "Working…",
   cancelLabel = "Cancel",
+  confirmDisabled = false,
   onConfirm,
   children,
 }: {
@@ -35,6 +36,7 @@ export function AdminConfirm({
   confirmLabel: string;
   pendingLabel?: string;
   cancelLabel?: string;
+  confirmDisabled?: boolean;
   onConfirm: () => Promise<ConfirmResult> | ConfirmResult;
   children?: ReactNode;
 }) {
@@ -73,7 +75,7 @@ export function AdminConfirm({
         {error && <p className="hub-inline-error" role="alert">{error}</p>}
         <AlertDialogFooter>
           <AlertDialogCancel className="hub-button hub-button-outline" disabled={pending}>{cancelLabel}</AlertDialogCancel>
-          <button type="button" className="hub-button hub-button-primary" onClick={confirm} disabled={pending} aria-busy={pending}>
+          <button type="button" className="hub-button hub-button-primary" onClick={confirm} disabled={pending || confirmDisabled} aria-busy={pending}>
             {pending && <Loader2 size={14} className="hub-spin" aria-hidden />}
             {pending ? pendingLabel : confirmLabel}
           </button>

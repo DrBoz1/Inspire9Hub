@@ -34,7 +34,8 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
 .admin-stat-hint { color: var(--hub-muted); font-size: 10px; line-height: 1.6; }
 
 /* Panels, toolbars and filters */
-.admin-panel { overflow: hidden; }
+/* clip, not hidden: hidden would make the panel a scroll box and stop sticky headers inside it. */
+.admin-panel { overflow: clip; }
 .admin-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
 .admin-panel > .admin-toolbar { padding: 14px 18px; border-bottom: 1px solid var(--hub-line); }
 .admin-toolbar > .hub-search { flex: 1 1 240px; max-width: 420px; min-height: 40px; }
@@ -198,6 +199,53 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
 .admin-review-error { margin: 0 22px 16px; }
 .admin-review-foot { display: flex; align-items: center; justify-content: flex-end; gap: 10px; margin-top: auto; padding: 14px 22px; border-top: 1px solid var(--hub-line); background: var(--hub-bg); }
 .admin-review-foot .hub-button { gap: 8px; min-height: 38px; }
+/* Booking schedule */
+.admin-schedule-page .hub-status-badge { text-transform: none; }
+.admin-schedule-page .admin-panel > .admin-toolbar { justify-content: space-between; }
+.admin-schedule-note { padding: 11px 18px; border-bottom: 1px solid var(--hub-line); color: var(--hub-muted); font-size: 11px; }
+.admin-schedule-note a { color: var(--hub-ink); text-decoration: underline; text-underline-offset: 3px; }
+.admin-day + .admin-day { border-top: 1px solid var(--hub-line); }
+/* Pinned flush with the top of the scrolling area, so rows never peek out above it through the page padding. */
+.admin-shell { --admin-main-pad-top: 24px; }
+@media (min-width: 1700px) { .admin-shell { --admin-main-pad-top: 32px; } }
+@media (max-width: 1150px) { .admin-shell { --admin-main-pad-top: 22px; } }
+@media (max-width: 767px) { .admin-shell { --admin-main-pad-top: 20px; } }
+.admin-day-head { position: sticky; top: calc(-1 * var(--admin-main-pad-top, 24px)); z-index: 1; display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; padding: 11px 18px; border-bottom: 1px solid var(--hub-line); background: var(--hub-bg); font-size: 12px; font-weight: 500; }
+.admin-day-head small { color: var(--hub-muted); font-size: 10px; font-weight: 400; }
+.admin-day-head em { margin-left: auto; color: var(--hub-muted); font-size: 10px; font-style: normal; font-weight: 400; }
+.admin-booking { display: grid; grid-template-columns: 132px minmax(0, 1fr) minmax(0, 1.15fr) 96px 124px 214px; grid-template-areas: "when what who pay status actions"; align-items: center; gap: 14px; padding: 14px 18px; border-top: 1px solid var(--hub-line); }
+.admin-booking:first-child { border-top: 0; }
+.admin-booking-when { grid-area: when; }
+.admin-booking-what { grid-area: what; min-width: 0; }
+.admin-booking-who { grid-area: who; min-width: 0; }
+.admin-booking-pay { grid-area: pay; }
+.admin-booking > .hub-status-badge { grid-area: status; }
+.admin-booking-actions { grid-area: actions; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.admin-booking[data-status="cancelled"] :is(.admin-booking-when, .admin-booking-what, .admin-booking-who) { opacity: .6; }
+.admin-booking[data-status="cancelled"] .admin-booking-when time { text-decoration: line-through; }
+.admin-booking-when time { display: block; font-size: 11px; font-weight: 500; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.admin-booking-when small { display: flex; align-items: center; gap: 5px; margin-top: 3px; color: var(--hub-muted); font-size: 10px; white-space: nowrap; }
+:is(.admin-booking-what, .admin-booking-who) strong { display: block; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+:is(.admin-booking-what, .admin-booking-who) > :is(span, a) { display: block; margin-top: 3px; overflow: hidden; color: var(--hub-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-booking-who a:hover { color: var(--hub-red); }
+.admin-booking-pay { display: flex; flex-direction: column; font-size: 12px; font-weight: 500; font-variant-numeric: tabular-nums; }
+.admin-booking-pay small { color: var(--hub-muted); font-size: 10px; font-weight: 400; }
+.admin-booking-pay[data-state="refund_failed"] small { color: var(--hub-red); font-weight: 500; }
+.admin-booking-actions .hub-button { min-height: 32px; padding: 0 11px; gap: 6px; font-size: 10px; }
+.admin-booking-note { color: var(--hub-muted); font-size: 10px; }
+@container (max-width: 980px) {
+  .admin-booking { grid-template-columns: 124px minmax(0, 1fr) auto; grid-template-areas: "when what status" "when who pay" "actions actions actions"; gap: 8px 14px; }
+  .admin-booking-pay { align-items: flex-end; }
+  .admin-booking-actions:empty { display: none; }
+}
+@container (max-width: 560px) {
+  .admin-booking { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "when status" "what what" "who who" "pay pay" "actions actions"; gap: 8px 12px; padding: 14px 16px; }
+  .admin-booking-pay { flex-direction: row; align-items: baseline; gap: 6px; }
+  .admin-booking-actions { justify-content: stretch; }
+  .admin-booking-actions .hub-button { flex: 1; justify-content: center; }
+  .admin-day-head { padding-inline: 16px; }
+}
+
 .admin-clamp { display: -webkit-box; max-width: 320px; overflow: hidden; color: var(--hub-muted); font-size: 11px; line-height: 1.6; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 @media (max-width: 650px) {
   .admin-review-head, .admin-review-facts { padding-inline: 18px; }
