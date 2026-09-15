@@ -1,107 +1,88 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
-import { ALL_AMENITIES } from "@/lib/constants";
+import { requireAdmin } from "@/lib/admin-guard";
+import { isUuid } from "@/lib/admin-compliance";
+import { IMAGE_TYPES, checkImage, cleanAmenities, parsePrice } from "@/lib/admin-rooms";
 
-const VALID_AMENITY_KEYS = new Set<string>(ALL_AMENITIES.map((a) => a.key));
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
-const ALLOWED_IMAGE_TYPES: Record<string, string> = {
-  "image/png": "png",
-  "image/jpeg": "jpg",
-  "image/webp": "webp",
-  "image/gif": "gif",
+export type RoomSaveResult = {
+  error?: string;
+  saved?: { price_per_hour: number; regular_price_per_hour: number | null; image_url: string | null; amenities: string[]; show_rating: boolean };
 };
-
-async function requireAdmin() {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) throw new Error("Not authenticated.");
-
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!admin || (admin.role !== "admin" && admin.role !== "super_admin")) {
-    throw new Error("Admin access required.");
-  }
-}
 
 // Server-side re-validation of every field — this is the same boundary that
 // guards booking prices (see bookings/actions.ts). The client form is
 // display-only; nothing it sends is trusted without these checks.
-export async function updateRoomDetails(formData: FormData) {
-  await requireAdmin();
+// Problems come back as values, not thrown errors: Next hides thrown messages in production.
+export async function updateRoomDetails(formData: FormData): Promise<RoomSaveResult> {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
 
-  const roomId = formData.get("roomId") as string;
-  if (!roomId) throw new Error("Missing room id.");
+  const roomId = formData.get("roomId");
+  if (!isUuid(roomId)) return { error: "That space couldn’t be found." };
 
-  const price = Number(formData.get("price_per_hour"));
-  if (!Number.isFinite(price) || price <= 0 || price > 1000) {
-    throw new Error("Price must be a number between $1 and $1000 per hour.");
-  }
+  const price = parsePrice(formData.get("price_per_hour"));
+  if ("error" in price) return { error: price.error };
 
-  const amenities = formData
-    .getAll("amenities")
-    .map(String)
-    .filter((key) => VALID_AMENITY_KEYS.has(key));
-
-  const showRating = formData.get("show_rating") === "true";
-
-  // Default ON: a normal price edit moves the baseline with it, so nothing
-  // changes from before this feature existed. Only when an admin explicitly
-  // unchecks this (running a temporary promo) does price_per_hour drift below
-  // the stored regular_price_per_hour and trigger the drop badge.
+  // Default ON: a normal price edit moves the baseline with it. Only when an admin
+  // switches this off (a temporary promo) does the price drift below
+  // regular_price_per_hour and show the drop badge.
   const updateRegularPrice = formData.get("updateRegularPrice") === "true";
 
-  const adminDb = createAdminClient();
   const update: {
     price_per_hour: number;
     amenities: string[];
-    show_rating: boolean;
+    show_rating?: boolean;
     image_url?: string;
     regular_price_per_hour?: number;
-  } = {
-    price_per_hour: price,
-    amenities,
-    show_rating: showRating,
-  };
-  if (updateRegularPrice) update.regular_price_per_hour = price;
+  } = { price_per_hour: price.value, amenities: cleanAmenities(formData.getAll("amenities")) };
+  if (updateRegularPrice) update.regular_price_per_hour = price.value;
+  const showRating = formData.get("show_rating");
+  if (showRating === "true" || showRating === "false") update.show_rating = showRating === "true";
+
+  const adminDb = createAdminClient();
 
   const file = formData.get("imageFile");
   if (file instanceof File && file.size > 0) {
-    const ext = ALLOWED_IMAGE_TYPES[file.type];
-    if (!ext) throw new Error("Image must be a PNG, JPEG, WEBP, or GIF file.");
-    if (file.size > MAX_IMAGE_BYTES) throw new Error("Image must be smaller than 5MB.");
+    const problem = checkImage(file);
+    if (problem) return { error: problem };
 
-    const path = `${roomId}-${Date.now()}.${ext}`;
+    const path = `${roomId}-${Date.now()}.${IMAGE_TYPES[file.type]}`;
     const buffer = Buffer.from(await file.arrayBuffer());
-
     const { error: uploadError } = await adminDb.storage
       .from("room-images")
       .upload(path, buffer, { contentType: file.type, upsert: true });
-    if (uploadError) throw new Error(`Image upload failed: ${uploadError.message}`);
-
-    const { data: publicUrlData } = adminDb.storage
-      .from("room-images")
-      .getPublicUrl(path);
-    update.image_url = publicUrlData.publicUrl;
+    if (uploadError) {
+      console.error("[rooms] image upload:", uploadError.message);
+      return { error: "The photo couldn’t be uploaded. Please try again." };
+    }
+    update.image_url = adminDb.storage.from("room-images").getPublicUrl(path).data.publicUrl;
   }
 
   // Admin client bypasses RLS — authorization is already enforced by requireAdmin() above.
-  const { error } = await adminDb.from("workspaces").update(update).eq("id", roomId);
-  if (error) throw new Error(error.message);
+  const { data, error } = await adminDb
+    .from("workspaces")
+    .update(update)
+    .eq("id", roomId)
+    .select("price_per_hour, regular_price_per_hour, image_url, amenities, show_rating")
+    .maybeSingle();
+  if (error || !data) {
+    console.error("[rooms] update:", error?.message ?? "no rows updated");
+    return { error: "Couldn’t save this space. Please try again." };
+  }
 
-  revalidatePath("/admin/rooms");
+  revalidatePath("/admin", "layout");
   revalidatePath("/bookings");
+  revalidatePath("/spaces");
 
   return {
-    image_url: update.image_url,
-    regular_price_per_hour: update.regular_price_per_hour,
+    saved: {
+      price_per_hour: Number(data.price_per_hour),
+      regular_price_per_hour: data.regular_price_per_hour === null ? null : Number(data.regular_price_per_hour),
+      image_url: data.image_url,
+      amenities: data.amenities ?? [],
+      show_rating: data.show_rating !== false,
+    },
   };
 }

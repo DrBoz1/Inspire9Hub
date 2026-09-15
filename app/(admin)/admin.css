@@ -246,6 +246,86 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
   .admin-day-head { padding-inline: 16px; }
 }
 
+/* Switch */
+.admin-switch-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding: 14px 16px; border: 1px solid var(--hub-line); border-radius: 12px; background: var(--hub-bg); }
+.admin-switch-label { display: block; font-size: 12px; font-weight: 500; cursor: pointer; }
+.admin-switch-row p { margin-top: 3px; color: var(--hub-muted); font-size: 11px; line-height: 1.6; }
+.admin-switch { position: relative; flex-shrink: 0; width: 40px; height: 24px; border-radius: 12px; background: color-mix(in srgb, var(--hub-ink) 20%, var(--hub-soft)); cursor: pointer; transition: background .2s; }
+.admin-switch > span { position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 3px #0000004d; transition: transform .22s cubic-bezier(.34, 1.56, .64, 1); }
+.admin-switch[aria-checked="true"] { background: #e31e24; }
+.admin-switch[aria-checked="true"] > span { transform: translateX(16px); }
+.admin-switch:focus-visible { outline: 2px solid var(--hub-red); outline-offset: 3px; }
+
+/* Space management */
+.admin-rooms-bar .admin-toolbar { justify-content: space-between; margin-bottom: 18px; }
+.admin-room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 16px; }
+.admin-room-grid > li { min-width: 0; }
+.admin-room-tile { display: flex; flex-direction: column; height: 100%; overflow: hidden; transition: border-color .2s, box-shadow .2s; }
+.admin-room-tile:hover { border-color: color-mix(in srgb, var(--hub-ink) 14%, var(--hub-line)); box-shadow: 0 12px 30px -24px #2a1f1f66; }
+.admin-room-tile[data-status="removed"] .admin-room-photo { opacity: .55; filter: grayscale(1); }
+.admin-room-tile .hub-status-badge { flex-shrink: 0; text-transform: none; }
+.admin-room-photo { position: relative; aspect-ratio: 16 / 9; background-color: var(--hub-soft); background-position: center; background-size: cover; }
+.admin-room-price { position: absolute; top: 12px; left: 12px; display: flex; align-items: baseline; gap: 5px; padding: 6px 10px; border-radius: 8px; background: #ffffffeb; color: #1f1d1d; font-size: 13px; backdrop-filter: blur(10px); }
+.admin-room-price strong { font-weight: 600; letter-spacing: -.02em; }
+.admin-room-price del, .admin-room-price small { color: #6f6a68; font-size: 10px; }
+.admin-room-drop { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 5px 8px; border-radius: 7px; background: #e31e24; color: #fff; font-size: 10px; font-weight: 600; }
+.admin-room-body { display: flex; flex: 1; flex-direction: column; gap: 10px; padding: 16px 18px 18px; }
+.admin-room-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.admin-room-title h2 { min-width: 0; font-size: 17px; font-weight: 500; letter-spacing: -.035em; line-height: 1.3; overflow-wrap: anywhere; }
+.admin-room-meta { display: flex; flex-wrap: wrap; gap: 4px 14px; color: var(--hub-muted); font-size: 11px; }
+.admin-room-meta > span { display: inline-flex; align-items: center; gap: 5px; }
+.admin-room-amenities { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.admin-room-amenities li { display: inline-flex; align-items: center; gap: 5px; padding: 4px 8px; border-radius: 6px; background: var(--hub-soft); font-size: 10px; }
+.admin-room-amenities li > svg { color: var(--hub-green); }
+.admin-room-more { color: var(--hub-muted); }
+.admin-room-edit { justify-content: center; gap: 8px; margin-top: auto; }
+
+/* Room edit dialog: header and footer stay put, the form scrolls between them. */
+.admin-room-dialog { display: flex !important; flex-direction: column; gap: 0; width: calc(100% - 32px); max-width: 620px !important; max-height: min(92dvh, 860px); padding: 0; overflow: hidden; border-radius: 18px; }
+.admin-room-dialog > [data-slot="dialog-close"] { top: 16px; right: 16px; color: var(--hub-muted); }
+.admin-room-dialog-head { gap: 6px; padding: 24px 26px 16px; border-bottom: 1px solid var(--hub-line); text-align: left; }
+.admin-room-dialog [data-slot="dialog-title"] { font-size: 22px; font-weight: 500; letter-spacing: -.04em; }
+.admin-room-dialog [data-slot="dialog-description"] { color: var(--hub-muted); font-size: 11px; line-height: 1.7; }
+.admin-room-form { display: grid; flex: 1; gap: 24px; min-height: 0; padding: 20px 26px 24px; overflow-y: auto; overscroll-behavior: contain; }
+.admin-room-form > section, .admin-amenity-picker { display: grid; gap: 10px; min-width: 0; }
+.admin-form-label { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; font-size: 12px; font-weight: 500; }
+.admin-form-label small { color: var(--hub-muted); font-size: 10px; font-weight: 400; }
+.admin-form-hint { color: var(--hub-muted); font-size: 11px; line-height: 1.6; }
+.admin-form-hint del { color: var(--hub-muted); }
+.admin-link-button { color: var(--hub-ink); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.admin-photo-drop { position: relative; display: grid; place-items: end start; width: 100%; aspect-ratio: 16 / 9; padding: 12px; overflow: hidden; border: 1px solid var(--hub-line); border-radius: 12px; background-color: var(--hub-soft); background-position: center; background-size: cover; cursor: pointer; }
+.admin-photo-drop::after { content: ""; position: absolute; inset: 0; background: linear-gradient(0deg, #151212a6, transparent 55%); transition: background .2s; }
+.admin-photo-drop:hover::after, .admin-photo-drop[data-dragging]::after { background: #15121280; }
+.admin-photo-drop[data-dragging] { outline: 2px dashed #e31e24; outline-offset: 3px; }
+.admin-photo-drop > span { position: relative; z-index: 1; display: inline-flex; align-items: center; gap: 7px; padding: 7px 11px; border-radius: 8px; background: #ffffffeb; color: #1f1d1d; font-size: 11px; font-weight: 500; }
+.admin-price-input { display: flex; align-items: center; gap: 8px; max-width: 300px; height: 48px; padding: 0 14px; border: 1px solid var(--hub-line); border-radius: 10px; background: var(--hub-paper); transition: border-color .18s, box-shadow .18s; }
+.admin-price-input:focus-within { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); box-shadow: 0 0 0 3px color-mix(in srgb, var(--hub-red) 11%, transparent); }
+.admin-price-input[data-invalid] { border-color: var(--hub-red); }
+.admin-price-input > span { color: var(--hub-muted); font-size: 16px; }
+.admin-price-input input { flex: 1; min-width: 0; height: 100%; background: transparent; color: var(--hub-ink); font-size: 18px; font-weight: 500; letter-spacing: -.02em; outline: none; font-variant-numeric: tabular-nums; }
+.admin-price-input small { color: var(--hub-muted); font-size: 10px; white-space: nowrap; }
+.admin-amenity-picker { margin: 0; padding: 0; border: 0; }
+.admin-amenity-picker > legend { width: 100%; margin-bottom: 10px; }
+.admin-amenity-picker > div { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.admin-amenity-picker label { position: relative; display: flex; align-items: center; gap: 9px; min-width: 0; min-height: 40px; padding: 8px 12px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); color: var(--hub-muted); font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, color .18s; }
+.admin-amenity-picker label:hover { border-color: color-mix(in srgb, var(--hub-ink) 20%, var(--hub-line)); }
+.admin-amenity-picker label[data-on] { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); background: color-mix(in srgb, var(--hub-red) 5%, var(--hub-paper)); color: var(--hub-ink); }
+.admin-amenity-picker input { position: absolute; opacity: 0; pointer-events: none; }
+.admin-amenity-picker label:has(input:focus-visible) { outline: 2px solid var(--hub-red); outline-offset: 2px; }
+.admin-amenity-check { display: grid; place-items: center; flex-shrink: 0; width: 16px; height: 16px; border: 1.5px solid color-mix(in srgb, var(--hub-ink) 30%, transparent); border-radius: 4px; color: #fff; }
+.admin-amenity-picker label[data-on] .admin-amenity-check { border-color: #e31e24; background: #e31e24; }
+.admin-room-dialog-foot { display: flex; align-items: center; gap: 10px; padding: 14px 26px; border-top: 1px solid var(--hub-line); background: var(--hub-bg); }
+.admin-room-dialog-foot > .admin-form-hint { margin-right: auto; }
+.admin-room-dialog-foot .hub-button { justify-content: center; gap: 8px; min-height: 40px; }
+@media (max-width: 650px) {
+  .admin-room-dialog { width: calc(100% - 16px); max-height: 92dvh; border-radius: 16px; }
+  .admin-room-dialog-head, .admin-room-form { padding-inline: 18px; }
+  .admin-room-dialog-foot { flex-wrap: wrap; padding: 12px 18px; }
+  .admin-room-dialog-foot > .admin-form-hint { width: 100%; }
+  .admin-room-dialog-foot .hub-button { flex: 1; }
+}
+@media (max-width: 360px) { .admin-amenity-picker > div { grid-template-columns: minmax(0, 1fr); } }
+
 .admin-clamp { display: -webkit-box; max-width: 320px; overflow: hidden; color: var(--hub-muted); font-size: 11px; line-height: 1.6; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }
 @media (max-width: 650px) {
   .admin-review-head, .admin-review-facts { padding-inline: 18px; }

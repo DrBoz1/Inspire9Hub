@@ -17,6 +17,13 @@ const nextConfig: NextConfig = {
   // Hide the X-Powered-By: Next.js header — no free recon for attackers
   poweredByHeader: false,
 
+  // Room photos can be up to 5MB (see lib/admin-rooms.ts); the default 1MB limit rejected most of them.
+  experimental: {
+    serverActions: {
+      bodySizeLimit: "6mb",
+    },
+  },
+
   async headers() {
     return [
       {

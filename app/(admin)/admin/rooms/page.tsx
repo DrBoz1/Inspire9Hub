@@ -1,31 +1,24 @@
-import { createAdminClient } from "@/lib/supabase/admin";
-import { Badge } from "@/components/ui/badge";
-import RoomsManagementClient from "./RoomsManagementClient";
+import type { Metadata } from "next";
+import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
+import { getPriceDropInfo } from "@/lib/pricing";
+import { RoomsBoard } from "./RoomsBoard";
+import { loadRooms } from "./rooms-data";
+
+export const metadata: Metadata = { title: "Space management | Inspire9 Hub" };
 
 export default async function AdminRoomsPage() {
-  const supabase = createAdminClient();
-  const { data: rooms } = await supabase
-    .from("workspaces")
-    .select("*")
-    .order("capacity", { ascending: true });
+  const rooms = await loadRooms();
+  const live = rooms.filter((r) => r.active);
+  const onSale = live.filter((r) => getPriceDropInfo(r.price_per_hour, r.regular_price_per_hour)).length;
 
   return (
-    <div className="space-y-8 font-poppins pb-10">
-      <div className="flex items-end justify-between">
-        <div>
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">
-            Space Management
-          </h1>
-          <p className="text-slate-500 font-medium text-sm mt-1">
-            Edit pricing, imagery, and amenities for every bookable room.
-          </p>
-        </div>
-        <Badge className="rounded-full px-5 py-2 bg-slate-900 dark:bg-slate-800 text-white font-black text-[10px] tracking-widest uppercase">
-          {rooms?.length ?? 0} Rooms
-        </Badge>
-      </div>
-
-      <RoomsManagementClient initialRooms={rooms ?? []} />
+    <div className="hub-page admin-rooms-page">
+      <AdminPageHeader
+        eyebrow="Operations"
+        title="Space management"
+        description={`Photos, prices and amenities for the ${live.length} space${live.length === 1 ? "" : "s"} members can see${onSale ? `, ${onSale} on a price drop right now` : ""}.`}
+      />
+      <RoomsBoard initialRooms={rooms} />
     </div>
   );
 }
