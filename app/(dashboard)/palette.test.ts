@@ -14,6 +14,7 @@ const FILES = [
   "app/(dashboard)/member-pages.css",
   "app/(dashboard)/member-account.css",
   "app/(auth)/auth.css",
+  "app/(admin)/admin.css",
   "features/booking-map/floorplan.css",
 ];
 const SEMANTIC_GREENS = new Set(["#2f7d52", "#6fcf97"]);

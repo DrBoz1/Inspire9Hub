@@ -1,14 +1,18 @@
-import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AdminSidebar } from "@/components/admin-sidebar";
 import { Toaster } from "sonner";
+import { createClient } from "@/lib/supabase/server";
+import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
+import { TooltipProvider } from "@/components/ui/tooltip";
+import { AdminSidebar } from "@/components/admin-sidebar";
+import { DashboardHeader } from "@/components/dashboard-header";
+import { INDUCTION_STATUS } from "@/lib/constants";
+// The admin frame is the member hub's frame; admin.css adds the admin-only pieces.
+import "../(dashboard)/member-hub.css";
+import "../(dashboard)/member-pages.css";
+import "../(dashboard)/member-account.css";
+import "./admin.css";
 
-export default async function AdminLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const supabase = await createClient();
   const {
     data: { user },
@@ -16,37 +20,30 @@ export default async function AdminLayout({
 
   if (!user) redirect("/login");
 
-  const { data: adminRecord } = await supabase
-    .from("admins")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  const isSuperAdmin = adminRecord?.role === "super_admin";
+  const [{ data: admin }, { count: pendingApprovals }] = await Promise.all([
+    supabase.from("admins").select("role, full_name, email").eq("id", user.id).single(),
+    supabase.from("members").select("id", { count: "exact", head: true }).eq("induction_status", INDUCTION_STATUS.SUBMITTED),
+  ]);
 
   return (
-    <div className="flex min-h-screen bg-slate-50/50 dark:bg-slate-950 font-poppins">
-      <AdminSidebar isSuperAdmin={isSuperAdmin} />
-
-      {/* Main content */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Top bar */}
-        <div className="sticky top-0 z-30 flex items-center justify-between px-10 py-4 border-b border-slate-100 dark:border-slate-800 bg-white/80 dark:bg-slate-900/80 backdrop-blur-sm">
-          <div className="flex items-center gap-2">
-            <span className="h-2 w-2 rounded-full bg-[#E31E24] animate-pulse" />
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
-              Inspire9 Hub
-            </span>
-          </div>
-          <ThemeToggle />
+    <TooltipProvider>
+      <SidebarProvider style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "3.5rem" } as React.CSSProperties}>
+        <div className="hub-shell admin-shell">
+          <AdminSidebar
+            role={admin?.role ?? null}
+            name={admin?.full_name ?? null}
+            email={admin?.email ?? user.email ?? null}
+            pendingApprovals={pendingApprovals ?? 0}
+          />
+          <SidebarInset className="hub-inset">
+            <DashboardHeader area="admin" />
+            <main id="main-content" className="hub-main">
+              <div className="admin-content">{children}</div>
+            </main>
+          </SidebarInset>
         </div>
-
-        <main className="flex-1 p-10 overflow-y-auto">
-          <div className="max-w-5xl mx-auto">{children}</div>
-        </main>
-      </div>
-
+      </SidebarProvider>
       <Toaster position="top-right" richColors closeButton />
-    </div>
+    </TooltipProvider>
   );
 }

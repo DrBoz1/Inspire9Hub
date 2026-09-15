@@ -1,154 +1,116 @@
 "use client";
 
-import { motion } from "framer-motion";
-import { usePathname } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
-  LayoutDashboard,
-  ClipboardCheck,
+  ArrowUpRight,
   CalendarDays,
-  Users,
-  LogOut,
-  ShieldCheck,
-  Megaphone,
+  ClipboardCheck,
   DoorOpen,
+  LayoutDashboard,
+  LogOut,
+  Megaphone,
+  ShieldCheck,
+  Users,
+  type LucideIcon,
 } from "lucide-react";
 import { logout } from "@/app/(auth)/actions";
+import { Sidebar, SidebarContent, SidebarFooter, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "./ui/sidebar";
+import { Avatar, AvatarFallback } from "./ui/avatar";
+import { adminNav, adminRoleLabel, isActiveAdminPath, type AdminIcon } from "@/lib/admin-nav";
+import { initialsOf } from "@/lib/member-forms";
 
-const spring = { type: "spring" as const, stiffness: 380, damping: 30 };
-
-const navItems = [
-  { href: "/admin",             icon: LayoutDashboard, label: "Dashboard" },
-  { href: "/admin/approvals",   icon: ClipboardCheck,  label: "Compliance" },
-  { href: "/admin/bookings",    icon: CalendarDays,    label: "Booking Schedule" },
-  { href: "/admin/rooms",       icon: DoorOpen,        label: "Space Management" },
-  { href: "/admin/members",     icon: Users,           label: "All Members" },
-  { href: "/admin/announcements", icon: Megaphone,     label: "Announcements" },
-];
-
-const superAdminItem = {
-  href: "/admin/management",
-  icon: ShieldCheck,
-  label: "Staff Management",
+const ICONS: Record<AdminIcon, LucideIcon> = {
+  dashboard: LayoutDashboard,
+  compliance: ClipboardCheck,
+  bookings: CalendarDays,
+  spaces: DoorOpen,
+  members: Users,
+  announcements: Megaphone,
+  staff: ShieldCheck,
 };
 
-function NavItem({ href, icon: Icon, label, exact = false }: {
-  href: string;
-  icon: React.ElementType;
-  label: string;
-  exact?: boolean;
-}) {
+type Props = { role: string | null; name: string | null; email: string | null; pendingApprovals: number };
+
+export function AdminSidebar({ role, name, email, pendingApprovals }: Props) {
   const pathname = usePathname();
-  const active = exact ? pathname === href : (href === "/admin" ? pathname === "/admin" : pathname.startsWith(href));
+  const { state, isMobile, setOpenMobile } = useSidebar();
+  const isCollapsed = !isMobile && state === "collapsed";
+  const closeMobile = () => { if (isMobile) setOpenMobile(false); };
+  const displayName = name?.trim() || email || "Admin";
 
   return (
-    <Link
-      href={href}
-      aria-current={active ? "page" : undefined}
-      className="relative flex items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold transition-colors group"
-    >
-      {/* Active background pill */}
-      {active && (
-        <motion.div
-          layoutId="admin-nav-active-bg"
-          className="absolute inset-0 rounded-xl bg-red-50 dark:bg-red-950/40"
-          transition={spring}
-        />
-      )}
-      {/* Active left bar */}
-      {active && (
-        <motion.div
-          layoutId="admin-nav-active-bar"
-          className="absolute left-0 top-2 bottom-2 w-0.5 rounded-full bg-[#E31E24]"
-          initial={{ scaleY: 0 }}
-          animate={{ scaleY: 1 }}
-          transition={spring}
-        />
+    <Sidebar variant="floating" collapsible="icon" className="hub-sidebar admin-sidebar">
+      {!isCollapsed && (
+        <SidebarHeader className="hub-sidebar-header">
+          <Link href="/admin" onClick={closeMobile} aria-label="Inspire9 admin home" className="hub-brand">
+            <Image src="/images/inspire9Logo.png" alt="Inspire9" width={132} height={70} className="h-auto w-[132px]" priority />
+            <span className="hub-brand-caption">Admin portal</span>
+          </Link>
+        </SidebarHeader>
       )}
 
-      {/* Icon */}
-      <motion.span
-        whileHover={{ scale: 1.18 }}
-        whileTap={{ scale: 0.88 }}
-        transition={{ type: "spring", stiffness: 420, damping: 18 }}
-        className={`relative z-10 flex shrink-0 ${
-          active
-            ? "text-[#E31E24]"
-            : "text-slate-400 dark:text-slate-500 group-hover:text-slate-700 dark:group-hover:text-slate-300"
-        }`}
-      >
-        <Icon className="w-4 h-4" />
-      </motion.span>
-
-      {/* Label */}
-      <span
-        className={`relative z-10 ${
-          active
-            ? "text-[#E31E24]"
-            : "text-slate-500 dark:text-slate-400 group-hover:text-slate-800 dark:group-hover:text-slate-200"
-        }`}
-      >
-        {label}
-      </span>
-    </Link>
-  );
-}
-
-export function AdminSidebar({ isSuperAdmin }: { isSuperAdmin: boolean }) {
-  return (
-    <aside className="w-64 border-r border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col sticky top-0 h-screen shrink-0">
-
-      {/* Top accent line */}
-      <div className="absolute top-0 left-0 right-0 h-0.5 bg-gradient-to-r from-[#E31E24]/80 via-[#E31E24]/30 to-transparent rounded-t-sm" />
-
-      {/* Logo + badge */}
-      <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-        <Image
-          src="/images/inspire9Logo.png"
-          alt="Inspire9 Hub"
-          width={140}
-          height={40}
-          className="h-9 w-auto"
-        />
-        <div className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-amber-50 dark:bg-amber-900/30 px-2.5 py-1">
-          <span className="h-1.5 w-1.5 rounded-full bg-amber-500 animate-pulse" />
-          <span className="text-[9px] font-black uppercase tracking-widest text-amber-700 dark:text-amber-400">
-            {isSuperAdmin ? "Super Admin" : "Admin Portal"}
-          </span>
-        </div>
-      </div>
-
-      {/* Nav */}
-      <nav className="flex-1 p-4 space-y-1 overflow-y-auto mt-2" aria-label="Admin navigation">
-        {navItems.map((item) => (
-          <NavItem key={item.href} {...item} exact={item.href === "/admin"} />
+      <SidebarContent className="hub-sidebar-content">
+        {adminNav(role === "super_admin").map((group) => (
+          <div key={group.label} className="hub-nav-group">
+            {!isCollapsed && <p className="hub-nav-label">{group.label}</p>}
+            <SidebarMenu className="gap-1">
+              {group.items.map((item) => {
+                const Icon = ICONS[item.icon];
+                const active = isActiveAdminPath(pathname, item.href);
+                const count = item.badge === "approvals" ? pendingApprovals : 0;
+                return (
+                  <SidebarMenuItem key={item.href}>
+                    <SidebarMenuButton asChild tooltip={count ? `${item.label} · ${count} waiting` : item.label} isActive={active} className="hub-nav-link">
+                      <Link href={item.href} onClick={closeMobile} aria-current={active ? "page" : undefined} aria-label={isCollapsed ? item.label : undefined}>
+                        <Icon size={18} strokeWidth={1.7} aria-hidden />
+                        {!isCollapsed && <span>{item.label}</span>}
+                        {count > 0 && <span className="admin-nav-count">{count > 99 ? "99+" : count}<span className="sr-only"> waiting</span></span>}
+                        {!isCollapsed && active && count === 0 && <span className="hub-nav-dot" aria-hidden />}
+                      </Link>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                );
+              })}
+            </SidebarMenu>
+          </div>
         ))}
-        {isSuperAdmin && (
-          <NavItem {...superAdminItem} />
-        )}
-      </nav>
 
-      {/* Footer */}
-      <div className="p-4 border-t border-slate-100 dark:border-slate-800">
+        {!isCollapsed && pendingApprovals > 0 && (
+          <Link href="/admin/approvals" onClick={closeMobile} className="hub-location-card admin-queue-card">
+            <div className="hub-location-top">
+              <span><ClipboardCheck size={13} aria-hidden /> Needs review</span>
+              <ArrowUpRight size={16} aria-hidden />
+            </div>
+            <strong className="admin-queue-count">{pendingApprovals}</strong>
+            <div className="hub-location-bottom">
+              <div>
+                <strong>{pendingApprovals === 1 ? "Induction waiting" : "Inductions waiting"}</strong>
+                <span>Review and approve</span>
+              </div>
+              <span className="hub-round-arrow"><ArrowUpRight size={15} aria-hidden /></span>
+            </div>
+          </Link>
+        )}
+      </SidebarContent>
+
+      <SidebarFooter className="hub-sidebar-footer">
+        <div className="hub-member">
+          <Avatar className="h-9 w-9 rounded-full">
+            <AvatarFallback className="hub-avatar">{initialsOf(name?.trim() || email?.split("@")[0] || "Admin")}</AvatarFallback>
+          </Avatar>
+          {!isCollapsed && (
+            <span className="hub-member-copy">
+              <strong>{displayName}</strong>
+              <span><i data-active="true" />{adminRoleLabel(role)}</span>
+            </span>
+          )}
+        </div>
         <form action={logout}>
-          <button
-            type="submit"
-            aria-label="Log out"
-            title="Log out"
-            className="flex w-full items-center gap-3 px-4 py-2.5 rounded-xl text-sm font-bold text-slate-500 dark:text-slate-400 hover:text-[#E31E24] hover:bg-red-50 dark:hover:bg-red-950/30 transition-all group"
-          >
-            <motion.span
-              whileHover={{ rotate: 180 }}
-              transition={{ type: "spring", stiffness: 300, damping: 20 }}
-              className="flex shrink-0"
-            >
-              <LogOut className="w-4 h-4" />
-            </motion.span>
-            Sign Out
-          </button>
+          <button type="submit" className="hub-logout" aria-label="Sign out" title="Sign out"><LogOut size={16} /></button>
         </form>
-      </div>
-    </aside>
+      </SidebarFooter>
+    </Sidebar>
   );
 }
