@@ -53,6 +53,8 @@
 .hub-logout { display: grid; place-items: center; width: 30px; height: 34px; color: var(--hub-muted, #6f6a68); border-radius: 8px; }.hub-logout:hover { color: var(--hub-red, #e31e24); background: #e31e240d; }
 [data-collapsible="icon"] .hub-sidebar-header { padding: 26px 8px; align-items: center; }
 [data-collapsible="icon"] .hub-sidebar-content { padding: 24px 10px 16px; gap: 20px; }
+/* Collapsed, each button is a fixed 32px square in a wider track, so it needs centring rather than sitting at the left edge. */
+[data-collapsible="icon"] .hub-nav-link { margin-inline: auto; }
 [data-collapsible="icon"] .hub-sidebar-footer { flex-direction: column; padding: 12px 5px; gap: 9px; }
 [data-mobile="true"]:has(.hub-brand) { background: #f6f5f4; color: #1f1d1d; --hub-muted: #6f6a68; --hub-ink: #1f1d1d; --hub-line: #e8e4e2; --hub-soft: #f3f0ee; --hub-red: #e31e24; --hub-green: #2f7d52; --hub-amber: #9a600f; }
 .dark [data-mobile="true"]:has(.hub-brand) { background: #1e1c1c; color: #f1edeb; --hub-muted: #a8a19e; --hub-ink: #f1edeb; --hub-line: #34302f; --hub-soft: #2a2726; --hub-red: #ff5a5f; --hub-green: #6fcf97; --hub-amber: #e3a54a; }
