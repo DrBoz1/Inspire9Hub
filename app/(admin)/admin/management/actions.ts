@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, type AdminRole } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { isAdminRole, removeBlocker, roleChangeBlocker, toStaffMember, type RawStaff, type StaffMember } from "@/lib/admin-staff";
+import { recordAudit } from "@/lib/audit";
 import { loadStaff } from "./staff-data";
 
 export type StaffResult = { error?: string; saved?: StaffMember };
@@ -14,9 +15,13 @@ export type StaffResult = { error?: string; saved?: StaffMember };
 const MISSING = "That person couldn’t be found. Refresh the page and try again.";
 const STAFF_COLUMNS = "id, full_name, email, role";
 
+const roleLabel = (role: AdminRole) => (role === "super_admin" ? "super admin" : "admin");
+
 async function signedInSuperAdmin() {
   const auth = await requireAdmin(["super_admin"]);
-  return "error" in auth ? { error: auth.error ?? "Only a super admin can do that." } : { userId: auth.user.id };
+  return "error" in auth
+    ? { error: auth.error ?? "Only a super admin can do that." }
+    : { userId: auth.user.id, actor: { id: auth.user.id, email: auth.user.email } };
 }
 
 function refresh() {
@@ -53,6 +58,16 @@ export async function addStaff(memberId: string, role: AdminRole): Promise<Staff
     console.error("[staff] add:", error.message);
     return { error: "Couldn’t add them. Please try again." };
   }
+
+  await recordAudit({
+    actor: auth.actor,
+    action: "staff.add",
+    entity: "staff",
+    entityId: memberId,
+    summary: `Gave ${member.full_name?.trim() || login.user.email || "a member"} ${roleLabel(role)} access`,
+    meta: { role },
+  });
+
   refresh();
   return { saved: toStaffMember(data as RawStaff, { exists: true, email: login.user.email }) };
 }
@@ -82,6 +97,16 @@ export async function changeStaffRole(adminId: string, role: AdminRole): Promise
     const { error: markerError } = await db.from("super_admins").delete().eq("admin_id", adminId);
     if (markerError) console.error("[staff] role marker:", markerError.message);
   }
+
+  await recordAudit({
+    actor: auth.actor,
+    action: "staff.role_change",
+    entity: "staff",
+    entityId: adminId,
+    summary: `Changed ${target.name} from ${roleLabel(target.role)} to ${roleLabel(role)}`,
+    meta: { from: target.role, to: role },
+  });
+
   refresh();
   return { saved: toStaffMember(data as RawStaff, { exists: target.hasLogin, email: target.email }) };
 }
@@ -108,6 +133,16 @@ export async function removeStaff(adminId: string): Promise<{ error?: string }> 
     return { error: "Couldn’t remove their access. Please try again." };
   }
   if (!data?.length) return { error: MISSING };
+
+  await recordAudit({
+    actor: auth.actor,
+    action: "staff.remove",
+    entity: "staff",
+    entityId: adminId,
+    summary: `Removed ${roleLabel(target.role)} access from ${target.name}`,
+    meta: { role: target.role, email: target.email },
+  });
+
   refresh();
   return {};
 }
@@ -132,6 +167,16 @@ export async function removeStaleStaff(ids: string[]): Promise<{ error?: string;
     console.error("[staff] clean-up:", error.message);
     return { error: "Couldn’t remove those records. Please try again." };
   }
+
+  const removed = data?.length ?? 0;
+  await recordAudit({
+    actor: auth.actor,
+    action: "staff.remove_stale",
+    entity: "staff",
+    summary: `Cleared ${removed} staff record${removed === 1 ? "" : "s"} whose login no longer exists`,
+    meta: { ids: confirmed },
+  });
+
   refresh();
-  return { removed: data?.length ?? 0 };
+  return { removed };
 }

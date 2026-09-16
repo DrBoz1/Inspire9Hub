@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { IMAGE_TYPES, checkImage, cleanAmenities, parsePrice } from "@/lib/admin-rooms";
+import { recordAudit } from "@/lib/audit";
 
 export type RoomSaveResult = {
   error?: string;
@@ -43,6 +44,15 @@ export async function updateRoomDetails(formData: FormData): Promise<RoomSaveRes
 
   const adminDb = createAdminClient();
 
+  // Read before writing: an audit line saying "price changed" is worth little
+  // without the value it changed from, and the update's own select returns the
+  // new state only.
+  const { data: before } = await adminDb
+    .from("workspaces")
+    .select("name, price_per_hour")
+    .eq("id", roomId)
+    .maybeSingle();
+
   const file = formData.get("imageFile");
   if (file instanceof File && file.size > 0) {
     const problem = checkImage(file);
@@ -71,6 +81,26 @@ export async function updateRoomDetails(formData: FormData): Promise<RoomSaveRes
     console.error("[rooms] update:", error?.message ?? "no rows updated");
     return { error: "Couldn’t save this space. Please try again." };
   }
+
+  const roomName = before?.name?.trim() || "a space";
+  const oldPrice = before?.price_per_hour === undefined || before?.price_per_hour === null ? null : Number(before.price_per_hour);
+  const priceMoved = oldPrice !== null && oldPrice !== price.value;
+  await recordAudit({
+    actor: { id: guard.user.id, email: guard.user.email },
+    action: "room.update",
+    entity: "room",
+    entityId: roomId,
+    summary: priceMoved
+      ? `Updated ${roomName}, price $${oldPrice.toFixed(2)} → $${price.value.toFixed(2)} per hour`
+      : `Updated ${roomName}`,
+    meta: {
+      priceFrom: oldPrice,
+      priceTo: price.value,
+      baselineMoved: updateRegularPrice,
+      photoReplaced: update.image_url !== undefined,
+      amenities: update.amenities,
+    },
+  });
 
   revalidatePath("/admin", "layout");
   revalidatePath("/bookings");

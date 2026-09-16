@@ -13,6 +13,7 @@ import {
   type AnnouncementErrors,
   type RawAnnouncement,
 } from "@/lib/admin-announcements";
+import { recordAudit } from "@/lib/audit";
 
 export type AnnouncementResult = { error?: string; saved?: Announcement };
 export type AnnouncementSaveResult = AnnouncementResult & { fieldErrors?: AnnouncementErrors };
@@ -50,8 +51,19 @@ export async function saveAnnouncement(formData: FormData): Promise<Announcement
     return { error: "Couldn’t save the announcement. Please try again." };
   }
   if (!data) return { error: MISSING };
+
+  const announcement = toAnnouncement(data as RawAnnouncement);
+  await recordAudit({
+    actor: { id: auth.user.id, email: auth.user.email },
+    action: "announcement.save",
+    entity: "announcement",
+    entityId: announcement.id,
+    summary: `${id ? "Edited" : "Posted"} the ${announcement.type} notice “${announcement.title}”`,
+    meta: { type: announcement.type, edited: Boolean(id) },
+  });
+
   refresh();
-  return { saved: toAnnouncement(data as RawAnnouncement) };
+  return { saved: announcement };
 }
 
 async function setStatus(id: string, status: Announcement["status"], verb: string): Promise<AnnouncementResult> {
@@ -77,8 +89,19 @@ async function setStatus(id: string, status: Announcement["status"], verb: strin
     return { error: `Couldn’t ${verb} it. Please try again.` };
   }
   if (!data) return { error: MISSING };
+
+  const announcement = toAnnouncement(data as RawAnnouncement);
+  await recordAudit({
+    actor: { id: auth.user.id, email: auth.user.email },
+    action: status === "archived" ? "announcement.archive" : "announcement.restore",
+    entity: "announcement",
+    entityId: announcement.id,
+    summary: `${status === "archived" ? "Archived" : "Restored"} the notice “${announcement.title}”`,
+    meta: { type: announcement.type, clearedExpiry: status === "active" && expired },
+  });
+
   refresh();
-  return { saved: toAnnouncement(data as RawAnnouncement) };
+  return { saved: announcement };
 }
 
 export async function archiveAnnouncement(id: string): Promise<AnnouncementResult> {
@@ -94,12 +117,27 @@ export async function deleteAnnouncement(id: string): Promise<{ error?: string }
   if ("error" in auth) return { error: auth.error ?? NOT_ADMIN };
   if (!isUuid(id)) return { error: MISSING };
 
-  const { data, error } = await createAdminClient().from("announcements").delete().eq("id", id).select("id");
+  const db = createAdminClient();
+  // Read the title before it's gone: an audit line naming a deleted row's id
+  // and nothing else can't be read back by a human later.
+  const { data: doomed } = await db.from("announcements").select("title, type").eq("id", id).maybeSingle();
+
+  const { data, error } = await db.from("announcements").delete().eq("id", id).select("id");
   if (error) {
     console.error("[announcements] delete:", error.message);
     return { error: "Couldn’t delete it. Please try again." };
   }
   if (!data?.length) return { error: MISSING };
+
+  await recordAudit({
+    actor: { id: auth.user.id, email: auth.user.email },
+    action: "announcement.delete",
+    entity: "announcement",
+    entityId: id,
+    summary: `Deleted the notice “${doomed?.title?.trim() || "Untitled"}”`,
+    meta: { type: doomed?.type ?? null },
+  });
+
   refresh();
   return {};
 }

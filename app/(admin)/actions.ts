@@ -11,6 +11,7 @@ import { createElement } from "react";
 import { hubDateKey } from "@/lib/admin-dashboard";
 import { isUuid } from "@/lib/admin-compliance";
 import { requireAdmin } from "@/lib/admin-guard";
+import { recordAudit } from "@/lib/audit";
 
 type ActionResult = { error?: string };
 
@@ -70,6 +71,16 @@ export async function approveInduction(memberId: string): Promise<ActionResult> 
     entry_date: hubDateKey(new Date()),
   });
   if (logError) console.error("[approveInduction] history:", logError.message);
+
+  // community_entries records the member this happened to; this records the
+  // member of staff who decided it, which is the half that was missing.
+  await recordAudit({
+    actor: { id: guard.user.id, email: guard.user.email },
+    action: "induction.approve",
+    entity: "member",
+    entityId: memberId,
+    summary: `Approved the induction for ${member.full_name?.trim() || member.email || "a member"}`,
+  });
 
   // Send approval email — non-blocking
   try {
@@ -132,6 +143,14 @@ export async function rejectInduction(memberId: string): Promise<ActionResult> {
     entry_date: hubDateKey(new Date()),
   });
   if (logError) console.error("[rejectInduction] history:", logError.message);
+
+  await recordAudit({
+    actor: { id: guard.user.id, email: guard.user.email },
+    action: "induction.reject",
+    entity: "member",
+    entityId: memberId,
+    summary: `Sent the induction back to ${member.full_name?.trim() || member.email || "a member"}`,
+  });
 
   // Send rejection email — non-blocking
   try {

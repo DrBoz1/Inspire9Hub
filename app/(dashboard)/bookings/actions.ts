@@ -213,7 +213,12 @@ export async function cancelPendingBooking(bookingId: string) {
   const adminDb = createAdminClient();
   await adminDb
     .from("bookings")
-    .update({ booking_status: "cancelled" })
+    .update({
+      booking_status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user.id,
+      cancel_reason: "Checkout abandoned before payment",
+    })
     .eq("id", bookingId)
     .eq("member_id", user.id)
     .eq("booking_status", "pending");
@@ -248,7 +253,12 @@ export async function cancelConfirmedBooking(bookingId: string) {
 
   const { error: cancelErr } = await adminDb
     .from("bookings")
-    .update({ booking_status: "cancelled" })
+    .update({
+      booking_status: "cancelled",
+      cancelled_at: new Date().toISOString(),
+      cancelled_by: user.id,
+      cancel_reason: `Cancelled by the member, ${policy.label.toLowerCase()}`,
+    })
     .eq("id", bookingId);
 
   if (cancelErr) return { error: cancelErr.message };
@@ -274,6 +284,7 @@ export async function cancelConfirmedBooking(bookingId: string) {
           .update({
             payment_status: "refunded",
             refunded_amount: refundCents / 100,
+            refunded_at: new Date().toISOString(),
           })
           .eq("id", payment.id);
       } catch (err) {
