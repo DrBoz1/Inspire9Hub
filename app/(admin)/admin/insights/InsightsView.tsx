@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, CalendarCheck2, CalendarX2, ChartLine, CircleDollarSign, DoorOpen, Download, Gauge, Info, TriangleAlert, Users } from "lucide-react";
+import { ArrowUpRight, CalendarCheck2, CalendarX2, ChartLine, CircleDollarSign, DoorOpen, Download, Gauge, Inbox, Info, TriangleAlert, Users } from "lucide-react";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStat, AdminStats } from "@/components/admin/AdminStat";
 import { AdminSegmented, AdminToolbar } from "@/components/admin/AdminToolbar";
@@ -34,6 +34,7 @@ import {
   roomStats,
   shortDay,
   sparkPaths,
+  spendByConverted,
   summarise,
   topSpenders,
   windowLabel,
@@ -41,6 +42,7 @@ import {
   type RoomStat,
   type Spender,
 } from "@/lib/admin-insights";
+import { channelBreakdown, daysToWin, funnel } from "@/lib/admin-leads";
 import type { InsightsData } from "./insights-data";
 
 const PATH = "/admin/insights";
@@ -138,6 +140,8 @@ export function InsightsView({ data }: { data: InsightsData }) {
         <RoomsPanel rooms={roomStats(data.scope, bookings, range)} scoped={Boolean(room)} />
         <HeatPanel grid={hourHeat(bookings, range, sellableRooms)} sellableRooms={sellableRooms} />
         <BehaviourPanel data={data} cancel={cancel} />
+        {/* Leads aren't per room, so the funnel only shows for the whole hub. */}
+        {!room && <LeadsPanel data={data} />}
       </div>
     </div>
   );
@@ -363,5 +367,67 @@ function BehaviourPanel({ data, cancel }: { data: InsightsData; cancel: ReturnTy
         </p>
       </div>
     </section>
+  );
+}
+
+// ─── Leads ───────────────────────────────────────────────────────────────────
+
+function LeadsPanel({ data }: { data: InsightsData }) {
+  const leads = data.leads;
+  return (
+    <section className="hub-surface admin-panel admin-insights-leads" aria-labelledby="leads-title">
+      <PanelHead id="leads-title" eyebrow="Leads" title="From enquiry to member" action={<Link href="/admin/leads" className="hub-text-link">Leads board<ArrowUpRight size={15} aria-hidden /></Link>} />
+      {leads === null ? (
+        <AdminEmpty icon={<Inbox size={18} />} title="Leads aren’t set up yet">Run add_leads.sql in Supabase, and enquiries from the website will be counted here.</AdminEmpty>
+      ) : leads.length === 0 ? (
+        <AdminEmpty icon={<Inbox size={18} />} title="No enquiries in this period">Leads from the enquiry form, or added by staff, are counted here.</AdminEmpty>
+      ) : (
+        <LeadsBody data={data} leads={leads} />
+      )}
+    </section>
+  );
+}
+
+function LeadsBody({ data, leads }: { data: InsightsData; leads: NonNullable<InsightsData["leads"]> }) {
+  const { steps, open, lost, winRate } = funnel(leads);
+  const days = daysToWin(leads);
+  const spend = spendByConverted(data.bookings, data.range, new Set(data.convertedMemberIds));
+  const channels = channelBreakdown(leads, "heardVia").slice(0, 6);
+  return (
+    <div className="admin-insights-body">
+      <dl className="admin-insights-figures">
+        <div><dt>Enquiries</dt><dd>{leads.length}</dd></div>
+        {/* Of closed leads, not of every enquiry: the funnel below shows the share of all enquiries, so both say which they mean. */}
+        <div><dt>Win rate, closed leads</dt><dd>{formatPercent(winRate)}</dd></div>
+        <div><dt>Days to win</dt><dd>{days === null ? "—" : days}</dd></div>
+        <div><dt>Spent by converted members</dt><dd>{formatDollars(spend.net)}</dd></div>
+      </dl>
+      <div className="admin-insights-split">
+        <div>
+          <h3 className="admin-insights-subhead">How far enquiries got</h3>
+          <BarList
+            label="How many enquiries reached each stage"
+            items={steps.map((s) => ({ key: s.stage, label: s.label, value: s.count, display: s.stage === "new" || s.fromStart === null ? `${s.count}` : `${s.count} · ${formatPercent(s.fromStart)}` }))}
+          />
+          <p className="admin-insights-caption">
+            A lead counts at every stage it reached, so one lost after a tour still counts as a tour. {open} still open, {lost} lost.
+            {spend.members > 0 && ` ${spend.members} member${spend.members === 1 ? "" : "s"} who came in as leads paid for bookings in this period.`}
+          </p>
+        </div>
+        <div>
+          <h3 className="admin-insights-subhead">How they found us</h3>
+          <table className="admin-mini-table">
+            <caption className="sr-only">Enquiries and wins by how they heard about Inspire9</caption>
+            <thead><tr><th scope="col">Channel</th><th scope="col">Enquiries</th><th scope="col">Won</th><th scope="col">Win rate</th></tr></thead>
+            <tbody>
+              {channels.map((c) => (
+                <tr key={c.key}><th scope="row">{c.label}</th><td>{c.leads}</td><td>{c.won}</td><td>{formatPercent(c.winRate)}</td></tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="admin-insights-caption">Win rate counts only leads that have closed, won or lost.</p>
+        </div>
+      </div>
+    </div>
   );
 }

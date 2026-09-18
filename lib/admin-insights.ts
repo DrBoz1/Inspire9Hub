@@ -649,6 +649,24 @@ export function pointsChange(current: number | null, previous: number | null): C
   return { direction: points > 0 ? "up" : "down", label: `${points > 0 ? "+" : ""}${points} pts` };
 }
 
+// ─── Where members came from ─────────────────────────────────────────────────
+
+/**
+ * What members who came in as leads spent in the window: the number that says
+ * whether chasing enquiries is worth it. `memberIds` is every member a won lead
+ * was linked to, whenever they converted; the spending is only this window's.
+ */
+export function spendByConverted(all: InsightBooking[], window: DayWindow, memberIds: ReadonlySet<string>): { net: number; members: number } {
+  const spenders = new Set<string>();
+  let net = 0;
+  for (const b of inWindow(all, window)) {
+    if (!b.hasPayment || !b.memberId || !memberIds.has(b.memberId)) continue;
+    net += b.net;
+    if (b.net > 0) spenders.add(b.memberId);
+  }
+  return { net: round2(net), members: spenders.size };
+}
+
 // ─── CSV export ──────────────────────────────────────────────────────────────
 
 /** Plain words for the export, so a spreadsheet reader never has to decode "pending". */

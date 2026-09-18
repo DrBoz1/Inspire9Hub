@@ -9,6 +9,7 @@ import {
   type InsightRoom,
   type RawInsightBooking,
 } from "@/lib/admin-insights";
+import { LEAD_COLUMNS, toLead, type Lead, type RawLead } from "@/lib/admin-leads";
 
 /**
  * Read-only. The admin proxy guards the page; the export route checks its caller
@@ -41,6 +42,10 @@ export type InsightsData = {
   auditColumns: boolean;
   /** True only if the safety ceiling cut the list short; the page says so rather than under-counting quietly. */
   truncated: boolean;
+  /** Leads that came in during the range. Null when add_leads.sql hasn't been run yet. */
+  leads: Lead[] | null;
+  /** Every member a won lead has been linked to, whenever they converted. */
+  convertedMemberIds: string[];
 };
 
 type Page = { rows: RawInsightBooking[]; truncated: boolean } | { error: { code?: string; message: string } };
@@ -68,6 +73,27 @@ async function fetchBookings(db: SupabaseClient, columns: string, from: string, 
 /** Postgres "undefined column": the audit migration hasn't been run on this database yet. */
 const missingColumn = (error: { code?: string; message: string }) => error.code === "42703" || /column .* does not exist/i.test(error.message);
 
+/**
+ * The leads side of the report. Not per room, so it's only read for the whole
+ * hub. A missing table is expected until add_leads.sql has run, and just means
+ * no funnel; anything else is a real failure.
+ */
+async function loadLeadsFor(db: SupabaseClient, from: string, to: string): Promise<{ leads: Lead[] | null; convertedMemberIds: string[] }> {
+  const rows: RawLead[] = [];
+  for (let offset = 0; offset < MAX_ROWS; offset += PAGE_SIZE) {
+    const { data, error } = await db.from("leads").select(LEAD_COLUMNS).gte("created_at", from).lt("created_at", to).order("created_at").order("id").range(offset, offset + PAGE_SIZE - 1);
+    if (error) {
+      if (error.code === "PGRST205" || error.code === "42P01") return { leads: null, convertedMemberIds: [] };
+      throw new Error(`[insights] leads: ${error.message}`);
+    }
+    rows.push(...((data ?? []) as RawLead[]));
+    if (!data || data.length < PAGE_SIZE) break;
+  }
+  const { data: won, error } = await db.from("leads").select("member_id").eq("stage", "won").not("member_id", "is", null).limit(MAX_ROWS);
+  if (error) throw new Error(`[insights] converted: ${error.message}`);
+  return { leads: rows.map(toLead), convertedMemberIds: [...new Set((won ?? []).map((r) => r.member_id as string))] };
+}
+
 export async function loadInsights(params: { range?: string; room?: string }, now = new Date()): Promise<InsightsData> {
   const range = resolveRange(params.range, now);
   const db = createAdminClient();
@@ -94,6 +120,7 @@ export async function loadInsights(params: { range?: string; room?: string }, no
     page = await fetchBookings(db, BASE_COLUMNS, from, to, room?.id ?? null);
   }
   if ("error" in page) throw new Error(`[insights] bookings: ${page.error.message}`);
+  const leadsSide = room ? { leads: null, convertedMemberIds: [] } : await loadLeadsFor(db, range.startUTC, range.endUTC);
 
   return {
     now: now.toISOString(),
@@ -105,5 +132,6 @@ export async function loadInsights(params: { range?: string; room?: string }, no
     bookings: toInsightBookings(page.rows),
     auditColumns,
     truncated: page.truncated,
+    ...leadsSide,
   };
 }

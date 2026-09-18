@@ -729,3 +729,9 @@ textarea.admin-text-input { display: block; height: auto; min-height: 128px; pad
   .admin-lead-grid { grid-template-columns: minmax(0, 1fr); }
   .admin-lead-steps .admin-lead-lost { margin-left: 0; }
 }
+
+/* Insights: the leads funnel, across the full width, splitting into two columns when there's room. */
+.admin-insights-leads { grid-column: 1 / -1; }
+.admin-insights-split { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+.admin-insights-split .admin-mini-table { margin-top: -6px; }
+@container (max-width: 720px) { .admin-insights-split { grid-template-columns: minmax(0, 1fr); } }

@@ -26,6 +26,7 @@ import {
   roomStats,
   sellableMinutes,
   sparkPaths,
+  spendByConverted,
   summarise,
   toInsightBooking,
   toInsightBookings,
@@ -487,5 +488,28 @@ describe("CSV export", () => {
   it("names the file after the window and the room", () => {
     expect(csvFilename(WEEK)).toBe("inspire9-bookings-2026-09-14-to-2026-09-20.csv");
     expect(csvFilename(WEEK, "The Boiler Room!")).toBe("inspire9-bookings-the-boiler-room-2026-09-14-to-2026-09-20.csv");
+  });
+});
+
+describe("what converted leads are worth", () => {
+  it("adds up this window's spending by members who came in as leads", () => {
+    const converted = new Set(["m-lead", "m-quiet"]);
+    const result = spendByConverted(
+      book(
+        raw(mel("2026-09-15", "10:00"), mel("2026-09-15", "11:00"), { member_id: "m-lead" }),
+        raw(mel("2026-09-16", "10:00"), mel("2026-09-16", "11:00"), { member_id: "m-lead", booking_status: "cancelled", payments: [{ amount: 50, refunded_amount: 25, payment_status: "refunded" }] }),
+        // Not a converted lead: doesn't count.
+        raw(mel("2026-09-15", "12:00"), mel("2026-09-15", "13:00"), { member_id: "m-other" }),
+        // A converted lead, but outside the window.
+        raw(mel("2026-09-25", "10:00"), mel("2026-09-25", "11:00"), { member_id: "m-quiet" }),
+      ),
+      WEEK,
+      converted,
+    );
+    expect(result).toEqual({ net: 75, members: 1 });
+  });
+
+  it("is zero, not missing, when nobody has converted", () => {
+    expect(spendByConverted(book(raw(mel("2026-09-15", "10:00"), mel("2026-09-15", "11:00"))), WEEK, new Set())).toEqual({ net: 0, members: 0 });
   });
 });
