@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AdminSidebar } from "@/components/admin-sidebar";
@@ -20,9 +21,12 @@ export default async function AdminLayout({ children }: { children: React.ReactN
 
   if (!user) redirect("/login");
 
-  const [{ data: admin }, { count: pendingApprovals }] = await Promise.all([
+  const [{ data: admin }, { count: pendingApprovals }, { count: newLeads }] = await Promise.all([
     supabase.from("admins").select("role, full_name, email").eq("id", user.id).single(),
     supabase.from("members").select("id", { count: "exact", head: true }).eq("induction_status", INDUCTION_STATUS.SUBMITTED),
+    // The service-role client: leads are closed to signed-in sessions, so this one would always count 0.
+    // A missing table (before add_leads.sql) comes back as an error with no count, which reads as 0.
+    createAdminClient().from("leads").select("id", { count: "exact", head: true }).eq("stage", "new"),
   ]);
 
   return (
@@ -34,6 +38,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
             name={admin?.full_name ?? null}
             email={admin?.email ?? user.email ?? null}
             pendingApprovals={pendingApprovals ?? 0}
+            newLeads={newLeads ?? 0}
           />
           <SidebarInset className="hub-inset">
             <DashboardHeader area="admin" />

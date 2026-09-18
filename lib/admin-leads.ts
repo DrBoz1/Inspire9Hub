@@ -423,3 +423,79 @@ export function daysToWin(leads: Lead[]): number | null {
   const mid = Math.floor(days.length / 2);
   return days.length % 2 ? days[mid] : Math.round((days[mid - 1] + days[mid]) / 2);
 }
+
+// ─── Notes ───────────────────────────────────────────────────────────────────
+
+export const NOTE_KINDS = {
+  note: "Note",
+  call: "Call",
+  email: "Email",
+  tour: "Tour",
+  stage: "Stage change",
+  enquiry: "Enquiry",
+} as const;
+export type NoteKind = keyof typeof NOTE_KINDS;
+/** What staff can log by hand. Stage changes and enquiries are written by the system. */
+export const LOGGABLE_KINDS: NoteKind[] = ["note", "call", "email", "tour"];
+
+export type RawLeadNote = { id: string; kind?: string | null; body?: string | null; author_name?: string | null; created_at?: string | null };
+export type LeadNote = { id: string; kind: NoteKind; body: string; author: string | null; createdAt: string };
+
+export function toLeadNote(raw: RawLeadNote): LeadNote {
+  return {
+    id: raw.id,
+    kind: isKey(NOTE_KINDS, raw.kind) ? raw.kind : "note",
+    body: raw.body?.trim() || "",
+    author: raw.author_name?.trim() || null,
+    createdAt: raw.created_at ?? new Date(0).toISOString(),
+  };
+}
+
+export function validateNote(kind: unknown, body: unknown): { kind: NoteKind; body: string } | { error: string } {
+  if (!LOGGABLE_KINDS.includes(kind as NoteKind)) return { error: "Pick what kind of update this is." };
+  const text = typeof body === "string" ? body.replace(/\r\n?/g, "\n").trim() : "";
+  if (!text) return { error: "Write what happened." };
+  if (text.length > MESSAGE_MAX) return { error: `Keep it to ${MESSAGE_MAX} characters.` };
+  return { kind: kind as NoteKind, body: text };
+}
+
+// ─── Board summary ───────────────────────────────────────────────────────────
+
+/** "Thu 17 Sep" for a date key. Fixed names, so server and browser always agree. */
+export function dayLabel(key: string): string {
+  const m = key.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return key;
+  const date = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+  return `${["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"][date.getUTCDay()]} ${+m[3]} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][+m[2] - 1]}`;
+}
+
+/** "Today", "Yesterday", "3 days ago", "2 weeks ago", "5 Mar", on the Melbourne calendar. */
+export function whenLabel(iso: string, now: Date): string {
+  const day = (ms: number) => wallClockAt(ms, HUB_TIMEZONE).date;
+  const then = day(Date.parse(iso));
+  const today = day(now.getTime());
+  const days = Math.round((Date.parse(`${today}T00:00:00Z`) - Date.parse(`${then}T00:00:00Z`)) / 86_400_000);
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days} days ago`;
+  if (days < 28) return `${Math.floor(days / 7)} week${days < 14 ? "" : "s"} ago`;
+  const [, m, d] = then.split("-").map(Number);
+  return `${d} ${["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"][m - 1]}`;
+}
+
+export type BoardStats = { open: number; untouched: number; due: number; stale: number; won: number; winRate: number | null };
+
+/** The four numbers above the board: what's open, what nobody has picked up, what's due, and how it's going. */
+export function boardStats(leads: Lead[], now: Date): BoardStats {
+  const open = leads.filter((l) => isOpen(l.stage));
+  const won = leads.filter((l) => l.stage === "won").length;
+  const lost = leads.filter((l) => l.stage === "lost").length;
+  return {
+    open: open.length,
+    untouched: open.filter((l) => l.stage === "new").length,
+    due: open.filter((l) => ["overdue", "today"].includes(followUpState(l, now))).length,
+    stale: open.filter((l) => isStale(l, now)).length,
+    won,
+    winRate: won + lost ? won / (won + lost) : null,
+  };
+}

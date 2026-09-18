@@ -671,3 +671,61 @@ textarea.admin-text-input { display: block; height: auto; min-height: 128px; pad
 .admin-rank-value { font-size: 12px; font-weight: 500; }
 .admin-table-view-body:focus-visible { border-radius: 6px; outline: 2px solid var(--hub-red); outline-offset: 2px; }
 @media (max-width: 650px) { .admin-rank li { padding: 13px 16px; } }
+
+/* Leads */
+/* On the panel too: it opens in a portal, outside the page. */
+.admin-leads-page, .admin-lead-sheet { --follow-overdue: #a3403f; --follow-today: #7a4b08; }
+.dark .admin-leads-page, .dark .admin-lead-sheet { --follow-overdue: #ff8a8d; --follow-today: var(--hub-amber); }
+.admin-leads-list .admin-member-open { min-height: 32px; padding: 0 12px; font-size: 10px; }
+
+/* What needs doing next, in words as well as colour. */
+.admin-follow { display: inline-flex; align-items: center; min-height: 22px; padding: 0 8px; border-radius: 999px; background: var(--hub-soft); color: var(--hub-muted); font-size: 10px; white-space: nowrap; }
+.admin-follow[data-state="overdue"] { background: color-mix(in srgb, var(--follow-overdue) 11%, transparent); color: var(--follow-overdue); font-weight: 500; }
+.admin-follow[data-state="today"] { background: color-mix(in srgb, var(--hub-amber) 14%, transparent); color: var(--follow-today); font-weight: 500; }
+.admin-follow[data-state="quiet"] { font-style: italic; }
+
+/* The lead panel: the member panel's frame, with a pipeline and a history. */
+.admin-lead-body { display: grid; align-content: start; flex: 1; gap: 0; min-height: 0; padding: 20px 24px 28px; overflow-y: auto; overscroll-behavior: contain; }
+.admin-lead-body > .hub-inline-error { margin: 0 0 18px; }
+.admin-lead-steps { display: flex; flex-wrap: wrap; gap: 6px; }
+.admin-lead-steps button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 0 11px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); color: var(--hub-muted); font-size: 11px; cursor: pointer; transition: border-color .18s, background .18s, color .18s; }
+.admin-lead-steps button i { display: grid; place-items: center; width: 16px; height: 16px; border-radius: 50%; background: var(--hub-soft); font-size: 9px; font-style: normal; }
+.admin-lead-steps button:hover:not(:disabled) { border-color: color-mix(in srgb, var(--hub-ink) 20%, var(--hub-line)); color: var(--hub-ink); }
+.admin-lead-steps button[data-passed] { color: var(--hub-ink); }
+.admin-lead-steps button[aria-pressed="true"] { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); background: color-mix(in srgb, var(--hub-red) 7%, var(--hub-paper)); color: var(--hub-ink); font-weight: 500; cursor: default; }
+.admin-lead-steps button:disabled:not([aria-pressed="true"]) { opacity: .6; cursor: progress; }
+.admin-lead-steps .admin-lead-lost { margin-left: auto; }
+.admin-lead-steps .admin-lead-lost[aria-pressed="true"] { border-color: color-mix(in srgb, var(--follow-overdue) 45%, var(--hub-line)); background: color-mix(in srgb, var(--follow-overdue) 8%, var(--hub-paper)); }
+.admin-lead-losing { display: grid; gap: 8px; margin-top: 14px; padding: 14px; border-radius: 12px; background: var(--hub-soft); }
+.admin-lead-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 12px; }
+.admin-lead-losing .admin-lead-inline { margin-top: 0; }
+.admin-lead-inline .admin-text-input { flex: 1 1 180px; width: auto; }
+.admin-lead-inline .hub-button { justify-content: center; gap: 7px; min-height: 40px; }
+.admin-lead-link { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 12px; }
+.admin-lead-link .hub-text-link { gap: 5px; font-size: 11px; }
+.admin-lead-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 14px; }
+.admin-lead-message { padding: 12px 14px; border-left: 2px solid color-mix(in srgb, var(--hub-red) 40%, var(--hub-line)); border-radius: 0 10px 10px 0; background: var(--hub-soft); font-size: 12px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* History: log a call, a tour, a note; then everything that's happened, newest first. */
+.admin-lead-composer { display: grid; gap: 10px; margin-bottom: 18px; }
+.admin-lead-composer .admin-segmented { justify-self: start; }
+.admin-lead-composer textarea.admin-text-input { min-height: 84px; }
+.admin-lead-composer .hub-button { justify-self: end; justify-content: center; gap: 7px; min-height: 38px; }
+.admin-lead-timeline li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 12px; padding: 12px 0; border-top: 1px solid var(--hub-line); }
+.admin-lead-timeline li:first-child { border-top: 0; padding-top: 0; }
+.admin-lead-note-icon { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: var(--hub-soft); color: var(--hub-muted); }
+.admin-lead-timeline li[data-kind="stage"] .admin-lead-note-icon { background: color-mix(in srgb, var(--hub-red) 9%, transparent); color: var(--hub-red); }
+.admin-lead-timeline li[data-kind="enquiry"] .admin-lead-note-icon { background: color-mix(in srgb, var(--hub-green) 11%, transparent); color: var(--hub-green); }
+.admin-lead-note-meta { color: var(--hub-muted); font-size: 10px; }
+.admin-lead-note-meta strong { color: var(--hub-ink); font-weight: 500; }
+.admin-lead-note-body { margin-top: 4px; font-size: 12px; line-height: 1.65; white-space: pre-wrap; overflow-wrap: anywhere; }
+
+/* Add a lead. */
+.admin-lead-dialog { max-width: 680px !important; }
+.admin-lead-form { gap: 18px; }
+.admin-lead-form select.admin-text-input { cursor: pointer; }
+
+@media (max-width: 560px) {
+  .admin-lead-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-lead-steps .admin-lead-lost { margin-left: 0; }
+}

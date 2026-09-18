@@ -9,6 +9,7 @@ import {
   ChartLine,
   ClipboardCheck,
   DoorOpen,
+  Inbox,
   LayoutDashboard,
   LogOut,
   Megaphone,
@@ -29,13 +30,14 @@ const ICONS: Record<AdminIcon, LucideIcon> = {
   bookings: CalendarDays,
   spaces: DoorOpen,
   members: Users,
+  leads: Inbox,
   announcements: Megaphone,
   staff: ShieldCheck,
 };
 
-type Props = { role: string | null; name: string | null; email: string | null; pendingApprovals: number };
+type Props = { role: string | null; name: string | null; email: string | null; pendingApprovals: number; newLeads: number };
 
-export function AdminSidebar({ role, name, email, pendingApprovals }: Props) {
+export function AdminSidebar({ role, name, email, pendingApprovals, newLeads }: Props) {
   const pathname = usePathname();
   const { state, isMobile, setOpenMobile } = useSidebar();
   const isCollapsed = !isMobile && state === "collapsed";
@@ -61,7 +63,7 @@ export function AdminSidebar({ role, name, email, pendingApprovals }: Props) {
               {group.items.map((item) => {
                 const Icon = ICONS[item.icon];
                 const active = isActiveAdminPath(pathname, item.href);
-                const count = item.badge === "approvals" ? pendingApprovals : 0;
+                const count = item.badge === "approvals" ? pendingApprovals : item.badge === "leads" ? newLeads : 0;
                 return (
                   <SidebarMenuItem key={item.href}>
                     <SidebarMenuButton asChild tooltip={count ? `${item.label} · ${count} waiting` : item.label} isActive={active} className="hub-nav-link">

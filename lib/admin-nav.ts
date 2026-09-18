@@ -1,5 +1,5 @@
-export type AdminIcon = "dashboard" | "insights" | "compliance" | "bookings" | "spaces" | "members" | "announcements" | "staff";
-export type AdminNavItem = { href: string; label: string; icon: AdminIcon; badge?: "approvals" };
+export type AdminIcon = "dashboard" | "insights" | "leads" | "compliance" | "bookings" | "spaces" | "members" | "announcements" | "staff";
+export type AdminNavItem = { href: string; label: string; icon: AdminIcon; badge?: "approvals" | "leads" };
 export type AdminNavGroup = { label: string; items: AdminNavItem[] };
 
 const GROUPS: AdminNavGroup[] = [
@@ -22,6 +22,7 @@ const GROUPS: AdminNavGroup[] = [
     label: "Community",
     items: [
       { href: "/admin/members", label: "Members", icon: "members" },
+      { href: "/admin/leads", label: "Leads", icon: "leads", badge: "leads" },
       { href: "/admin/announcements", label: "Announcements", icon: "announcements" },
     ],
   },

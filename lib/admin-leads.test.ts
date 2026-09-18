@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  boardStats,
   channelBreakdown,
+  dayLabel,
   daysToWin,
   filterCounts,
   followUpState,
@@ -11,7 +13,10 @@ import {
   stageNote,
   stagePatch,
   toLead,
+  toLeadNote,
   validateLead,
+  validateNote,
+  whenLabel,
   type Lead,
   type RawLead,
 } from "./admin-leads";
@@ -222,5 +227,51 @@ describe("keeping on top of the board", () => {
   it("counts each filter", () => {
     const counts = filterCounts([lead(), lead({ stage: "trial" }), lead({ stage: "won" }), lead({ stage: "lost" })]);
     expect([counts.open, counts.all, counts.new, counts.won, counts.lost]).toEqual([2, 4, 1, 1, 1]);
+  });
+});
+
+describe("the board's words and numbers", () => {
+  it("says when a lead came in, on the Melbourne calendar", () => {
+    expect(whenLabel("2026-09-18T01:00:00Z", NOW)).toBe("Today");
+    // 11pm UTC on the 16th was already the 17th in Melbourne: yesterday, not two days ago.
+    expect(whenLabel("2026-09-16T23:00:00Z", NOW)).toBe("Yesterday");
+    expect(whenLabel("2026-09-14T02:00:00Z", NOW)).toBe("4 days ago");
+    expect(whenLabel("2026-09-10T02:00:00Z", NOW)).toBe("1 week ago");
+    expect(whenLabel("2026-08-30T02:00:00Z", NOW)).toBe("2 weeks ago");
+    expect(whenLabel("2026-03-05T02:00:00Z", NOW)).toBe("5 Mar");
+  });
+
+  it("writes follow-up dates the way people say them", () => {
+    expect(dayLabel("2026-09-17")).toBe("Thu 17 Sep");
+    expect(dayLabel("2027-01-03")).toBe("Sun 3 Jan");
+    expect(dayLabel("not a date")).toBe("not a date");
+  });
+
+  it("counts what's open, untouched, due and quiet, and how it's going", () => {
+    const stats = boardStats(
+      [
+        lead({ stage: "new", last_activity_at: "2026-09-17T00:00:00Z" }),
+        lead({ stage: "contacted", next_follow_up: "2026-09-18" }),
+        lead({ stage: "trial", last_activity_at: "2026-09-01T00:00:00Z" }),
+        lead({ stage: "won", furthest_stage: "won" }),
+        lead({ stage: "lost", lost_reason: "price" }),
+        lead({ stage: "lost", lost_reason: "timing" }),
+      ],
+      NOW,
+    );
+    expect(stats).toEqual({ open: 3, untouched: 1, due: 1, stale: 1, won: 1, winRate: 1 / 3 });
+  });
+
+  it("lets staff log calls, emails, tours and notes, but not fake a stage change", () => {
+    expect(validateNote("call", "  Left a voicemail\r\nwill try Friday ")).toEqual({ kind: "call", body: "Left a voicemail\nwill try Friday" });
+    expect(validateNote("stage", "Moved to Won")).toEqual({ error: "Pick what kind of update this is." });
+    expect(validateNote("note", "   ")).toEqual({ error: "Write what happened." });
+    expect("error" in validateNote("note", "x".repeat(2001))).toBe(true);
+  });
+
+  it("reads a note with safe defaults", () => {
+    expect(toLeadNote({ id: "n1", kind: "smoke signal", body: " Hi ", author_name: " ", created_at: "2026-09-18T00:00:00Z" })).toEqual({
+      id: "n1", kind: "note", body: "Hi", author: null, createdAt: "2026-09-18T00:00:00Z",
+    });
   });
 });

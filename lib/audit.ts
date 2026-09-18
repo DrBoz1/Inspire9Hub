@@ -23,9 +23,13 @@ export type AuditAction =
   | "announcement.restore"
   | "announcement.delete"
   | "induction.approve"
-  | "induction.reject";
+  | "induction.reject"
+  | "lead.create"
+  | "lead.stage"
+  | "lead.update"
+  | "lead.convert";
 
-export type AuditEntity = "booking" | "payment" | "room" | "staff" | "announcement" | "member";
+export type AuditEntity = "booking" | "payment" | "room" | "staff" | "announcement" | "member" | "lead";
 
 export type AuditActor = { id: string; email?: string | null } | null;
 
