@@ -3,15 +3,20 @@ import { HUB_TIMEZONE } from "@/lib/datetime";
 import { wallClockToUtc } from "@/features/booking-map/zoned-time";
 import {
   barPercent,
+  bookingsCsv,
+  csvCell,
+  csvFilename,
   cancellations,
   dayWindow,
   formatCents,
   formatDollars,
   formatHours,
   formatPercent,
+  heatExtremes,
   heatLevel,
   hourHeat,
   leadTimes,
+  niceTicks,
   openMinutes,
   openWindows,
   percentChange,
@@ -389,6 +394,33 @@ describe("chart geometry and formatting", () => {
     expect(flat.area).not.toContain("NaN");
   });
 
+  it("picks round axis ticks that always clear the peak", () => {
+    expect(niceTicks(437)).toEqual({ top: 600, ticks: [0, 200, 400, 600] });
+    expect(niceTicks(1000)).toEqual({ top: 1000, ticks: [0, 500, 1000] });
+    expect(niceTicks(1001).top).toBeGreaterThanOrEqual(1001);
+    expect(niceTicks(0)).toEqual({ top: 1, ticks: [0] });
+    for (const peak of [3, 17, 99, 250, 1234, 98765]) {
+      const { top, ticks } = niceTicks(peak);
+      expect(top).toBeGreaterThanOrEqual(peak);
+      expect(ticks[ticks.length - 1]).toBe(top);
+    }
+  });
+
+  it("draws the line against the axis top, not the data peak", () => {
+    // Peak 50 on an axis that tops out at 100 sits halfway up, not at the top.
+    expect(sparkPaths([0, 50], 100, 40, 100).points[1]).toEqual({ x: 100, y: 20 });
+  });
+
+  it("finds the busiest hour and counts the idle ones", () => {
+    const grid = hourHeat(book(raw(mel("2026-09-15", "10:00"), mel("2026-09-15", "11:00"))), WEEK, 2);
+    const { busiest, idleHours, openHours } = heatExtremes(grid);
+    expect(busiest).toEqual({ label: "Tue", hour: 10, occupancy: 0.5 });
+    // Five weekdays of 14 open hours plus Saturday's 8, all idle but one.
+    expect(openHours).toBe(5 * 14 + 8);
+    expect(idleHours).toBe(openHours - 1);
+    expect(heatExtremes(hourHeat([], WEEK, 1)).busiest).toBeNull();
+  });
+
   it("shades the heatmap in five steps", () => {
     expect([0, 0.1, 0.3, 0.5, 0.9].map(heatLevel)).toEqual([0, 1, 2, 3, 4]);
   });
@@ -412,5 +444,48 @@ describe("chart geometry and formatting", () => {
     // A rate moving 10% -> 15% is five points, not "+50%".
     expect(pointsChange(0.15, 0.1)).toEqual({ direction: "up", label: "+5 pts" });
     expect(pointsChange(null, 0.1)).toBeNull();
+  });
+});
+
+describe("CSV export", () => {
+  it("quotes cells the way spreadsheets expect", () => {
+    expect(csvCell("Dream Room")).toBe("Dream Room");
+    expect(csvCell("Smith, Jones & Co")).toBe("\"Smith, Jones & Co\"");
+    expect(csvCell("The \"Loft\"")).toBe("\"The \"\"Loft\"\"\"");
+    expect(csvCell(null)).toBe("");
+    expect(csvCell(12.5)).toBe("12.5");
+  });
+
+  it("stops a member-typed name from running as a formula when an admin opens the file", () => {
+    expect(csvCell("=HYPERLINK(\"http://evil\")")).toBe("\"'=HYPERLINK(\"\"http://evil\"\")\"");
+    expect(csvCell("+61 400 000 000")).toBe("'+61 400 000 000");
+    expect(csvCell("@admin")).toBe("'@admin");
+    // Our own numbers are never touched, even negative ones.
+    expect(csvCell(-12)).toBe("-12");
+  });
+
+  it("writes every booking in Melbourne time, abandoned checkouts included and labelled", () => {
+    const rooms = [{ id: "r1", name: "Dream Room", sellable: true }];
+    const csv = bookingsCsv(
+      book(
+        raw(mel("2026-09-16", "14:00"), mel("2026-09-16", "15:30"), { created_at: mel("2026-09-10", "09:05") }),
+        // 8:30am Melbourne is still the previous day in UTC; the row must say the 15th.
+        raw(mel("2026-09-15", "08:30"), mel("2026-09-15", "09:30"), { booking_status: "cancelled", payments: [] }),
+        raw(mel("2026-09-25", "10:00"), mel("2026-09-25", "11:00")),
+      ),
+      WEEK,
+      rooms,
+    );
+    expect(csv.startsWith("\uFEFF")).toBe(true);
+    const lines = csv.slice(1).trimEnd().split("\r\n");
+    expect(lines[0]).toBe("Date,Start,End,Hours,Space,Member,Company,Status,Paid,Refunded,Net,Booked on,Cancelled on");
+    expect(lines).toHaveLength(3); // the booking after the window is left out
+    expect(lines[1]).toBe("2026-09-15,08:30,09:30,1,Dream Room,Alex Chen,Northwind,Checkout abandoned,0,0,0,,");
+    expect(lines[2]).toBe("2026-09-16,14:00,15:30,1.5,Dream Room,Alex Chen,Northwind,Confirmed,50,0,50,2026-09-10 09:05,");
+  });
+
+  it("names the file after the window and the room", () => {
+    expect(csvFilename(WEEK)).toBe("inspire9-bookings-2026-09-14-to-2026-09-20.csv");
+    expect(csvFilename(WEEK, "The Boiler Room!")).toBe("inspire9-bookings-the-boiler-room-2026-09-14-to-2026-09-20.csv");
   });
 });

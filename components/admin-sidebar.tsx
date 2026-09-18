@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import {
   ArrowUpRight,
   CalendarDays,
+  ChartLine,
   ClipboardCheck,
   DoorOpen,
   LayoutDashboard,
@@ -23,6 +24,7 @@ import { initialsOf } from "@/lib/member-forms";
 
 const ICONS: Record<AdminIcon, LucideIcon> = {
   dashboard: LayoutDashboard,
+  insights: ChartLine,
   compliance: ClipboardCheck,
   bookings: CalendarDays,
   spaces: DoorOpen,

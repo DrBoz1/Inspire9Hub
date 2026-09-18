@@ -552,3 +552,122 @@ textarea.admin-text-input { display: block; height: auto; min-height: 128px; pad
   .admin-toolbar > .hub-search { flex-basis: 100%; max-width: none; }
   .admin-toolbar-end { margin-left: 0; }
 }
+
+/* Insights */
+/* One hue per chart: the hub red for lines and bars. The heatmap ramp is that red stepped
+   light to dark (dark to light on the dark theme), checked for even steps and for its
+   faintest step clearing 2:1 against the panel. Level 0 is open but empty; closed hours
+   are left blank so "shut" never reads as "quiet". */
+.admin-insights-page { --heat-1: #f2979a; --heat-2: #ea5a5f; --heat-3: #d01a20; --heat-4: #8f1217; --delta-good: #276b45; --delta-bad: #a3403f; }
+.dark .admin-insights-page { --heat-1: #8c3a3d; --heat-2: #b9474c; --heat-3: #ec5a5f; --heat-4: #ffa3a6; --delta-good: #6fcf97; --delta-bad: #ff8a8d; }
+.admin-insights-page > .admin-toolbar { margin-bottom: 18px; }
+.admin-insights-note { display: flex; align-items: flex-start; gap: 10px; margin: -4px 0 18px; padding: 12px 16px; border-radius: 12px; background: var(--hub-soft); font-size: 11px; line-height: 1.6; }
+.admin-insights-note[data-tone="warning"] { background: color-mix(in srgb, var(--hub-amber) 12%, var(--hub-paper)); }
+.admin-insights-note svg { flex-shrink: 0; margin-top: 2px; color: var(--hub-muted); }
+.admin-insights-grid { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(0, 1fr); gap: 20px; align-items: start; }
+.admin-insights-rooms { grid-column: 1 / -1; }
+.admin-insights-body { padding: 18px 22px 20px; }
+.admin-insights-figures { display: flex; flex-wrap: wrap; gap: 8px 28px; margin-bottom: 18px; }
+.admin-insights-figures dt { color: var(--hub-muted); font-size: 9px; letter-spacing: .12em; text-transform: uppercase; }
+.admin-insights-figures dd { margin-top: 4px; font-size: 20px; font-weight: 500; letter-spacing: -.035em; }
+.admin-insights-lede { margin-bottom: 14px; color: var(--hub-muted); font-size: 12px; line-height: 1.7; }
+.admin-insights-lede strong { color: var(--hub-ink); font-weight: 500; }
+.admin-insights-caption { margin-top: 10px; color: var(--hub-muted); font-size: 10px; line-height: 1.7; }
+.admin-insights-subhead { margin-bottom: 12px; color: var(--hub-muted); font-size: 9px; font-weight: 500; letter-spacing: .12em; text-transform: uppercase; }
+.admin-insights-subhead ~ .admin-insights-subhead { margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--hub-line); }
+.admin-num { font-variant-numeric: tabular-nums; }
+.admin-delta { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.admin-delta strong { font-weight: 500; }
+.admin-delta[data-tone="good"] :is(strong, svg) { color: var(--delta-good); }
+.admin-delta[data-tone="bad"] :is(strong, svg) { color: var(--delta-bad); }
+
+/* Trend line: 2px line, a 10% wash, hairline grid, crosshair on hover or arrow keys. */
+.admin-trend { --axis: 44px; margin: 0; }
+.admin-trend-body { display: grid; grid-template-columns: var(--axis) minmax(0, 1fr); gap: 10px; }
+.admin-trend-axis { position: relative; }
+.admin-trend-axis span { position: absolute; right: 0; color: var(--hub-muted); font-size: 9px; font-variant-numeric: tabular-nums; line-height: 1; transform: translateY(-50%); }
+.admin-trend-plot { position: relative; height: 180px; border-radius: 4px; cursor: crosshair; touch-action: pan-y; }
+.admin-trend-plot:focus-visible { outline: 2px solid var(--hub-red); outline-offset: 6px; }
+.admin-trend-plot svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
+.admin-trend-grid { position: absolute; right: 0; left: 0; border-top: 1px solid var(--hub-line); }
+.admin-trend-line { fill: none; stroke: var(--hub-red); stroke-width: 2px; stroke-linecap: round; stroke-linejoin: round; }
+.admin-trend-area { fill: var(--hub-red); opacity: .1; }
+.admin-trend-dot { position: absolute; width: 9px; height: 9px; border-radius: 50%; background: var(--hub-red); box-shadow: 0 0 0 2px var(--hub-paper); pointer-events: none; transform: translate(-50%, -50%); }
+.admin-trend-cross { position: absolute; top: 0; bottom: 0; border-left: 1px solid color-mix(in srgb, var(--hub-ink) 35%, transparent); pointer-events: none; }
+.admin-trend-tip { position: absolute; top: 0; z-index: 2; display: grid; gap: 2px; padding: 8px 10px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); box-shadow: 0 10px 24px -16px #2a1f1f55; pointer-events: none; transform: translateX(12px); white-space: nowrap; }
+.admin-trend-tip[data-side="left"] { transform: translateX(calc(-100% - 12px)); }
+.admin-trend-tip strong { font-size: 13px; font-weight: 500; letter-spacing: -.02em; }
+.admin-trend-tip span { color: var(--hub-muted); font-size: 10px; }
+.admin-trend-x { position: relative; height: 22px; margin-left: calc(var(--axis) + 10px); }
+.admin-trend-x span { position: absolute; top: 7px; color: var(--hub-muted); font-size: 9px; white-space: nowrap; transform: translateX(-50%); }
+.admin-trend-x span[data-edge="start"] { transform: none; }
+.admin-trend-x span[data-edge="end"] { transform: translateX(-100%); }
+
+/* Heatmap: weekday x hour, 2px surface gap between cells. */
+.admin-heat { position: relative; }
+.admin-heat-grid { display: grid; gap: 2px; }
+.admin-heat-row { display: contents; }
+.admin-heat-hour { overflow: visible; padding-bottom: 4px; color: var(--hub-muted); font-size: 9px; white-space: nowrap; }
+.admin-heat-day { align-self: center; color: var(--hub-muted); font-size: 10px; }
+.admin-heat-cell { height: 22px; border-radius: 3px; box-shadow: inset 0 0 0 1px var(--hub-line); }
+.admin-heat-cell[data-state="open"] { background: var(--hub-soft); box-shadow: none; }
+.admin-heat-cell[data-level="1"] { background: var(--heat-1); }
+.admin-heat-cell[data-level="2"] { background: var(--heat-2); }
+.admin-heat-cell[data-level="3"] { background: var(--heat-3); }
+.admin-heat-cell[data-level="4"] { background: var(--heat-4); }
+.admin-heat-grid .admin-heat-cell:hover, .admin-heat-grid .admin-heat-cell:focus-visible { outline: 2px solid var(--hub-ink); outline-offset: 1px; }
+.admin-heat-tip { position: absolute; z-index: 2; padding: 7px 10px; border: 1px solid var(--hub-line); border-radius: 9px; background: var(--hub-paper); box-shadow: 0 10px 24px -16px #2a1f1f55; font-size: 11px; pointer-events: none; transform: translate(-50%, calc(-100% - 8px)); white-space: nowrap; }
+.admin-heat-tip[data-side="start"] { transform: translate(-14px, calc(-100% - 8px)); }
+.admin-heat-tip[data-side="end"] { transform: translate(calc(-100% + 14px), calc(-100% - 8px)); }
+.admin-heat-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin-top: 14px; color: var(--hub-muted); font-size: 9px; }
+.admin-heat-legend .admin-heat-cell { width: 16px; height: 12px; }
+.admin-heat-legend span { margin: 0 4px; }
+.admin-heat-legend span:first-child { margin-left: 0; }
+
+/* Bars: one hue, square at the baseline, rounded at the value end, number at the tip. */
+.admin-barlist { display: grid; gap: 10px; }
+.admin-barlist li { display: grid; grid-template-columns: minmax(7.5em, auto) minmax(0, 1fr) minmax(3.5em, auto); align-items: center; gap: 12px; }
+.admin-barlist-label { color: var(--hub-muted); font-size: 11px; }
+.admin-barlist-track { height: 10px; }
+.admin-barlist-track span { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--hub-red); }
+.admin-barlist-value { font-size: 11px; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+
+/* Inline meter: the unfilled track is a lighter step of the same red. */
+.admin-meter-cell { display: inline-flex; align-items: center; gap: 10px; }
+.admin-meter { display: block; flex-shrink: 0; width: 88px; height: 8px; overflow: hidden; border-radius: 4px; background: color-mix(in srgb, var(--hub-red) 14%, var(--hub-paper)); }
+.admin-meter[data-empty] { background: var(--hub-soft); }
+.admin-meter span { display: block; height: 100%; border-radius: 0 4px 4px 0; background: var(--hub-red); }
+
+/* The table twin under each chart. */
+.admin-table-view { margin-top: 14px; padding-top: 10px; border-top: 1px solid var(--hub-line); }
+.admin-table-view summary { width: fit-content; color: var(--hub-muted); font-size: 10px; letter-spacing: .08em; text-transform: uppercase; cursor: pointer; }
+.admin-table-view summary:hover { color: var(--hub-ink); }
+.admin-table-view summary:focus-visible { border-radius: 4px; outline: 2px solid var(--hub-red); outline-offset: 3px; }
+.admin-table-view-body { max-height: 320px; margin-top: 10px; overflow: auto; }
+.admin-mini-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+.admin-mini-table :is(th, td) { padding: 6px 8px; border-bottom: 1px solid var(--hub-line); text-align: left; white-space: nowrap; }
+.admin-mini-table thead th { position: sticky; top: 0; background: var(--hub-paper); color: var(--hub-muted); font-size: 9px; font-weight: 500; letter-spacing: .1em; text-transform: uppercase; }
+.admin-mini-table tbody th { font-weight: 500; }
+.admin-mini-table td { font-variant-numeric: tabular-nums; }
+
+@media (max-width: 1100px) {
+  .admin-insights-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 650px) {
+  .admin-insights-body { padding: 16px 16px 18px; }
+  .admin-trend { --axis: 38px; }
+  .admin-trend-plot { height: 150px; }
+  .admin-barlist li { grid-template-columns: minmax(6.5em, auto) minmax(0, 1fr) minmax(3em, auto); gap: 10px; }
+  .admin-heat-cell { height: 18px; }
+}
+
+/* Ranked list: rank, who, amount. Used where a table would fold into tall cards. */
+.admin-rank li { display: grid; grid-template-columns: 20px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 14px 22px; border-top: 1px solid var(--hub-line); }
+.admin-rank li:first-child { border-top: 0; }
+.admin-rank-n { color: var(--hub-muted); font-size: 10px; font-variant-numeric: tabular-nums; }
+.admin-rank-who { min-width: 0; }
+.admin-rank-who strong { display: block; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.admin-rank-who span { display: block; margin-top: 3px; overflow: hidden; color: var(--hub-muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-rank-value { font-size: 12px; font-weight: 500; }
+.admin-table-view-body:focus-visible { border-radius: 6px; outline: 2px solid var(--hub-red); outline-offset: 2px; }
+@media (max-width: 650px) { .admin-rank li { padding: 13px 16px; } }

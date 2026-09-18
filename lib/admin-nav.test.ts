@@ -34,6 +34,7 @@ describe("header labels", () => {
   it("names the current page", () => {
     expect(adminPageLabel("/admin")).toBe("Dashboard");
     expect(adminPageLabel("/admin/rooms")).toBe("Space management");
+    expect(adminPageLabel("/admin/insights")).toBe("Insights");
     expect(adminPageLabel("/admin/management")).toBe("Staff management");
   });
 

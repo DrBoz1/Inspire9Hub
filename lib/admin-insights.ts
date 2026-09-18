@@ -522,10 +522,14 @@ export function barPercent(value: number, max: number): number {
   return round2(Math.min(100, (value / max) * 100));
 }
 
-/** SVG paths for a sparkline in a width x height box, with the baseline at zero. */
-export function sparkPaths(values: number[], width: number, height: number): { line: string; area: string; points: { x: number; y: number }[] } {
+/**
+ * SVG paths for a line in a width x height box, with the baseline at zero.
+ * Pass `top` (the highest axis tick) so the line is drawn against the same scale
+ * the axis labels describe, not stretched to touch the top of the box.
+ */
+export function sparkPaths(values: number[], width: number, height: number, top = 0): { line: string; area: string; points: { x: number; y: number }[] } {
   if (values.length === 0) return { line: "", area: "", points: [] };
-  const max = Math.max(0, ...values);
+  const max = Math.max(0, top, ...values);
   const min = Math.min(0, ...values);
   const spread = max - min || 1;
   const points = values.map((v, i) => ({
@@ -536,6 +540,36 @@ export function sparkPaths(values: number[], width: number, height: number): { l
   const baseline = round2(height - ((0 - min) / spread) * height);
   const area = `${line} L${points[points.length - 1].x} ${baseline} L${points[0].x} ${baseline} Z`;
   return { line, area, points };
+}
+
+/**
+ * Round axis ticks: 0, 500, 1,000 rather than 0, 437, 874. The top tick is the
+ * first round number at or above the peak, so the line never pokes out of the
+ * axis. A series of all zeros still gets a usable scale.
+ */
+export function niceTicks(peak: number, count = 3): { top: number; ticks: number[] } {
+  if (!(peak > 0)) return { top: 1, ticks: [0] };
+  const rough = peak / count;
+  const magnitude = 10 ** Math.floor(Math.log10(rough));
+  const step = [1, 2, 2.5, 5, 10].map((m) => m * magnitude).find((s) => s >= rough) ?? 10 * magnitude;
+  const steps = Math.ceil(peak / step - 1e-9);
+  return { top: round2(step * steps), ticks: Array.from({ length: steps + 1 }, (_, i) => round2(step * i)) };
+}
+
+/** The busiest open hour, and how many open hours sold nothing -- the two sentences under the heatmap. */
+export function heatExtremes(grid: HeatGrid): { busiest: { label: string; hour: number; occupancy: number } | null; idleHours: number; openHours: number } {
+  let busiest: { label: string; hour: number; occupancy: number } | null = null;
+  let idleHours = 0;
+  let openHours = 0;
+  for (const row of grid.rows) {
+    row.cells.forEach((cell, i) => {
+      if (cell.state !== "open") return;
+      openHours += 1;
+      if (cell.occupancy === 0) idleHours += 1;
+      else if (!busiest || cell.occupancy > busiest.occupancy) busiest = { label: row.label, hour: grid.hours[i], occupancy: cell.occupancy };
+    });
+  }
+  return { busiest, idleHours, openHours };
 }
 
 /** Five steps of shading, so the heatmap reads at a glance and each step can carry a legend label. */
@@ -613,4 +647,78 @@ export function pointsChange(current: number | null, previous: number | null): C
   const points = Math.round((current - previous) * 100);
   if (points === 0) return { direction: "flat", label: "No change" };
   return { direction: points > 0 ? "up" : "down", label: `${points > 0 ? "+" : ""}${points} pts` };
+}
+
+// ─── CSV export ──────────────────────────────────────────────────────────────
+
+/** Plain words for the export, so a spreadsheet reader never has to decode "pending". */
+export function bookingStatusLabel(b: InsightBooking): string {
+  if (isSold(b)) return "Confirmed";
+  if (b.status === "cancelled") return b.hasPayment ? "Cancelled" : "Checkout abandoned";
+  if (b.status === "pending") return "Awaiting payment";
+  return b.status ? `${b.status[0].toUpperCase()}${b.status.slice(1)}` : "Unknown";
+}
+
+/**
+ * One CSV cell, RFC 4180 quoted. Member names and company names are typed by
+ * members, and a spreadsheet runs any cell starting with = + - or @ as a
+ * formula, so text like that is prefixed with an apostrophe to keep it text.
+ * Numbers are ours and pass through untouched.
+ */
+export function csvCell(value: string | number | null): string {
+  if (value === null) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  const text = /^[=+\-@\t\r]/.test(value) ? `'${value}` : value;
+  return /[",\r\n]/.test(text) || text !== text.trim() ? `"${text.replace(/"/g, '""')}"` : text;
+}
+
+const clockOf = (ms: number) => {
+  const { mins } = wallClockAt(ms, HUB_TIMEZONE);
+  return `${String(Math.floor(mins / 60)).padStart(2, "0")}:${String(mins % 60).padStart(2, "0")}`;
+};
+const stampOf = (ms: number | null) => (ms === null ? null : `${wallClockAt(ms, HUB_TIMEZONE).date} ${clockOf(ms)}`);
+
+export const CSV_HEADERS = ["Date", "Start", "End", "Hours", "Space", "Member", "Company", "Status", "Paid", "Refunded", "Net", "Booked on", "Cancelled on"];
+
+/**
+ * Every booking that starts in the window, in Melbourne time. Includes
+ * abandoned checkouts and holds, labelled as such: an export that silently
+ * dropped rows would never reconcile against Stripe.
+ */
+export function bookingsCsv(all: InsightBooking[], window: DayWindow, rooms: InsightRoom[]): string {
+  const names = new Map(rooms.map((r) => [r.id, r.name]));
+  const rows = [...inWindow(all, window)]
+    .sort((a, b) => a.start - b.start || a.id.localeCompare(b.id))
+    .map((b) => [
+      wallClockAt(b.start, HUB_TIMEZONE).date,
+      clockOf(b.start),
+      clockOf(b.end),
+      round2((b.end - b.start) / 3_600_000),
+      (b.roomId && names.get(b.roomId)) || "Unknown space",
+      b.member,
+      b.company,
+      bookingStatusLabel(b),
+      round2(b.paid),
+      round2(b.refunded),
+      round2(b.net),
+      stampOf(b.createdAt),
+      stampOf(b.cancelledAt),
+    ]);
+  // The byte-order mark makes Excel read the file as UTF-8, so accented names survive.
+  return `\uFEFF${[CSV_HEADERS, ...rows].map((row) => row.map(csvCell).join(",")).join("\r\n")}\r\n`;
+}
+
+/** "inspire9-bookings-2026-08-20-to-2026-09-18.csv" */
+export function csvFilename(window: Pick<DayWindow, "startKey" | "endKey">, roomName?: string | null): string {
+  const slug = roomName ? `-${roomName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}` : "";
+  return `inspire9-bookings${slug}-${window.startKey}-to-${window.endKey}.csv`;
+}
+
+/** Links within the report keep the other filter: changing the range keeps the room, and the reverse. */
+export function insightsHref(path: string, params: { range?: RangeKey; room?: string | null }): string {
+  const query = new URLSearchParams();
+  if (params.range && params.range !== DEFAULT_RANGE) query.set("range", params.range);
+  if (params.room) query.set("room", params.room);
+  const text = query.toString();
+  return text ? `${path}?${text}` : path;
 }
