@@ -123,7 +123,7 @@ export function AuthForms({ initialMode, error, message }: { initialMode: AuthMo
                       </motion.div>
                     </form>
                     <motion.p variants={item} className="auth-footnote">
-                      New to Inspire9? <Link href={AUTH_PATHS.signup} onClick={switchTo("signup")}>Create an account</Link>
+                      New to Inspire9? <Link href={AUTH_PATHS.signup} onClick={switchTo("signup")}>Create an account</Link> or <Link href="/enquire">ask about space</Link>
                       <span className="auth-staff-note">Inspire9 staff sign in here too. You&apos;ll go straight to the admin area.</span>
                     </motion.p>
                   </>

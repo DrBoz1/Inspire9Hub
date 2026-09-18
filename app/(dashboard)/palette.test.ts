@@ -14,6 +14,7 @@ const FILES = [
   "app/(dashboard)/member-pages.css",
   "app/(dashboard)/member-account.css",
   "app/(auth)/auth.css",
+  "app/(public)/enquire.css",
   "app/(admin)/admin.css",
   "features/booking-map/floorplan.css",
 ];

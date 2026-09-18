@@ -6,6 +6,8 @@ import { getLogoUrl } from "@/lib/email/logo";
 import SupportRequest from "@/lib/email/templates/support-request";
 import { summarizePayments } from "@/lib/member-stats";
 import { createElement } from "react";
+import { validateLead } from "@/lib/admin-leads";
+import { captureLead } from "@/lib/leads-capture";
 
 const VALID_TOPICS = [
   "Booking Issue",
@@ -55,6 +57,17 @@ export async function sendSupportRequest(formData: FormData) {
   } catch (err) {
     console.error("[support] Email failed:", err);
     return { error: "Could not send your message. Please try again." };
+  }
+
+  // A member asking a general question is sometimes asking about more space: keep
+  // it on the leads board, linked to them, so it isn't only in someone's inbox.
+  // Best effort and after the email, so it can never stop a support request.
+  if (topic === "General Enquiry") {
+    const checked = validateLead({ name: memberName, email: memberEmail, message });
+    if ("values" in checked) {
+      const saved = await captureLead(checked.values, { source: "support_form", memberId: user.id }).catch((err: unknown) => ({ saved: false as const, reason: String(err) }));
+      if (!saved.saved) console.error("[support] not saved to leads:", saved.reason);
+    }
   }
 
   return { success: true };

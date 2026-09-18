@@ -1,0 +1,44 @@
+/* The public enquiry page. Builds on auth.css: same tokens, same fields, a little wider for the paired rows. */
+.enquire-page { max-width: 460px; }
+.enquire-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 18px 14px; }
+.enquire-optional { margin-left: 4px; color: var(--hub-muted); font-weight: 400; }
+
+/* Selects and the message box, matched to the inputs auth.css already styles. */
+.auth-input > :is(select, textarea) { width: 100%; border: 1px solid var(--hub-line); border-radius: 10px; background: var(--hub-paper); color: var(--hub-ink); font: inherit; font-size: 13px; outline: none; transition: border-color .18s, box-shadow .18s; }
+.auth-input > select { height: 48px; padding: 0 38px 0 43px; appearance: none; cursor: pointer; }
+.enquire-no-icon > select { padding-left: 14px; }
+/* Nothing chosen yet reads like a placeholder, not like an answer. */
+.auth-input > select:has(> option[value=""]:checked) { color: color-mix(in srgb, var(--hub-muted) 70%, transparent); }
+.auth-input > select option { color: var(--hub-ink); }
+.auth-input > textarea { min-height: 116px; padding: 13px 14px; line-height: 1.6; resize: vertical; }
+.auth-input > textarea::placeholder { color: var(--hub-muted); opacity: .7; }
+.auth-input > :is(select, textarea):hover { border-color: var(--hub-hover-line); }
+.auth-input > :is(select, textarea):focus-visible { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--hub-red) 11%, transparent); }
+.auth-input > .enquire-chevron { position: absolute; right: 14px; left: auto; color: var(--hub-muted); pointer-events: none; }
+.auth-input > input[type="number"] { appearance: textfield; }
+.auth-input > input[type="number"]::-webkit-inner-spin-button { appearance: none; margin: 0; }
+
+/* Problems sit under the field they belong to. */
+.auth-input > [aria-invalid="true"] { border-color: #d4696c; }
+.enquire-error { color: #b4161c; font-size: 11px; line-height: 1.5; }
+.dark .enquire-error { color: #ff8a8d; }
+.dark .auth-input > [aria-invalid="true"] { border-color: #b9474c; }
+
+/* The honeypot: out of sight and out of reach, but still in the page for scripts to find. */
+.enquire-hp { position: absolute; left: -10000px; width: 1px; height: 1px; overflow: hidden; }
+
+/* What happens next, after sending. */
+.enquire-page h1[tabindex="-1"]:focus { outline: none; }
+.enquire-page h1[tabindex="-1"]:focus-visible { border-radius: 6px; outline: 2px solid var(--hub-red); outline-offset: 4px; }
+.enquire-next { display: grid; gap: 14px; margin-top: 28px; padding: 18px 20px; border: 1px solid var(--hub-line); border-radius: 14px; background: var(--hub-paper); counter-reset: step; }
+.enquire-next li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 2px 12px; counter-increment: step; }
+.enquire-next li::before { content: counter(step); grid-row: span 2; display: grid; place-items: center; width: 24px; height: 24px; border-radius: 50%; background: color-mix(in srgb, var(--hub-red) 10%, transparent); color: var(--hub-red); font-size: 11px; font-weight: 500; }
+.enquire-next strong { font-size: 12px; font-weight: 500; }
+.enquire-next span { color: var(--hub-muted); font-size: 11px; line-height: 1.6; }
+
+@media (max-width: 480px) {
+  .enquire-row { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .auth-input > :is(select, textarea) { transition: none; }
+}

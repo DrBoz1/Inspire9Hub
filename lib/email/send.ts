@@ -11,6 +11,8 @@ export type SendEmailOptions = {
   subject: string;
   react: ReactElement;
   attachments?: EmailAttachment[];
+  /** Where a reply goes. Set it to the enquirer, so staff can answer by hitting Reply. */
+  replyTo?: string;
 };
 
 // Universal send function — all email features across the app go through this.
@@ -21,6 +23,7 @@ export async function sendEmail({
   subject,
   react,
   attachments,
+  replyTo,
 }: SendEmailOptions): Promise<void> {
   const recipients = Array.isArray(to) ? to : [to];
 
@@ -39,6 +42,7 @@ export async function sendEmail({
     to: finalRecipients,
     subject,
     react,
+    ...(replyTo ? { replyTo } : {}),
     attachments: attachments?.map((a) => ({
       filename: a.filename,
       content: a.content,

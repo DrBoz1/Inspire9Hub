@@ -18,6 +18,12 @@ const SCENES = {
     accent: "A lot of possibility.",
     body: "Join the makers, founders and freelancers who work from Inspire9 in Richmond.",
   },
+  enquire: {
+    index: "Enquire",
+    title: "Your desk.",
+    accent: "Your people.",
+    body: "Desks, private offices and meeting rooms in Richmond, with a community that shows up.",
+  },
   recovery: {
     index: "03 / Account",
     title: "Happens to",
@@ -29,7 +35,7 @@ const SCENES = {
 /** The photo stays put across sign-in pages; only its caption changes. */
 export function AuthAside() {
   const pathname = usePathname();
-  const key = pathname === "/signup" ? "signup" : pathname === "/login" ? "login" : "recovery";
+  const key = pathname === "/signup" ? "signup" : pathname === "/login" ? "login" : pathname === "/enquire" ? "enquire" : "recovery";
   const scene = SCENES[key];
 
   return (

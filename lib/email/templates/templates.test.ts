@@ -7,6 +7,7 @@ import InductionSubmitted from "./induction-submitted";
 import InductionRejected from "./induction-rejected";
 import ReviewReminder from "./review-reminder";
 import SupportRequest from "./support-request";
+import NewLead from "./new-lead";
 
 const member = { memberName: "Sam Taylor", memberEmail: "sam@example.test" };
 const booking = {
@@ -58,5 +59,34 @@ describe("transactional email presentation", () => {
     const withoutLogo = await render(createElement(BookingConfirmation, booking));
     expect(withoutLogo).not.toContain("<img");
     expect(toPlainText(withoutLogo)).toContain("inspire9");
+  });
+
+  const enquiry = {
+    name: "Priya Nair", email: "priya@studionine.test", phone: "0412 345 678", company: "Studio Nine",
+    interest: "Private office", teamSize: 4, heardVia: "A friend or colleague", source: "Website",
+    message: "Could we see the office?", repeat: false, leadUrl: "https://hub.example.test/admin/leads?lead=abc",
+  };
+
+  it("gives staff everything they need to answer a new enquiry", async () => {
+    // Plain text upper-cases headings, so compare without case.
+    const text = toPlainText(await render(createElement(NewLead, enquiry))).toLowerCase();
+    for (const value of ["Someone wants to join", enquiry.name, enquiry.email, enquiry.phone, enquiry.company, enquiry.interest, "4", enquiry.heardVia, enquiry.message, "Open the lead"]) {
+      expect(text).toContain(value.toLowerCase());
+    }
+  });
+
+  it("escapes what a stranger typed, and leaves out what they didn't give", async () => {
+    const html = await render(createElement(NewLead, { ...enquiry, phone: null, company: null, teamSize: null, heardVia: null, message: "<img src=x onerror=alert(1)>" }));
+    expect(html).not.toContain("<img src=x");
+    const text = toPlainText(html);
+    expect(text).not.toContain("Phone");
+    expect(text).not.toContain("Team size");
+  });
+
+  it("says plainly when the email is the only copy", async () => {
+    const html = await render(createElement(NewLead, { ...enquiry, leadUrl: null, repeat: true }));
+    expect(toPlainText(html)).toContain("the only copy");
+    expect(toPlainText(html).toLowerCase()).toContain("got in touch again");
+    expect(html).toContain('href="mailto:' + enquiry.email + '"');
   });
 });
