@@ -7,7 +7,7 @@ import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { formatLongDay, formatRange } from "@/lib/admin-dashboard";
-import { recordAudit, type AuditActor } from "@/lib/audit";
+import { recordAudit, stampRow, type AuditActor } from "@/lib/audit";
 
 export type BookingActionResult = { success: boolean; error?: string; refunded?: boolean; message?: string };
 
@@ -47,14 +47,7 @@ async function cancelBooking(
 
   const { data: updated, error } = await supabase
     .from("bookings")
-    .update({
-      booking_status: "cancelled",
-      // Recorded here rather than inferred later: booking_status is overwritten
-      // in place, so without these the timing and the actor are lost for good.
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: actor?.id ?? null,
-      cancel_reason: reason,
-    })
+    .update({ booking_status: "cancelled" })
     .eq("id", bookingId)
     .neq("booking_status", "cancelled")
     .select("id");
@@ -62,6 +55,9 @@ async function cancelBooking(
     console.error("[admin] cancel booking:", error?.message ?? "no rows updated");
     return { error: "Couldn’t cancel this booking. Please try again." };
   }
+  // booking_status is overwritten in place, so without these the timing and the
+  // actor are lost for good. Stamped after, so they can never block the cancel.
+  await stampRow("bookings", bookingId, { cancelled_at: new Date().toISOString(), cancelled_by: actor?.id ?? null, cancel_reason: reason });
 
   // Supabase returns an embedded relation as an object or a one-item array.
   const room = Array.isArray(booking.workspaces) ? booking.workspaces[0] : booking.workspaces;
@@ -135,8 +131,9 @@ export async function cancelAndRefundBooking(bookingId: string): Promise<Booking
 
   const { error: recordError } = await supabase
     .from("payments")
-    .update({ payment_status: "refunded", refunded_amount: payment.amount, refunded_at: new Date().toISOString() })
+    .update({ payment_status: "refunded", refunded_amount: payment.amount })
     .eq("id", payment.id);
+  if (!recordError) await stampRow("payments", payment.id, { refunded_at: new Date().toISOString() });
   if (recordError) {
     console.error("[admin] refund record:", recordError.message);
     await recordAudit({ actor, action: "booking.cancel_refund", entity: "booking", entityId: bookingId, summary: `Refunded ${description} in Stripe, but the payment record didn’t update`, meta: { refunded: true, paymentId: payment.id, amount: Number(payment.amount) } });
@@ -193,9 +190,10 @@ export async function issueRefund(bookingId: string): Promise<BookingActionResul
 
   const { error: recordError } = await supabase
     .from("payments")
-    .update({ payment_status: "refunded", refunded_amount: refundCents / 100, refunded_at: new Date().toISOString() })
+    .update({ payment_status: "refunded", refunded_amount: refundCents / 100 })
     .eq("id", payment.id);
   if (recordError) console.error("[refund] record:", recordError.message);
+  else await stampRow("payments", payment.id, { refunded_at: new Date().toISOString() });
 
   const room = Array.isArray(booking.workspaces) ? booking.workspaces[0] : booking.workspaces;
   await recordAudit({

@@ -7,6 +7,7 @@ import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
+import { stampRow } from "@/lib/audit";
 
 export async function checkRoomAvailability(
   workspaceId: string,
@@ -211,17 +212,16 @@ export async function cancelPendingBooking(bookingId: string) {
 
   // Admin client bypasses the missing UPDATE RLS policy; member_id check enforces ownership
   const adminDb = createAdminClient();
-  await adminDb
+  const { data: released } = await adminDb
     .from("bookings")
-    .update({
-      booking_status: "cancelled",
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: user.id,
-      cancel_reason: "Checkout abandoned before payment",
-    })
+    .update({ booking_status: "cancelled" })
     .eq("id", bookingId)
     .eq("member_id", user.id)
-    .eq("booking_status", "pending");
+    .eq("booking_status", "pending")
+    .select("id");
+  if (released?.length) {
+    await stampRow("bookings", bookingId, { cancelled_at: new Date().toISOString(), cancelled_by: user.id, cancel_reason: "Checkout abandoned before payment" });
+  }
 }
 
 // Self-service cancellation — cancels the booking and automatically processes
@@ -253,15 +253,12 @@ export async function cancelConfirmedBooking(bookingId: string) {
 
   const { error: cancelErr } = await adminDb
     .from("bookings")
-    .update({
-      booking_status: "cancelled",
-      cancelled_at: new Date().toISOString(),
-      cancelled_by: user.id,
-      cancel_reason: `Cancelled by the member, ${policy.label.toLowerCase()}`,
-    })
+    .update({ booking_status: "cancelled" })
     .eq("id", bookingId);
 
   if (cancelErr) return { error: cancelErr.message };
+  // Stamped after the cancel, so the audit columns can never block it.
+  await stampRow("bookings", bookingId, { cancelled_at: new Date().toISOString(), cancelled_by: user.id, cancel_reason: `Cancelled by the member, ${policy.label.toLowerCase()}` });
 
   // Auto-process Stripe refund if the policy entitles the member to one
   if (policy.percent > 0) {
@@ -284,9 +281,9 @@ export async function cancelConfirmedBooking(bookingId: string) {
           .update({
             payment_status: "refunded",
             refunded_amount: refundCents / 100,
-            refunded_at: new Date().toISOString(),
           })
           .eq("id", payment.id);
+        await stampRow("payments", payment.id, { refunded_at: new Date().toISOString() });
       } catch (err) {
         // Refund failed — flag the payment so it surfaces in the admin
         // bookings page, where the Issue Refund button can retry it.

@@ -63,6 +63,22 @@ export function auditRow(entry: AuditEntry): AuditRow {
 }
 
 /**
+ * Best-effort extra detail on a row that has already changed: when a booking was
+ * cancelled and by whom, when a payment was refunded. Written separately from the
+ * real change so that change never depends on these columns. A database that
+ * hasn't had add_booking_audit_columns.sql / add_payment_columns.sql run yet
+ * rejects unknown columns outright, and that must not block a cancellation.
+ */
+export async function stampRow(table: "bookings" | "payments", id: string, fields: Record<string, unknown>): Promise<void> {
+  try {
+    const { error } = await createAdminClient().from(table).update(fields).eq("id", id);
+    if (error) console.error(`[audit] ${table} ${id} not stamped:`, error.message);
+  } catch (err) {
+    console.error(`[audit] ${table} ${id} not stamped:`, err instanceof Error ? err.message : String(err));
+  }
+}
+
+/**
  * Never throws and never returns a failure: an action that genuinely succeeded
  * must not report an error because its log line didn't save. Failures are
  * logged loudly instead, because a silently empty audit trail is the one way
