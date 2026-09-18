@@ -10,11 +10,11 @@ import { checkRoomAvailability, createCheckoutSession, getBookedSlotsForDate } f
 import { formatHour, padTime } from "@/lib/datetime";
 import { HUB_TIMEZONE } from "@/lib/datetime";
 import { addDaysToKey, dayBoundsUtc, todayIn } from "@/features/booking-map/zoned-time";
+import { closingHour, wholeHourStarts } from "@/features/booking-map/booking/time";
 import { useHubClock } from "@/components/use-hub-clock";
 import { bookingInstant, rangeUnavailable, type BookedSlot } from "./booking-time";
 import type { BookingRoom } from "./RoomCard";
 
-const HOURS = Array.from({ length: 12 }, (_, i) => i + 8);
 type Availability = { date: string; slots: BookedSlot[]; error?: string };
 
 export default function BookingModal({ room }: { room: BookingRoom }) {
@@ -37,8 +37,13 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
   const duration = range ? range[1] - range[0] : 0;
   const total = duration * Number(room.price_per_hour);
   const availabilityError = availability?.date === date ? availability.error : undefined;
-  const noTimes = !loading && !availabilityError && HOURS.every(hour => rangeUnavailable(date, hour, hour + 1, slots, now));
-  const ready = !!range && !blocked && !loading && !availabilityError && total > 0 && !checking;
+  // Opening hours come from the floor plan's OPENING table, so this form and the
+  // map always agree about when the hub is open.
+  const hours = wholeHourStarts(date);
+  const closes = closingHour(date);
+  const closed = hours.length === 0;
+  const noTimes = !loading && !availabilityError && !closed && hours.every(hour => rangeUnavailable(date, hour, hour + 1, slots, now));
+  const ready = !!range && !closed && !blocked && !loading && !availabilityError && total > 0 && !checking;
 
   useEffect(() => {
     if (!open) return;
@@ -106,28 +111,31 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
           </Popover>
         </div>
         <div className="hub-time-selects">
-          <label>Start time<select aria-label="Start time" disabled={loading || checking || !!availabilityError || noTimes} value={range?.[0] ?? ""} onChange={e => {
+          <label>Start time<select aria-label="Start time" disabled={closed || loading || checking || !!availabilityError || noTimes} value={range?.[0] ?? ""} onChange={e => {
             const h = Number(e.target.value);
             const end = range && range[1] > h && !rangeUnavailable(date, h, range[1], slots, now) ? range[1] : h + 1;
             updateRange([h, end]);
           }}>
             <option value="" disabled>Select start</option>
-            {HOURS.map(h => {
+            {hours.map(h => {
               const unavailable = rangeUnavailable(date, h, h + 1, slots, now);
               return <option key={h} value={h} disabled={unavailable}>{formatHour(h)}{unavailable ? " · unavailable" : ""}</option>;
             })}
           </select></label>
           <span className="hub-time-separator" aria-hidden="true">–</span>
-          <label>End time<select aria-label="End time" disabled={loading || checking || !!availabilityError || !range || noTimes} value={range?.[1] ?? ""} onChange={e => {
+          <label>End time<select aria-label="End time" disabled={closed || loading || checking || !!availabilityError || !range || noTimes} value={range?.[1] ?? ""} onChange={e => {
             if (range) updateRange([range[0], Number(e.target.value)]);
           }}>
             <option value="" disabled>Select end</option>
-            {HOURS.map(h => h + 1).filter(h => !range || h > range[0]).map(h => <option key={h} value={h} disabled={!!range && rangeUnavailable(date, range[0], h, slots, now)}>{formatHour(h)}</option>)}
+            {hours.map(h => h + 1).filter(h => !range || h > range[0]).map(h => <option key={h} value={h} disabled={!!range && rangeUnavailable(date, range[0], h, slots, now)}>{formatHour(h)}</option>)}
           </select></label>
         </div>
-        <p className="hub-booking-hours">Melbourne time · 8 am–8 pm · 1-hour minimum</p>
+        <p className="hub-booking-hours">
+          {closed ? "Melbourne time · closed on this date" : `Melbourne time · ${formatHour(hours[0])}–${formatHour(closes ?? 0)} · 1-hour minimum`}
+        </p>
         <div className="hub-booking-availability" role="status" aria-live="polite" data-available={ready}>
-          {loading ? <><Loader2 size={13} className="animate-spin" />Checking available times…</>
+          {closed ? "Inspire9 is closed on this date. Pick another day."
+            : loading ? <><Loader2 size={13} className="animate-spin" />Checking available times…</>
             : availabilityError ? <span>{availabilityError} <button onClick={refreshSlots}>Try again</button></span>
             : noTimes ? "No times left on this date. Try another day."
             : blocked ? "That time is no longer available. Choose another start time."

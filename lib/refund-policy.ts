@@ -8,6 +8,10 @@ export type RefundPolicy = {
   color: string; // Tailwind color classes for UI badges
 };
 
+/** Hours of notice for each tier. Exported so reporting groups cancellations by the same bands the policy charges by. */
+export const FULL_REFUND_HOURS = 48;
+export const HALF_REFUND_HOURS = 4;
+
 export function getRefundPolicy(bookingStartISO: string): RefundPolicy {
   const hoursUntil =
     (new Date(bookingStartISO).getTime() - Date.now()) / 3_600_000;
@@ -21,7 +25,7 @@ export function getRefundPolicy(bookingStartISO: string): RefundPolicy {
     };
   }
 
-  if (hoursUntil >= 48) {
+  if (hoursUntil >= FULL_REFUND_HOURS) {
     return {
       percent: 100,
       label: "Full Refund",
@@ -30,7 +34,7 @@ export function getRefundPolicy(bookingStartISO: string): RefundPolicy {
     };
   }
 
-  if (hoursUntil >= 4) {
+  if (hoursUntil >= HALF_REFUND_HOURS) {
     return {
       percent: 50,
       label: "50% Refund",

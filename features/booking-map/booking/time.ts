@@ -55,6 +55,29 @@ export function isClosed(dateKey: string): boolean {
   return openingFor(dateKey).open === null;
 }
 
+/**
+ * Whole-hour start times bookable on a day, for the card-grid form that only
+ * deals in full hours. Derived from OPENING so the form and the floor plan
+ * can't drift: they used to disagree (8am-8pm every day vs these hours), which
+ * meant Sunday looked bookable in one place and closed in the other.
+ *
+ * The last start is a full hour before closing, since one hour is the minimum.
+ * Returns [] on a closed day.
+ */
+export function wholeHourStarts(dateKey: string): number[] {
+  const { open, close } = openingFor(dateKey);
+  if (open === null || close === null) return [];
+  const first = Math.ceil(open / 60);
+  const last = Math.floor(close / 60) - 1;
+  return Array.from({ length: Math.max(0, last - first + 1) }, (_, i) => first + i);
+}
+
+/** The hour a day stops being bookable, for the "to" end of a range. */
+export function closingHour(dateKey: string): number | null {
+  const { close } = openingFor(dateKey);
+  return close === null ? null : Math.floor(close / 60);
+}
+
 // ─── formatting ──────────────────────────────────────────────────────────────
 
 export function formatTime(mins: number): string {

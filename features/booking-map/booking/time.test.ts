@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { addDays, nowMinutes, openingFor, SLOT, statusFor, todayKey } from './time';
+import { addDays, closingHour, nowMinutes, openingFor, SLOT, statusFor, todayKey, wholeHourStarts } from './time';
 import { SPACES } from '../data/spaces';
 import { minutesNowIn, todayIn } from '../zoned-time';
 import { HUB_TIMEZONE } from '@/lib/datetime';
@@ -61,6 +61,38 @@ describe('status while the day is loading or failed to load', () => {
   it('keeps kitchens and stairwells closed', () => {
     const kitchen = SPACES.find((s) => !s.bookable)!;
     expect(statusFor(kitchen, [], monday, false)).toBe('closed');
+  });
+});
+
+describe('whole-hour starts for the card-grid form', () => {
+  // 2026-10-02 is a Friday, 10-03 a Saturday, 10-04 a Sunday.
+  it('offers a full hour before closing on a weekday', () => {
+    const friday = wholeHourStarts('2026-10-02');
+    expect(friday[0]).toBe(7);
+    // Opening runs to 21:00, so the last start that still fits an hour is 20:00.
+    expect(friday[friday.length - 1]).toBe(20);
+    expect(closingHour('2026-10-02')).toBe(21);
+  });
+
+  it('uses Saturday’s shorter hours', () => {
+    expect(wholeHourStarts('2026-10-03')).toEqual([9, 10, 11, 12, 13, 14, 15, 16]);
+    expect(closingHour('2026-10-03')).toBe(17);
+  });
+
+  it('offers nothing on a closed day', () => {
+    expect(wholeHourStarts('2026-10-04')).toEqual([]);
+    expect(closingHour('2026-10-04')).toBeNull();
+  });
+
+  it('never offers a start the floor plan would reject', () => {
+    for (const day of ['2026-10-02', '2026-10-03', '2026-10-04']) {
+      const { open, close } = openingFor(day);
+      for (const hour of wholeHourStarts(day)) {
+        expect(open).not.toBeNull();
+        expect(hour * 60).toBeGreaterThanOrEqual(open!);
+        expect(hour * 60 + 60).toBeLessThanOrEqual(close!);
+      }
+    }
   });
 });
 
