@@ -65,14 +65,10 @@ jobs:
             echo "::endgroup::"
           done
 
-      # Currently 37 errors (31 of them @typescript-eslint/no-explicit-any), so
-      # this reports without failing the run. A permanently red pipeline is worse
-      # than no pipeline — it teaches everyone to ignore the X. Delete the
-      # continue-on-error line once the backlog is cleared and lint becomes a
-      # real gate.
+      # A real gate: the backlog that used to make this report-only is cleared,
+      # and lint is clean. A new error now stops the merge like a failing test.
       - name: Lint
         run: npm run lint
-        continue-on-error: true
 
       - name: Build
         run: npm run build
