@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   GRACE_DAYS,
   billingDay,
+  currentSubscription,
   hasHubAccess,
   isFresherEvent,
   membershipState,
   mrrCents,
+  periodLabel,
   renewalNotice,
   shouldRetryUnresolved,
   type SubscriptionSnapshot,
@@ -133,5 +135,24 @@ describe("handling events out of order", () => {
     const created = NOW.getTime() / 1000;
     expect(shouldRetryUnresolved(created - 14 * 60, NOW)).toBe(true);
     expect(shouldRetryUnresolved(created - 16 * 60, NOW)).toBe(false);
+  });
+});
+
+describe("which subscription a member's page shows", () => {
+  const s = (status: string, createdAt: string) => ({ status, createdAt });
+  it("shows the live one, even if an older finished one is newer in the list", () => {
+    expect(currentSubscription([s("canceled", "2026-09-01"), s("active", "2025-01-01")])?.status).toBe("active");
+    expect(currentSubscription([s("past_due", "2026-01-01"), s("incomplete_expired", "2026-09-01")])?.status).toBe("past_due");
+  });
+  it("otherwise shows the most recent, so a past member sees how it ended", () => {
+    expect(currentSubscription([s("canceled", "2025-01-01"), s("canceled", "2026-03-01")])?.createdAt).toBe("2026-03-01");
+    expect(currentSubscription([])).toBeNull();
+  });
+});
+
+describe("billing periods", () => {
+  it("ends on the last day paid for, not the first day of the next period", () => {
+    // Midnight 1 Oct to midnight 1 Nov, Melbourne time.
+    expect(periodLabel("2026-09-30T14:00:00Z", "2026-10-31T13:00:00Z")).toBe("1 Oct – 31 Oct");
   });
 });

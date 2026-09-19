@@ -1,3 +1,5 @@
+import { currentSubscription, type SubscriptionSnapshot } from "@/lib/billing/state";
+import { toPlanSubscription, type RawSubscription } from "@/lib/admin-plans";
 import { inductionStage, type InductionStage } from "@/lib/member-forms";
 
 type Maybe<T> = T | T[] | null | undefined;
@@ -97,14 +99,37 @@ export type MemberDetails = {
   bookings: { id: string; start: string; end: string; status: string; room: string }[];
   payments: { id: string; amount: number | null; refunded: number | null; date: string | null; status: string; method: string | null }[];
   passes: { id: string; type: string; issued: string | null; expires: string | null; status: string }[];
+  /** Their current (or most recent) membership, so nobody suspends someone who is still paying. */
+  membership: MemberPlan | null;
 };
+
+export type MemberPlan = SubscriptionSnapshot & { planName: string | null };
 
 export type RawMemberDetails = {
   induction: { completion_date?: string | null; acknowledged_terms?: boolean | null; health_emergency_info?: string | null } | null;
   bookings: { id: string; start_date_time: string; end_date_time: string; booking_status: string; workspaces?: Maybe<{ name?: string | null }> }[];
   payments: { id: string; amount?: number | string | null; refunded_amount?: number | string | null; payment_date?: string | null; payment_status?: string | null; payment_method?: string | null }[];
   passes: { id: string; pass_type?: string | null; issued_date?: string | null; expiry_date?: string | null; pass_status?: string | null }[];
+  /** Absent until billing is set up. */
+  subscriptions?: (RawSubscription & { created_at: string; plans?: Maybe<{ name?: string | null }> })[];
 };
+
+function memberPlan(subs: NonNullable<RawMemberDetails["subscriptions"]>): MemberPlan | null {
+  const current = currentSubscription(subs.map((s) => ({ ...toPlanSubscription(s), planName: clean(one(s.plans)?.name), createdAt: s.created_at })));
+  if (!current) return null;
+  return {
+    status: current.status,
+    cancelAtPeriodEnd: current.cancelAtPeriodEnd,
+    currentPeriodEnd: current.currentPeriodEnd,
+    endedAt: current.endedAt,
+    unitAmountCents: current.unitAmountCents,
+    quantity: current.quantity,
+    currency: current.currency,
+    billingInterval: current.billingInterval,
+    intervalCount: current.intervalCount,
+    planName: current.planName,
+  };
+}
 
 export function toMemberDetails(raw: RawMemberDetails): MemberDetails {
   return {
@@ -114,6 +139,7 @@ export function toMemberDetails(raw: RawMemberDetails): MemberDetails {
     bookings: raw.bookings.map((b) => ({ id: b.id, start: b.start_date_time, end: b.end_date_time, status: b.booking_status, room: clean(one(b.workspaces)?.name) ?? "Room" })),
     payments: raw.payments.map((p) => ({ id: p.id, amount: num(p.amount), refunded: num(p.refunded_amount), date: p.payment_date ?? null, status: clean(p.payment_status) ?? "unknown", method: clean(p.payment_method) })),
     passes: raw.passes.map((p) => ({ id: p.id, type: clean(p.pass_type)?.replace(/_/g, " ") ?? "Access pass", issued: p.issued_date ?? null, expires: p.expiry_date ?? null, status: clean(p.pass_status) ?? "unknown" })),
+    membership: memberPlan(raw.subscriptions ?? []),
   };
 }
 

@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight, ArrowUpRight, CalendarCheck2, CalendarDays, CalendarRange, CheckCircle2, ClipboardCheck, DoorOpen, Users } from "lucide-react";
+import { ArrowRight, ArrowUpRight, CalendarCheck2, CalendarDays, CalendarRange, CheckCircle2, ClipboardCheck, CreditCard, DoorOpen, Users } from "lucide-react";
+import { formatCentsAmount } from "@/lib/admin-plans";
 import { AdminPageHeader } from "@/components/admin/AdminPageHeader";
 import { AdminStat, AdminStats } from "@/components/admin/AdminStat";
 import { AdminEmpty } from "@/components/admin/AdminEmpty";
@@ -59,6 +60,9 @@ export function AdminDashboardView({ adminName, ...data }: Props) {
         <AdminStat label="Bookings today" value={overview.total} tone="red" icon={<CalendarDays size={16} />} href="/admin/bookings" hint={overview.total ? `${overview.inUse} in use · ${overview.toCome} to come` : "Nothing booked"} />
         <AdminStat label="Active members" value={data.activeMembers} tone="green" icon={<Users size={16} />} href="/admin/members" hint={`Of ${data.totalMembers} member account${data.totalMembers === 1 ? "" : "s"}`} />
         <AdminStat label="Next 7 days" value={data.nextWeekCount} icon={<CalendarRange size={16} />} href="/admin/bookings" hint="Confirmed bookings ahead" />
+        {data.membership && (
+          <AdminStat label="Membership revenue" value={formatCentsAmount(data.membership.mrrCents)} tone="green" icon={<CreditCard size={16} />} href="/admin/memberships" hint={`A month, from ${data.membership.members} member${data.membership.members === 1 ? "" : "s"} on a plan`} />
+        )}
       </AdminStats>
 
       <div className="admin-dash-grid">

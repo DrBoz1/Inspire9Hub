@@ -56,3 +56,21 @@ describe("member details", () => {
     expect(passStatus({ ...details.passes[0], status: "revoked" }, "2026-09-15")).toBe("revoked");
   });
 });
+
+describe("a member's plan in their profile panel", () => {
+  const base = { induction: null, bookings: [], payments: [], passes: [] };
+  const sub = (status: string, created_at: string, plan: string) => ({
+    plan_id: "p", status, created_at, plans: { name: plan }, cancel_at_period_end: false, current_period_end: "2026-10-04T00:00:00Z",
+    ended_at: null, unit_amount_cents: 45000, quantity: 1, currency: "aud", billing_interval: "month", interval_count: 1,
+  });
+
+  it("shows the plan they're paying for now, not an older cancelled one", () => {
+    const details = toMemberDetails({ ...base, subscriptions: [sub("canceled", "2026-09-10T00:00:00Z", "Flexi"), sub("active", "2025-01-01T00:00:00Z", "Resident desk")] });
+    expect(details.membership).toMatchObject({ planName: "Resident desk", status: "active", unitAmountCents: 45000 });
+  });
+
+  it("has no plan to show before billing is set up, or for someone who never joined", () => {
+    expect(toMemberDetails(base).membership).toBeNull();
+    expect(toMemberDetails({ ...base, subscriptions: [] }).membership).toBeNull();
+  });
+});

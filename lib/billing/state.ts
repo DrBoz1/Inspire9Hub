@@ -143,3 +143,25 @@ export const isFresherEvent = (incomingCreated: number, storedCreated: number) =
 export function shouldRetryUnresolved(eventCreated: number, now: Date): boolean {
   return now.getTime() / 1000 - eventCreated < UNRESOLVED_RETRY_WINDOW_SECONDS;
 }
+
+const LIVE: readonly string[] = ["trialing", "active", "past_due"];
+
+/**
+ * The subscription a member's page is about. A live one (trialing, active,
+ * past_due) always wins; there's at most one, the database makes sure. Without
+ * one, the most recent, so a past member sees how their membership ended.
+ */
+export function currentSubscription<T extends { status: string; createdAt: string }>(subs: T[]): T | null {
+  const live = subs.find((s) => LIVE.includes(s.status));
+  if (live) return live;
+  return [...subs].sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0] ?? null;
+}
+
+/**
+ * "1 Oct – 31 Oct". Stripe's period end is the instant the next period starts,
+ * so it's shown as the day before; otherwise every month reads "1 Oct – 1 Nov".
+ */
+export function periodLabel(startIso: string, endIso: string): string {
+  const lastDay = new Date(Date.parse(endIso) - 1000).toISOString();
+  return `${billingDay(startIso)} – ${billingDay(lastDay)}`;
+}

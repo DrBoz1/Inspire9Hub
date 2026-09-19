@@ -22,6 +22,8 @@ export type DashboardData = {
   upcoming: DashBooking[];
   pending: DashPending[];
   rooms: DashRoom[];
+  /** Null until add_membership_billing.sql has been run: the tile just doesn't show. */
+  membership?: { mrrCents: number; members: number } | null;
 };
 export type BookingPhase = "finished" | "in_use" | "upcoming";
 

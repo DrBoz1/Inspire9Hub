@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutDashboard, BookOpen, CalendarDays, User, LogOut, History, LifeBuoy, Map, ArrowUpRight, MapPin } from "lucide-react";
+import { LayoutDashboard, BookOpen, CalendarDays, CreditCard, User, LogOut, History, LifeBuoy, Map, ArrowUpRight, MapPin } from "lucide-react";
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
@@ -35,6 +35,7 @@ export function AppSidebar({ userProfile }: { userProfile: MemberProfile | null 
     { label: "Membership", items: [
       ...(!hideInduction ? [{ title: "Induction", url: "/induction", icon: BookOpen }] : []),
       { title: "My profile", url: "/profile", icon: User },
+      { title: "Plan & billing", url: "/membership", icon: CreditCard },
       { title: "Help & support", url: "/support", icon: LifeBuoy },
     ] },
   ];

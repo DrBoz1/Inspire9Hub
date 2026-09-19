@@ -14,7 +14,7 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetailsR
   if (!isUuid(memberId)) return { error: "That member couldn’t be found." };
 
   const supabase = createAdminClient();
-  const [induction, bookings, payments, passes] = await Promise.all([
+  const [induction, bookings, payments, passes, subscriptions] = await Promise.all([
     supabase
       .from("induction_records")
       .select("completion_date, acknowledged_terms, health_emergency_info")
@@ -38,6 +38,12 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetailsR
       .eq("member_id", memberId)
       .order("issued_date", { ascending: false })
       .limit(10),
+    supabase
+      .from("subscriptions")
+      .select("plan_id, status, cancel_at_period_end, current_period_end, ended_at, unit_amount_cents, quantity, currency, billing_interval, interval_count, created_at, plans(name)")
+      .eq("member_id", memberId)
+      .order("created_at", { ascending: false })
+      .limit(10),
   ]);
 
   const failed = [induction, bookings, payments, passes].find((r) => r.error);
@@ -52,6 +58,8 @@ export async function getMemberDetails(memberId: string): Promise<MemberDetailsR
       bookings: bookings.data ?? [],
       payments: payments.data ?? [],
       passes: passes.data ?? [],
+      // Billing is optional: before its migration there's no table, and that's not an error here.
+      subscriptions: subscriptions.error ? [] : (subscriptions.data ?? []),
     } as unknown as RawMemberDetails),
   };
 }

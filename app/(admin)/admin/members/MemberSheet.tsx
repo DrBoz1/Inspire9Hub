@@ -11,6 +11,9 @@ import { dateTile, formatRange, hubDateKey } from "@/lib/admin-dashboard";
 import { STATUS_LABELS, formatMoney, scheduleHref } from "@/lib/admin-bookings";
 import { INDUCTION_LABELS, INDUCTION_TONES, passStatus, statusTone, type MemberDetails, type MemberRow } from "@/lib/admin-members";
 import type { MemberDetailsResult } from "./actions";
+import { renewalNotice, type RenewalNotice } from "@/lib/billing/state";
+
+const PLAN_TONES: Record<RenewalNotice["tone"], string> = { positive: "active", warning: "pending", danger: "cancelled", neutral: "inactive" };
 
 type Load = { status: "loading" } | { status: "error"; message: string } | { status: "ready"; details: MemberDetails };
 
@@ -82,6 +85,22 @@ export function MemberSheet({ member, loadDetails, onClose }: { member: MemberRo
           {details && (
             <>
               <TabsContent value="overview" className="admin-member-panel">
+                <section className="admin-member-section" aria-labelledby="member-plan">
+                  <h3 id="member-plan">Membership</h3>
+                  {details.membership ? (
+                    (() => {
+                      const notice = renewalNotice(details.membership, new Date());
+                      return (
+                        <dl className="admin-member-facts">
+                          <div><dt>Plan</dt><dd>{details.membership.planName ?? "Set up in Stripe"}</dd></div>
+                          <div><dt>Billing</dt><dd><span className="hub-status-badge" data-status={PLAN_TONES[notice.tone]}>{notice.label}</span></dd></div>
+                        </dl>
+                      );
+                    })()
+                  ) : (
+                    <p className="admin-member-empty">Not on a plan.</p>
+                  )}
+                </section>
                 <section className="admin-member-section" aria-labelledby="member-contact">
                   <h3 id="member-contact">Contact</h3>
                   <dl className="admin-member-facts">

@@ -9,7 +9,7 @@ import { useHubClock } from "./use-hub-clock";
 
 const PAGE_LABELS: Record<string, string> = {
   "/dashboard": "Overview", "/spaces": "Spaces", "/induction": "Induction",
-  "/bookings": "Bookings", "/history": "Activity", "/support": "Help & support", "/profile": "My profile",
+  "/bookings": "Bookings", "/history": "Activity", "/support": "Help & support", "/profile": "My profile", "/membership": "Plan & billing",
 };
 
 export function DashboardHeader({ area = "member" }: { area?: "member" | "admin" }) {

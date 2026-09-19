@@ -78,5 +78,6 @@ export const config = {
     "/profile/:path*",
     "/history/:path*",
     "/bookings/:path*",
+    "/membership/:path*",
   ],
 };
