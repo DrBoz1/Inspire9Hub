@@ -1,4 +1,4 @@
-export type AdminIcon = "dashboard" | "insights" | "leads" | "compliance" | "bookings" | "spaces" | "members" | "announcements" | "staff";
+export type AdminIcon = "dashboard" | "insights" | "leads" | "memberships" | "compliance" | "bookings" | "spaces" | "members" | "announcements" | "staff";
 export type AdminNavItem = { href: string; label: string; icon: AdminIcon; badge?: "approvals" | "leads" };
 export type AdminNavGroup = { label: string; items: AdminNavItem[] };
 
@@ -23,6 +23,7 @@ const GROUPS: AdminNavGroup[] = [
     items: [
       { href: "/admin/members", label: "Members", icon: "members" },
       { href: "/admin/leads", label: "Leads", icon: "leads", badge: "leads" },
+      { href: "/admin/memberships", label: "Memberships", icon: "memberships" },
       { href: "/admin/announcements", label: "Announcements", icon: "announcements" },
     ],
   },

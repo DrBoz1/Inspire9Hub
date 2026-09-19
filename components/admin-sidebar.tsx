@@ -8,6 +8,7 @@ import {
   CalendarDays,
   ChartLine,
   ClipboardCheck,
+  CreditCard,
   DoorOpen,
   Inbox,
   LayoutDashboard,
@@ -31,6 +32,7 @@ const ICONS: Record<AdminIcon, LucideIcon> = {
   spaces: DoorOpen,
   members: Users,
   leads: Inbox,
+  memberships: CreditCard,
   announcements: Megaphone,
   staff: ShieldCheck,
 };

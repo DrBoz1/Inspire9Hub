@@ -27,9 +27,10 @@ export type AuditAction =
   | "lead.create"
   | "lead.stage"
   | "lead.update"
-  | "lead.convert";
+  | "lead.convert"
+  | "plans.sync";
 
-export type AuditEntity = "booking" | "payment" | "room" | "staff" | "announcement" | "member" | "lead";
+export type AuditEntity = "booking" | "payment" | "room" | "staff" | "announcement" | "member" | "lead" | "plan";
 
 export type AuditActor = { id: string; email?: string | null } | null;
 

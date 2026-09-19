@@ -7,8 +7,13 @@ import BookingConfirmation from "@/lib/email/templates/booking-confirmation";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
 import { getLogoUrl, getLogoDataUrl } from "@/lib/email/logo";
 import { createElement } from "react";
+import { webhookRoute } from "@/lib/billing/events";
+import { recordInvoice, syncSubscription, type SyncOutcome } from "@/lib/billing/sync";
+import { shouldRetryUnresolved } from "@/lib/billing/state";
 
 export const dynamic = "force-dynamic";
+// PDF invoices and the Stripe SDK need Node, not the edge runtime.
+export const runtime = "nodejs";
 
 export async function POST(request: NextRequest) {
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
@@ -32,27 +37,80 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: `Webhook error: ${message}` }, { status: 400 });
   }
 
-  // ── Checkout expired: release the reserved pending slot ──────────────────
-  if (event.type === "checkout.session.expired") {
-    const session = event.data.object as Stripe.Checkout.Session;
-    const bookingId = session.metadata?.bookingId;
-    if (bookingId) {
-      const supabase = createAdminClient();
-      await supabase
-        .from("bookings")
-        .update({ booking_status: "cancelled" })
-        .eq("id", bookingId)
-        .eq("booking_status", "pending");
-      console.log("[webhook] Expired — released pending slot:", bookingId);
+  // Every event goes to exactly one handler. Anything we don't handle is
+  // acknowledged: an endpoint that keeps failing gets switched off by Stripe,
+  // and bookings and memberships share this one.
+  const session = event.type.startsWith("checkout.session.") ? (event.data.object as Stripe.Checkout.Session) : null;
+  const stamp = { id: event.id, created: event.created };
+  switch (webhookRoute(event.type, session?.mode)) {
+    case "booking-expired":
+      return handleCheckoutExpired(event);
+    case "booking-paid":
+      return handleCheckoutCompleted(event);
+    case "subscription-checkout": {
+      const subscription = typeof session?.subscription === "string" ? session.subscription : (session?.subscription?.id ?? null);
+      return billing(event, () => (subscription ? syncSubscription(subscription, stamp) : Promise.resolve<SyncOutcome>({ ok: true, detail: "checkout with no subscription" })));
     }
+    case "subscription":
+      return billing(event, () => syncSubscription((event.data.object as Stripe.Subscription).id, stamp));
+    case "invoice":
+      return billing(event, () => recordInvoice(event.data.object as Stripe.Invoice, stamp));
+    default:
+      return NextResponse.json({ received: true });
+  }
+}
+
+/**
+ * Turns a billing outcome into the reply Stripe acts on: 200 when done (or when
+ * retrying can't help), 500 only when a retry could genuinely succeed.
+ */
+async function billing(event: Stripe.Event, work: () => Promise<SyncOutcome>) {
+  try {
+    const outcome = await work();
+    if (outcome.ok) {
+      console.log(`[billing] ${event.type}: ${outcome.detail}`);
+      return NextResponse.json({ received: true });
+    }
+    if (outcome.retry) {
+      console.warn(`[billing] ${event.type}, will retry: ${outcome.detail}`);
+      return NextResponse.json({ error: "Not processed yet" }, { status: 500 });
+    }
+    console.error(`[billing] ${event.type}, needs a person: ${outcome.detail}`);
+    return NextResponse.json({ received: true });
+  } catch (err) {
+    // Unexpected: retry for a while in case it was a blip, then stop, so a bug
+    // here can't get the endpoint switched off and take bookings down with it.
+    const message = err instanceof Error ? err.message : String(err);
+    if (shouldRetryUnresolved(event.created, new Date())) {
+      console.error(`[billing] ${event.type} ${event.id} failed, will retry: ${message}`);
+      return NextResponse.json({ error: "Not processed yet" }, { status: 500 });
+    }
+    console.error(`[billing] ${event.type} ${event.id} failed, giving up: ${message}`);
     return NextResponse.json({ received: true });
   }
+}
 
-  // ── Only continue for payment success ────────────────────────────────────
-  if (event.type !== "checkout.session.completed") {
-    return NextResponse.json({ received: true });
+// ── Bookings ─────────────────────────────────────────────────────────────────
+// Both functions below were moved here from POST unchanged.
+
+// Checkout expired: release the reserved pending slot
+async function handleCheckoutExpired(event: Stripe.Event) {
+  const session = event.data.object as Stripe.Checkout.Session;
+  const bookingId = session.metadata?.bookingId;
+  if (bookingId) {
+    const supabase = createAdminClient();
+    await supabase
+      .from("bookings")
+      .update({ booking_status: "cancelled" })
+      .eq("id", bookingId)
+      .eq("booking_status", "pending");
+    console.log("[webhook] Expired — released pending slot:", bookingId);
   }
+  return NextResponse.json({ received: true });
+}
 
+// A booking was paid for
+async function handleCheckoutCompleted(event: Stripe.Event) {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!serviceRoleKey) {
     console.error("[webhook] SUPABASE_SERVICE_ROLE_KEY is not set — get it from Supabase Dashboard → Project Settings → API → service_role (the long JWT starting with eyJ...)");

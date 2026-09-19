@@ -36,6 +36,7 @@ describe("header labels", () => {
     expect(adminPageLabel("/admin/rooms")).toBe("Space management");
     expect(adminPageLabel("/admin/insights")).toBe("Insights");
     expect(adminPageLabel("/admin/leads")).toBe("Leads");
+    expect(adminPageLabel("/admin/memberships")).toBe("Memberships");
     expect(adminPageLabel("/admin/management")).toBe("Staff management");
   });
 
