@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 export interface Transform { k: number; x: number; y: number }
 export interface Box { x: number; y: number; w: number; h: number }
@@ -57,8 +57,12 @@ export function usePanZoom({ viewBox, min = 0.6, max = 14, duration = 480 }: Pan
   const [t, setT] = useState<Transform>(IDENTITY);
   const [isPanning, setPanning] = useState(false);
 
+  // The latest transform for event handlers, which run after a commit. Written in a
+  // layout effect, not during render: a render React throws away must not leave it wrong.
   const tRef = useRef(t);
-  tRef.current = t;
+  useLayoutEffect(() => {
+    tRef.current = t;
+  });
   const raf = useRef<number | null>(null);
   const pointers = useRef(new Map<number, { x: number; y: number }>());
   const gesture = useRef<{ dist: number; cx: number; cy: number } | null>(null);

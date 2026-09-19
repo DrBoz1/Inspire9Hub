@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   // Reassigned inside setAll below whenever Supabase needs to refresh the
   // session — must stay a `let` so the refreshed cookies actually reach the browser.
   let response = NextResponse.next({ request });
