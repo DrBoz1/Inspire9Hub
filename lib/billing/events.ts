@@ -11,11 +11,24 @@ export type WebhookRoute = "booking-expired" | "booking-paid" | "subscription-ch
 export const SUBSCRIPTION_EVENTS = ["customer.subscription.created", "customer.subscription.updated", "customer.subscription.deleted"] as const;
 export const INVOICE_EVENTS = ["invoice.paid", "invoice.payment_failed"] as const;
 
-export function webhookRoute(eventType: string, sessionMode?: string | null): WebhookRoute {
-  if (eventType === "checkout.session.expired") return sessionMode === "payment" || !sessionMode ? "booking-expired" : "ignore";
+type CheckoutFacts = { mode?: string | null; metadata?: Record<string, string> | null } | null;
+
+/**
+ * Whether a paid checkout is one of ours: the booking flow always sets these four.
+ * Anything else paid through the same Stripe account (a Payment Link, Stripe's own
+ * example product) isn't a booking, and no retry will ever make it one. Rejecting
+ * it had Stripe retrying for three days; now it's acknowledged and left alone.
+ */
+export function isBookingCheckout(metadata?: Record<string, string> | null): boolean {
+  return Boolean(metadata?.userId && metadata.workspaceId && metadata.startTime && metadata.endTime);
+}
+
+export function webhookRoute(eventType: string, session?: CheckoutFacts): WebhookRoute {
+  const mode = session?.mode;
+  if (eventType === "checkout.session.expired") return mode === "payment" || !mode ? "booking-expired" : "ignore";
   if (eventType === "checkout.session.completed") {
-    if (sessionMode === "subscription") return "subscription-checkout";
-    return sessionMode === "payment" ? "booking-paid" : "ignore";
+    if (mode === "subscription") return "subscription-checkout";
+    return mode === "payment" && isBookingCheckout(session?.metadata) ? "booking-paid" : "ignore";
   }
   if ((SUBSCRIPTION_EVENTS as readonly string[]).includes(eventType)) return "subscription";
   if ((INVOICE_EVENTS as readonly string[]).includes(eventType)) return "invoice";

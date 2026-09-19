@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
   // and bookings and memberships share this one.
   const session = event.type.startsWith("checkout.session.") ? (event.data.object as Stripe.Checkout.Session) : null;
   const stamp = { id: event.id, created: event.created };
-  switch (webhookRoute(event.type, session?.mode)) {
+  switch (webhookRoute(event.type, session)) {
     case "booking-expired":
       return handleCheckoutExpired(event);
     case "booking-paid":
