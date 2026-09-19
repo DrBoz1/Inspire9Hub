@@ -69,7 +69,6 @@ async function billing(event: Stripe.Event, work: () => Promise<SyncOutcome>) {
   try {
     const outcome = await work();
     if (outcome.ok) {
-      console.log(`[billing] ${event.type}: ${outcome.detail}`);
       return NextResponse.json({ received: true });
     }
     if (outcome.retry) {
@@ -105,7 +104,6 @@ async function handleCheckoutExpired(event: Stripe.Event) {
       .update({ booking_status: "cancelled" })
       .eq("id", bookingId)
       .eq("booking_status", "pending");
-    console.log("[webhook] Expired — released pending slot:", bookingId);
   }
   return NextResponse.json({ received: true });
 }
@@ -121,10 +119,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   const session = event.data.object as Stripe.Checkout.Session;
   const { userId, workspaceId, bookingId, startTime, endTime } =
     session.metadata ?? {};
-
-  console.log("[webhook] checkout.session.completed — metadata:", {
-    userId, workspaceId, bookingId, startTime, endTime,
-  });
 
   if (!userId || !workspaceId || !startTime || !endTime) {
     console.error("[webhook] Missing metadata in session:", session.id);
@@ -150,7 +144,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       .maybeSingle();
 
     if (alreadyProcessed) {
-      console.log("[webhook] Duplicate delivery ignored:", session.id);
       return NextResponse.json({ received: true });
     }
   }
@@ -171,7 +164,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       return NextResponse.json({ error: "Failed to confirm booking" }, { status: 500 });
     }
     confirmedBooking = data;
-    console.log("[webhook] Booking confirmed:", confirmedBooking?.id);
   } else {
     // Fallback for sessions created before the atomic flow
     const { data, error } = await supabase
@@ -191,7 +183,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       return NextResponse.json({ error: "Failed to create booking" }, { status: 500 });
     }
     confirmedBooking = data;
-    console.log("[webhook] Booking created (fallback):", confirmedBooking?.id);
   }
 
   // 2. Payment record — store payment_intent_id so admins can issue Stripe refunds later
@@ -243,8 +234,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   });
   if (entryError)
     console.error("[webhook] Community entry error:", JSON.stringify(entryError));
-
-  console.log("[webhook] All records created for session:", session.id);
 
   // 6. Send booking confirmation email with PDF invoice
   // Non-blocking — email failure must never fail the webhook response
@@ -332,8 +321,6 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
         react: createElement(BookingConfirmation, emailData),
         attachments: pdfAttachment ? [pdfAttachment] : undefined,
       });
-
-      console.log("[webhook] Confirmation email sent to:", member.email);
     }
   } catch (emailErr) {
     // Log but never throw — email failure must never roll back the booking

@@ -4,7 +4,7 @@ import { DashboardHeader } from "@/components/dashboard-header";
 import { redirect } from "next/navigation";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { Toaster } from "sonner"; // 1. Import the Toaster
+import { HubToaster } from "@/components/hub-toaster";
 import "./member-hub.css";
 import "./member-pages.css";
 import "./member-account.css";
@@ -36,7 +36,7 @@ export default async function DashboardLayout({
         </div>
       </SidebarProvider>
 
-      <Toaster position="top-right" richColors closeButton />
+      <HubToaster />
     </TooltipProvider>
   );
 }

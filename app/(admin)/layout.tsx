@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { Toaster } from "sonner";
+import { HubToaster } from "@/components/hub-toaster";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SidebarInset, SidebarProvider } from "@/components/ui/sidebar";
@@ -48,7 +48,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
           </SidebarInset>
         </div>
       </SidebarProvider>
-      <Toaster position="top-right" richColors closeButton />
+      <HubToaster />
     </TooltipProvider>
   );
 }
