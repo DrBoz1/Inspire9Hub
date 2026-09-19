@@ -96,6 +96,24 @@ export function EmailDetail({ label, children, last = false }: { label: string; 
   </Row>;
 }
 
+const TONES = { positive: colors.positive, warning: colors.warning, neutral: colors.muted };
+
+/** A money line: what happened on the left, the amount on the right. Refunds, receipts, a payment due. */
+export function EmailAmount({ label, note, amountAUD, tone = "neutral" }: { label: string; note: ReactNode; amountAUD: number; tone?: keyof typeof TONES }) {
+  return <Section style={{ backgroundColor: colors.soft, borderRadius: "10px", padding: "20px 22px", margin: "20px 0 0" }}>
+    <Row>
+      <Column style={{ verticalAlign: "top", paddingRight: "12px" }}>
+        <Text style={{ ...emailStyles.label, color: TONES[tone], marginBottom: "5px" }}>{label}</Text>
+        <Text style={emailStyles.muted}>{note}</Text>
+      </Column>
+      <Column align="right" style={{ verticalAlign: "top", width: "140px" }}>
+        <Text style={{ margin: 0, fontFamily: fontStack, fontSize: "26px", lineHeight: "32px", fontWeight: 500, letterSpacing: "-.6px", color: colors.ink }}>${amountAUD.toFixed(2)}</Text>
+        <Text style={{ ...emailStyles.label, margin: "3px 0 0", fontSize: "9px" }}>AUD</Text>
+      </Column>
+    </Row>
+  </Section>;
+}
+
 export function firstName(name: string) {
   return name.trim().split(/\s+/)[0] || "there";
 }

@@ -1,12 +1,18 @@
 "use server";
 
+import { createElement } from "react";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin, type AdminRole } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { isAdminRole, removeBlocker, roleChangeBlocker, toStaffMember, type RawStaff, type StaffMember } from "@/lib/admin-staff";
 import { recordAudit } from "@/lib/audit";
 import { loadStaff } from "./staff-data";
+import { sendQuietly } from "@/lib/email/once";
+import { siteUrl, teamInbox } from "@/lib/email/links";
+import { getLogoUrl } from "@/lib/email/logo";
+import StaffAccess from "@/lib/email/templates/staff-access";
 
 export type StaffResult = { error?: string; saved?: StaffMember };
 
@@ -67,6 +73,18 @@ export async function addStaff(memberId: string, role: AdminRole): Promise<Staff
     summary: `Gave ${member.full_name?.trim() || login.user.email || "a member"} ${roleLabel(role)} access`,
     meta: { role },
   });
+
+  const to = login.user.email ?? member.email;
+  if (to) {
+    after(() =>
+      sendQuietly("staff access", {
+        to,
+        replyTo: teamInbox(),
+        subject: "You now have staff access to the Inspire9 Hub",
+        react: createElement(StaffAccess, { memberName: member.full_name?.trim() || "there", memberEmail: to, roleLabel: role === "super_admin" ? "Super admin" : "Admin", adminUrl: siteUrl("/admin"), logoDataUrl: getLogoUrl() }),
+      }),
+    );
+  }
 
   refresh();
   return { saved: toStaffMember(data as RawStaff, { exists: true, email: login.user.email }) };

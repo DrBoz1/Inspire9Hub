@@ -4,10 +4,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { stripe } from "@/lib/stripe";
 import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { requireAdmin } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { formatLongDay, formatRange } from "@/lib/admin-dashboard";
 import { recordAudit, stampRow, type AuditActor } from "@/lib/audit";
+import { emailBookingCancelled, emailRefundIssued } from "@/lib/email/booking-notices";
 
 export type BookingActionResult = { success: boolean; error?: string; refunded?: boolean; message?: string };
 
@@ -87,6 +89,11 @@ export async function cancelBookingAsAdmin(bookingId: string): Promise<BookingAc
     meta: { refunded: false },
   });
 
+  after(async () => {
+    const { data: paid } = await createAdminClient().from("payments").select("id").eq("booking_id", bookingId).eq("payment_status", "paid").maybeSingle();
+    await emailBookingCancelled(bookingId, "team", paid ? { kind: "none" } : { kind: "unpaid" });
+  });
+
   revalidateSchedule();
   return { success: true };
 }
@@ -112,10 +119,14 @@ export async function cancelAndRefundBooking(bookingId: string): Promise<Booking
     .maybeSingle();
 
   if (!payment) {
+    after(() => emailBookingCancelled(bookingId, "team", { kind: "unpaid" }));
     await recordAudit({ actor, action: "booking.cancel", entity: "booking", entityId: bookingId, summary: `Cancelled ${description}, nothing had been paid`, meta: { refunded: false } });
     return { success: true, refunded: false, message: "Booking cancelled. There was no payment to refund." };
   }
+  // Owed in full whatever happens next; staff finish it by hand if Stripe can't.
+  const owed = { amountAUD: Number(payment.amount), percent: 100 };
   if (!payment.stripe_payment_intent_id) {
+    after(() => emailBookingCancelled(bookingId, "team", { kind: "pending", ...owed }));
     await recordAudit({ actor, action: "booking.cancel", entity: "booking", entityId: bookingId, summary: `Cancelled ${description}, refund must be issued by hand in Stripe`, meta: { refunded: false, paymentId: payment.id } });
     return { success: true, refunded: false, message: "Booking cancelled. Refund the payment manually in the Stripe Dashboard." };
   }
@@ -125,9 +136,13 @@ export async function cancelAndRefundBooking(bookingId: string): Promise<Booking
     await stripe.refunds.create({ payment_intent: payment.stripe_payment_intent_id }, { idempotencyKey: `admin-full-refund-${payment.id}` });
   } catch (err) {
     console.error("[admin] Stripe refund error:", errorMessage(err));
+    after(() => emailBookingCancelled(bookingId, "team", { kind: "pending", ...owed }));
     await recordAudit({ actor, action: "booking.cancel", entity: "booking", entityId: bookingId, summary: `Cancelled ${description}, but the Stripe refund failed`, meta: { refunded: false, paymentId: payment.id, error: errorMessage(err) } });
     return { success: true, refunded: false, error: `Booking cancelled, but the Stripe refund failed: ${errorMessage(err)}` };
   }
+
+  // The money has gone back whether or not the record below saves.
+  after(() => emailBookingCancelled(bookingId, "team", { kind: "refunded", ...owed }));
 
   const { error: recordError } = await supabase
     .from("payments")
@@ -187,6 +202,8 @@ export async function issueRefund(bookingId: string): Promise<BookingActionResul
     console.error("[refund] Stripe error:", errorMessage(err));
     return { success: false, error: `Stripe refund failed: ${errorMessage(err)}` };
   }
+
+  after(() => emailRefundIssued(bookingId, refundCents / 100, policy.percent));
 
   const { error: recordError } = await supabase
     .from("payments")

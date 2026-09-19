@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
@@ -10,6 +11,8 @@ import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
 import { memberTotal } from "@/lib/billing/discount";
 import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { stampRow } from "@/lib/audit";
+import { emailBookingCancelled } from "@/lib/email/booking-notices";
+import type { CancelRefund } from "@/lib/email/templates/booking-cancelled";
 
 export async function checkRoomAvailability(
   workspaceId: string,
@@ -268,6 +271,9 @@ export async function cancelConfirmedBooking(bookingId: string) {
   // Stamped after the cancel, so the audit columns can never block it.
   await stampRow("bookings", bookingId, { cancelled_at: new Date().toISOString(), cancelled_by: user.id, cancel_reason: `Cancelled by the member, ${policy.label.toLowerCase()}` });
 
+  // What the cancellation email tells them about the money; the branches below fill it in.
+  let refund: CancelRefund = policy.percent > 0 ? { kind: "unpaid" } : { kind: "late" };
+
   // Auto-process Stripe refund if the policy entitles the member to one
   if (policy.percent > 0) {
     const { data: payment } = await adminDb
@@ -292,6 +298,7 @@ export async function cancelConfirmedBooking(bookingId: string) {
           })
           .eq("id", payment.id);
         await stampRow("payments", payment.id, { refunded_at: new Date().toISOString() });
+        refund = { kind: "refunded", amountAUD: refundCents / 100, percent: policy.percent };
       } catch (err) {
         // Refund failed — flag the payment so it surfaces in the admin
         // bookings page, where the Issue Refund button can retry it.
@@ -300,9 +307,12 @@ export async function cancelConfirmedBooking(bookingId: string) {
           .from("payments")
           .update({ payment_status: "refund_failed" })
           .eq("id", payment.id);
+        refund = { kind: "pending", amountAUD: refundCents / 100, percent: policy.percent };
       }
     }
   }
+
+  after(() => emailBookingCancelled(bookingId, "member", refund));
 
   revalidatePath("/bookings");
   revalidatePath("/history");

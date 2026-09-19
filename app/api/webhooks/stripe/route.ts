@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -12,6 +12,7 @@ import { webhookRoute } from "@/lib/billing/events";
 import { recordInvoice, syncSubscription, type SyncOutcome } from "@/lib/billing/sync";
 import { shouldRetryUnresolved } from "@/lib/billing/state";
 import { memberRate } from "@/lib/billing/discount";
+import { deliverBillingNews } from "@/lib/billing/notify";
 
 export const dynamic = "force-dynamic";
 // PDF invoices and the Stripe SDK need Node, not the edge runtime.
@@ -70,6 +71,9 @@ async function billing(event: Stripe.Event, work: () => Promise<SyncOutcome>) {
   try {
     const outcome = await work();
     if (outcome.ok) {
+      // Emails go after Stripe has its answer, so a slow send can never time the event out.
+      const news = outcome.news;
+      if (news) after(() => deliverBillingNews(news, event.type));
       return NextResponse.json({ received: true });
     }
     if (outcome.retry) {

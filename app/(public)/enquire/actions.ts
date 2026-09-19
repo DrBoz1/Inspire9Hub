@@ -2,12 +2,16 @@
 
 import { createElement } from "react";
 import { headers } from "next/headers";
+import { after } from "next/server";
 import { HEARD_VIA, INTERESTS, SOURCES, validateLead, type LeadErrors, type LeadField } from "@/lib/admin-leads";
 import { WindowLimiter, clientKey, looksAutomated } from "@/lib/enquiry-guard";
 import { captureLead } from "@/lib/leads-capture";
 import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import NewLead from "@/lib/email/templates/new-lead";
+import EnquiryReceived from "@/lib/email/templates/enquiry-received";
+import { sendQuietly } from "@/lib/email/once";
+import { teamInbox } from "@/lib/email/links";
 
 /**
  * The public enquiry form. Anyone can call this, signed in or not, so it trusts
@@ -29,6 +33,8 @@ const INBOX = process.env.SUPPORT_INBOX || "hello@inspire9.com";
 const perVisitor = new WindowLimiter(5, 10 * 60_000);
 /** Caps staff email from a flood even when each sender stays under their own limit. Leads still save. */
 const staffAlerts = new WindowLimiter(30, 60 * 60_000);
+/** Caps replies to enquirers the same way: the address is typed by a stranger, so the form must not become a way to send mail. */
+const replies = new WindowLimiter(30, 60 * 60_000);
 
 export async function submitEnquiry(_previous: EnquiryState, form: FormData): Promise<EnquiryState> {
   const now = Date.now();
@@ -81,6 +87,18 @@ export async function submitEnquiry(_previous: EnquiryState, form: FormData): Pr
       // Saved on the board, so nobody misses it. Not saved AND not emailed: say so, rather than pretend.
       if (!saved.saved) return { status: "error", error: "We couldn’t send that just now. Please email hello@inspire9.com and we’ll get straight back to you.", values, attempt: now };
     }
+  }
+
+  // One reply per open enquiry: a repeat from the same address, or a lead that didn't save, gets none.
+  if (saved.saved && !saved.repeat && replies.take("replies", now).ok) {
+    after(() =>
+      sendQuietly("enquiry reply", {
+        to: lead.email,
+        replyTo: teamInbox(),
+        subject: "Thanks for your enquiry, Inspire9",
+        react: createElement(EnquiryReceived, { name: lead.name, email: lead.email, interest: INTERESTS[lead.interest], logoDataUrl: getLogoUrl() }),
+      }),
+    );
   }
 
   // The same answer whether this address had enquired before, so the form can't be used to find out who has.

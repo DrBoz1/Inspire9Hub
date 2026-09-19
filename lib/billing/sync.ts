@@ -2,7 +2,8 @@ import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isTaggedPlan, memberIdFrom, skipNote, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
-import { shouldRetryUnresolved } from "./state";
+import type { BillingNews } from "./notices";
+import { shouldRetryUnresolved, type StripeSubscriptionStatus } from "./state";
 
 /**
  * Stripe to the database. Server only: it writes with the service-role client.
@@ -14,12 +15,15 @@ import { shouldRetryUnresolved } from "./state";
  *   ok             -> 200: applied, or harmlessly nothing to do
  *   retry          -> 500: Stripe should try again (a blip, or checkout still finishing)
  *   give up        -> 200 plus a loud log: retrying can't fix it, a person has to
+ *
+ * A success can carry news: what the subscription or invoice looks like now,
+ * for the membership emails. The webhook sends those after it has replied.
  */
-export type SyncOutcome = { ok: true; detail: string } | { ok: false; retry: boolean; detail: string };
+export type SyncOutcome = { ok: true; detail: string; news?: BillingNews } | { ok: false; retry: boolean; detail: string };
 type EventStamp = { id: string | null; created: number };
 type DbError = { code?: string; message: string } | null;
 
-const ok = (detail: string): SyncOutcome => ({ ok: true, detail });
+const ok = (detail: string, news?: BillingNews): SyncOutcome => (news ? { ok: true, detail, news } : { ok: true, detail });
 const retry = (detail: string): SyncOutcome => ({ ok: false, retry: true, detail });
 const giveUp = (detail: string): SyncOutcome => ({ ok: false, retry: false, detail });
 
@@ -134,7 +138,25 @@ export async function syncSubscription(subscriptionId: string, event: EventStamp
   const { error: linkError } = await db.from("members").update({ stripe_customer_id: row.stripe_customer_id }).eq("id", memberId).is("stripe_customer_id", null);
   if (linkError && linkError.code !== "23505") console.error("[billing] customer link:", linkError.message);
 
-  return ok(written.applied ? `subscription ${sub.id} is ${row.status}` : `subscription ${sub.id}: older event ignored`);
+  // News even when this event was older than one already written: sub is Stripe's
+  // current copy either way, and each email is keyed so it goes out once.
+  const news: BillingNews = {
+    subscription: {
+      stripeSubscriptionId: sub.id,
+      memberId,
+      planId: plan?.id ?? null,
+      status: row.status as StripeSubscriptionStatus,
+      cancelAtPeriodEnd: row.cancel_at_period_end,
+      currentPeriodEnd: row.current_period_end,
+      endedAt: row.ended_at,
+      startedAt: new Date(sub.start_date * 1000).toISOString(),
+      unitAmountCents: row.unit_amount_cents,
+      quantity: row.quantity,
+      billingInterval: row.billing_interval,
+      intervalCount: row.interval_count,
+    },
+  };
+  return ok(written.applied ? `subscription ${sub.id} is ${row.status}` : `subscription ${sub.id}: older event ignored`, news);
 }
 
 /**
@@ -163,7 +185,21 @@ export async function recordInvoice(invoice: Stripe.Invoice, event: EventStamp, 
 
   const written = await writeInOrder("subscription_invoices", "stripe_invoice_id", { ...row, subscription_id: owner.id });
   if ("error" in written) return fromDbError(written.error, `invoice ${row.stripe_invoice_id}`);
-  return ok(written.applied ? `invoice ${row.stripe_invoice_id} is ${row.status}` : `invoice ${row.stripe_invoice_id}: older event ignored`);
+  const news: BillingNews = {
+    invoice: {
+      subscriptionRowId: owner.id as string,
+      stripeInvoiceId: row.stripe_invoice_id,
+      status: row.status,
+      amountPaidCents: row.amount_paid_cents,
+      amountDueCents: row.amount_due_cents,
+      periodStart: row.period_start,
+      periodEnd: row.period_end,
+      hostedInvoiceUrl: row.hosted_invoice_url,
+      number: invoice.number ?? null,
+      nextPaymentAttempt: row.next_payment_attempt,
+    },
+  };
+  return ok(written.applied ? `invoice ${row.stripe_invoice_id} is ${row.status}` : `invoice ${row.stripe_invoice_id}: older event ignored`, news);
 }
 
 export type PlanSync = { error: string } | { saved: number; switchedOff: number; skipped: string[] };
