@@ -18,6 +18,19 @@ export function SyncPlansButton({ sync = syncPlansFromStripe }: { sync?: () => P
           toast.error("Couldn’t sync plans", { description: result.error });
           return;
         }
+        // Nothing on sale is not a success: say what to fix, rather than "Synced 0 plans".
+        if (result.saved === 0) {
+          toast.warning("No plans found in Stripe", {
+            description: [
+              result.skipped[0] ?? "Nothing is tagged for sale yet. In Stripe, add hub_plan_slug to a product’s metadata, and give it a monthly recurring price.",
+              result.switchedOff ? `${result.switchedOff} no longer on sale, switched off.` : null,
+            ]
+              .filter(Boolean)
+              .join(" "),
+          });
+          router.refresh();
+          return;
+        }
         toast.success(`Synced ${result.saved} plan${result.saved === 1 ? "" : "s"} from Stripe`, {
           description: [
             result.switchedOff ? `${result.switchedOff} no longer on sale, switched off.` : null,

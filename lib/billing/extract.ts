@@ -166,23 +166,43 @@ export type PlanRow = {
   booking_discount_percent: number;
 };
 
+const productOf = (price: Stripe.Price): Stripe.Product | null =>
+  typeof price.product === "object" && price.product && !("deleted" in price.product && price.product.deleted) ? (price.product as Stripe.Product) : null;
+
 /**
- * A Stripe Price becomes a plan only if someone tagged it with
+ * A plan tag, read from the Price first and then its Product. Stripe's product
+ * page shows metadata up front while a price's is tucked away, so staff reach
+ * for the product; a tag on one price still wins, for a product sold two ways.
+ */
+function planTag(price: Stripe.Price, key: string): string | undefined {
+  return price.metadata?.[key]?.trim() || productOf(price)?.metadata?.[key]?.trim() || undefined;
+}
+
+/** Whether staff tagged this price, or its product, as a plan to sell on the site. */
+export function isTaggedPlan(price: Stripe.Price): boolean {
+  return Boolean(planTag(price, "hub_plan_slug"));
+}
+
+/**
+ * A Stripe Price becomes a plan only if someone tagged it, or its product, with
  * metadata.hub_plan_slug: that tag is how staff say "sell this on the site",
  * so an unrelated price in the same Stripe account never appears by accident.
+ * Skip reasons are shown to staff, so they name the product and say what to do.
  */
 export function toPlanRow(price: Stripe.Price): Extracted<PlanRow> {
-  const rawSlug = price.metadata?.hub_plan_slug;
-  if (!rawSlug) return { skip: `price ${price.id} has no hub_plan_slug` };
-  const slug = rawSlug.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
-  if (!slug) return { skip: `price ${price.id} has an empty hub_plan_slug` };
-  const cycle = cycleOf(price.recurring);
-  if (!cycle) return { skip: `price ${price.id} isn't a monthly or yearly price` };
-  if (price.unit_amount === null) return { skip: `price ${price.id} has no fixed amount` };
-  const product = typeof price.product === "object" && price.product && !("deleted" in price.product && price.product.deleted) ? (price.product as Stripe.Product) : null;
+  const product = productOf(price);
   if (!product) return { skip: `price ${price.id} came without its product (expand data.product)` };
+  const label = `“${product.name.trim() || price.id}”`;
+  const rawSlug = planTag(price, "hub_plan_slug");
+  if (!rawSlug) return { skip: `${label} has no hub_plan_slug` };
+  const slug = rawSlug.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  if (!slug) return { skip: `${label} has a hub_plan_slug with no letters or numbers in it` };
+  if (!price.recurring) return { skip: `${label} has a one-off price. A membership needs a recurring price: in Stripe, add a monthly recurring price to it and archive the one-off one.` };
+  const cycle = cycleOf(price.recurring);
+  if (!cycle) return { skip: `${label} bills every ${price.recurring.interval}. Plans can be monthly or yearly.` };
+  if (price.unit_amount === null) return { skip: `${label} has no fixed price. Plans need a set amount.` };
 
-  const order = Number(price.metadata?.hub_sort_order);
+  const order = Number(planTag(price, "hub_sort_order"));
   return {
     row: {
       slug,
@@ -196,7 +216,7 @@ export function toPlanRow(price: Stripe.Price): Extracted<PlanRow> {
       active: price.active && product.active,
       sort_order: Number.isFinite(order) ? order : 0,
       // Staff set this in Stripe too, as metadata.hub_booking_discount (a percentage).
-      booking_discount_percent: parseDiscount(price.metadata?.hub_booking_discount),
+      booking_discount_percent: parseDiscount(planTag(price, "hub_booking_discount")),
     },
     warnings: [],
   };

@@ -40,7 +40,7 @@ export function MembershipsView({ data, now }: { data: MembershipsData; now: Dat
           {totals.offPlan > 0 && (
             <p className="admin-insights-note" role="status">
               <Info size={15} aria-hidden />
-              {totals.offPlan} member{totals.offPlan === 1 ? " pays" : "s pay"} through a price that isn’t one of these plans, probably set up by hand in Stripe. Tag that price with hub_plan_slug and sync to include it.
+              {totals.offPlan} member{totals.offPlan === 1 ? " pays" : "s pay"} through a price that isn’t one of these plans, probably set up by hand in Stripe. Tag its product with hub_plan_slug and sync to include it.
             </p>
           )}
 
@@ -51,7 +51,7 @@ export function MembershipsView({ data, now }: { data: MembershipsData; now: Dat
               rowKey={(r) => r.plan.id}
               empty={
                 <AdminEmpty icon={<CreditCard size={18} />} title="No plans yet">
-                  In Stripe, give a product a monthly or yearly price, and add the metadata key hub_plan_slug to that price (for example resident). Then press Sync from Stripe.
+                  In Stripe, give a product a recurring monthly or yearly price, and add the metadata key hub_plan_slug to the product (for example resident). Then press Sync from Stripe.
                 </AdminEmpty>
               }
               columns={[

@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { memberIdFrom, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
+import { isTaggedPlan, memberIdFrom, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
 import { shouldRetryUnresolved } from "./state";
 
 /**
@@ -169,7 +169,9 @@ export async function recordInvoice(invoice: Stripe.Invoice, event: EventStamp, 
 export type PlanSync = { error: string } | { saved: number; switchedOff: number; skipped: string[] };
 
 /**
- * Copies the Prices tagged with metadata.hub_plan_slug into plans. Prices are
+ * Copies the Prices tagged with metadata.hub_plan_slug (on the price or its
+ * product) into plans. Untagged prices are none of the site's business and are
+ * passed over without comment; tagged ones that can't be sold say why. Prices are
  * written only in Stripe; this makes the site match. A plan whose price has been
  * archived is switched off first, so its replacement can take over the slug.
  */
@@ -178,7 +180,7 @@ export async function syncPlans(): Promise<PlanSync> {
   const skipped: string[] = [];
   try {
     for await (const price of stripe.prices.list({ limit: 100, expand: ["data.product"] })) {
-      if (!price.metadata?.hub_plan_slug) continue;
+      if (!isTaggedPlan(price)) continue;
       const extracted = toPlanRow(price);
       if ("skip" in extracted) skipped.push(extracted.skip);
       else rows.push(extracted.row);
@@ -190,7 +192,7 @@ export async function syncPlans(): Promise<PlanSync> {
   const onSale = rows.filter((r) => r.active);
   const slugs = onSale.map((r) => r.slug);
   const doubled = slugs.filter((s, i) => slugs.indexOf(s) !== i);
-  if (doubled.length) return { error: `More than one active price is tagged “${doubled[0]}”. Archive the old one in Stripe, then sync again.` };
+  if (doubled.length) return { error: `More than one active price is tagged “${doubled[0]}”, on the prices or their product. Archive the old one in Stripe, or give each price its own hub_plan_slug, then sync again.` };
 
   const db = createAdminClient();
   const now = new Date().toISOString();

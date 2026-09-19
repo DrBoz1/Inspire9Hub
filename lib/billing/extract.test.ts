@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type Stripe from "stripe";
-import { memberIdFrom, servicePeriod, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
+import { isTaggedPlan, memberIdFrom, servicePeriod, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
 
 const EVENT = { id: "evt_1", created: 1_790_000_000 };
 const MEMBER = "3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e";
@@ -153,8 +153,9 @@ describe("plans", () => {
 
   it("ignores prices nobody tagged for sale, and ones it can't sell", () => {
     expect(toPlanRow(price({ metadata: {} }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/no hub_plan_slug/) });
-    expect(toPlanRow(price({ recurring: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/monthly or yearly/) });
-    expect(toPlanRow(price({ unit_amount: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/fixed amount/) });
+    expect(toPlanRow(price({ recurring: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/one-off price/) });
+    expect(toPlanRow(price({ recurring: { interval: "week", interval_count: 1 } }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/monthly or yearly/) });
+    expect(toPlanRow(price({ unit_amount: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/no fixed price/) });
     expect(toPlanRow(price({ product: "prod_1" }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/expand/) });
   });
 
@@ -163,6 +164,31 @@ describe("plans", () => {
     expect("row" in r && r.row.booking_discount_percent).toBe(20);
     const silly = toPlanRow(price({ metadata: { hub_plan_slug: "resident", hub_booking_discount: "all of it" } }) as unknown as Stripe.Price);
     expect("row" in silly && silly.row.booking_discount_percent).toBe(0);
+  });
+
+  it("reads the tags from the product when the price has none", () => {
+    const tagged = { id: "prod_1", name: "Resident desk", description: null, active: true, metadata: { hub_plan_slug: "resident", hub_booking_discount: "20", hub_sort_order: "2" } };
+    const r = toPlanRow(price({ metadata: {}, product: tagged }) as unknown as Stripe.Price);
+    expect("row" in r && [r.row.slug, r.row.booking_discount_percent, r.row.sort_order]).toEqual(["resident", 20, 2]);
+    expect(isTaggedPlan(price({ metadata: {}, product: tagged }) as unknown as Stripe.Price)).toBe(true);
+  });
+
+  it("lets a tag on the price beat the one on its product", () => {
+    const tagged = { id: "prod_1", name: "Resident desk", description: null, active: true, metadata: { hub_plan_slug: "resident", hub_booking_discount: "20" } };
+    const r = toPlanRow(price({ metadata: { hub_plan_slug: "resident-yearly", hub_booking_discount: "25" }, product: tagged }) as unknown as Stripe.Price);
+    expect("row" in r && [r.row.slug, r.row.booking_discount_percent]).toEqual(["resident-yearly", 25]);
+  });
+
+  it("says, by product name, why a tagged one-off price can't be a plan", () => {
+    const tagged = { id: "prod_1", name: "Resident desk", description: null, active: true, metadata: { hub_plan_slug: "resident" } };
+    const r = toPlanRow(price({ metadata: {}, recurring: null, product: tagged }) as unknown as Stripe.Price);
+    expect(r).toMatchObject({ skip: expect.stringMatching(/^“Resident desk” has a one-off price\. .*recurring/) });
+  });
+
+  it("leaves untagged prices out without a word", () => {
+    expect(isTaggedPlan(price({ metadata: {} }) as unknown as Stripe.Price)).toBe(false);
+    expect(isTaggedPlan(price({ metadata: { hub_plan_slug: "  " } }) as unknown as Stripe.Price)).toBe(false);
+    expect(isTaggedPlan(price({ metadata: {}, product: "prod_1" }) as unknown as Stripe.Price)).toBe(false);
   });
 
   it("switches a plan off when its price or product has been archived", () => {
