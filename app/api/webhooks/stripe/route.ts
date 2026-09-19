@@ -6,6 +6,7 @@ import { sendEmail } from "@/lib/email/send";
 import BookingConfirmation from "@/lib/email/templates/booking-confirmation";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
 import { getLogoUrl, getLogoDataUrl } from "@/lib/email/logo";
+import { hubDateKey, hubIssueDate, hubLongDay, hubShortDay, hubTime } from "@/lib/email/format";
 import { createElement } from "react";
 import { webhookRoute } from "@/lib/billing/events";
 import { recordInvoice, syncSubscription, type SyncOutcome } from "@/lib/billing/sync";
@@ -217,19 +218,14 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     .eq("id", workspaceId)
     .single();
 
-  const bookingDate = new Date(startTime).toLocaleDateString("en-AU", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
+  const bookingDate = hubShortDay(startTime);
 
   // 5. Community entry (Recent Activity on dashboard)
   const { error: entryError } = await supabase.from("community_entries").insert({
     member_id: userId,
     entry_type: "Room Booking",
     entry_description: `Booked ${workspace?.name ?? "a room"} for ${bookingDate}.`,
-    entry_date: new Date(startTime).toISOString().split("T")[0],
+    entry_date: hubDateKey(startTime),
     tags: "Approved",
   });
   if (entryError)
@@ -254,27 +250,11 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       const memberDiscount = Number(session.metadata?.discountPercent ?? 0);
       const hourlyRate = memberDiscount > 0 && workspace ? memberRate(Number(workspace.price_per_hour), memberDiscount) : (workspace?.price_per_hour ?? amount / durationHours);
 
-      const bookingDateFormatted = start.toLocaleDateString("en-AU", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
-      const startTimeFormatted = start.toLocaleTimeString("en-AU", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-      const endTimeFormatted = end.toLocaleTimeString("en-AU", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      });
-      const invoiceDate = new Date().toLocaleDateString("en-AU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      });
+      // Melbourne time whatever the server's clock is (Vercel's is UTC).
+      const bookingDateFormatted = hubLongDay(start);
+      const startTimeFormatted = hubTime(start);
+      const endTimeFormatted = hubTime(end);
+      const invoiceDate = hubIssueDate(new Date());
 
       // Short booking reference shown to the user
       const shortRef = `INV-${confirmedBooking?.id?.slice(0, 8).toUpperCase()}`;

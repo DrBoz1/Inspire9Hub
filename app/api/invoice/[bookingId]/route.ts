@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
 import { getLogoDataUrl } from "@/lib/email/logo";
+import { hubIssueDate, hubLongDay, hubTime } from "@/lib/email/format";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // fs module needed for the logo, same as the webhook's PDF path
@@ -68,33 +69,19 @@ export async function GET(
   try {
     const pdfBuffer = await generateInvoicePDF({
       bookingRef: shortRef,
-      invoiceDate: invoiceDateSource.toLocaleDateString("en-AU", {
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
+      invoiceDate: hubIssueDate(invoiceDateSource),
       memberName: member?.full_name ?? "Member",
       memberEmail: member?.email ?? user.email ?? "",
       roomName: workspace?.name ?? "Meeting Room",
       location: "Inspire9 Hub · Richmond",
-      bookingDate: start.toLocaleDateString("en-AU", {
-        weekday: "long",
-        year: "numeric",
-        month: "long",
-        day: "numeric",
-      }),
-      startTime: start.toLocaleTimeString("en-AU", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
-      endTime: end.toLocaleTimeString("en-AU", {
-        hour: "numeric",
-        minute: "2-digit",
-        hour12: true,
-      }),
+      // Melbourne time whatever the server's clock is (Vercel's is UTC).
+      bookingDate: hubLongDay(start),
+      startTime: hubTime(start),
+      endTime: hubTime(end),
       durationHours,
-      hourlyRate: workspace?.price_per_hour ?? 0,
+      // The rate actually paid, not today's price: a member rate or a price
+      // changed since would otherwise not add up to the total.
+      hourlyRate: payment?.amount && durationHours > 0 ? totalAUD / durationHours : (workspace?.price_per_hour ?? 0),
       totalAUD,
       logoDataUrl: getLogoDataUrl(),
     });
