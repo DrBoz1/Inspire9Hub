@@ -1,7 +1,7 @@
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isTaggedPlan, memberIdFrom, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
+import { isTaggedPlan, memberIdFrom, skipNote, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
 import { shouldRetryUnresolved } from "./state";
 
 /**
@@ -177,12 +177,12 @@ export type PlanSync = { error: string } | { saved: number; switchedOff: number;
  */
 export async function syncPlans(): Promise<PlanSync> {
   const rows = [];
-  const skipped: string[] = [];
+  const skips: { price: Stripe.Price; reason: string }[] = [];
   try {
     for await (const price of stripe.prices.list({ limit: 100, expand: ["data.product"] })) {
       if (!isTaggedPlan(price)) continue;
       const extracted = toPlanRow(price);
-      if ("skip" in extracted) skipped.push(extracted.skip);
+      if ("skip" in extracted) skips.push({ price, reason: extracted.skip });
       else rows.push(extracted.row);
     }
   } catch (err) {
@@ -190,6 +190,7 @@ export async function syncPlans(): Promise<PlanSync> {
   }
 
   const onSale = rows.filter((r) => r.active);
+  const skipped = skips.map((s) => skipNote(s.price, s.reason, onSale)).filter((note): note is string => note !== null);
   const slugs = onSale.map((r) => r.slug);
   const doubled = slugs.filter((s, i) => slugs.indexOf(s) !== i);
   if (doubled.length) return { error: `More than one active price is tagged “${doubled[0]}”, on the prices or their product. Archive the old one in Stripe, or give each price its own hub_plan_slug, then sync again.` };

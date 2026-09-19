@@ -221,3 +221,19 @@ export function toPlanRow(price: Stripe.Price): Extracted<PlanRow> {
     warnings: [],
   };
 }
+
+/**
+ * What staff are told about a tagged price that couldn't become a plan, or null
+ * when there's nothing to say. Stripe lists archived prices too, and those are
+ * history rather than a problem: without this, archiving a price would never
+ * clear the note about it. A one-off price sitting beside a plan the product
+ * already sells only needs archiving, so that's all the note asks for.
+ */
+export function skipNote(price: Stripe.Price, reason: string, onSale: Pick<PlanRow, "stripe_product_id">[]): string | null {
+  const product = productOf(price);
+  if (!price.active || product?.active === false) return null;
+  if (!price.recurring && product && onSale.some((plan) => plan.stripe_product_id === product.id)) {
+    return `“${product.name.trim() || price.id}” also has a one-off price, which a plan can’t use. Archive it in Stripe to clear this note.`;
+  }
+  return reason;
+}

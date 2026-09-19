@@ -34,7 +34,7 @@ export function SyncPlansButton({ sync = syncPlansFromStripe }: { sync?: () => P
         toast.success(`Synced ${result.saved} plan${result.saved === 1 ? "" : "s"} from Stripe`, {
           description: [
             result.switchedOff ? `${result.switchedOff} no longer on sale, switched off.` : null,
-            result.skipped.length ? `${result.skipped.length} tagged price${result.skipped.length === 1 ? " was" : "s were"} skipped: ${result.skipped[0]}` : null,
+            result.skipped.length ? `${result.skipped[0]}${result.skipped.length > 1 ? ` ${result.skipped.length - 1} more price${result.skipped.length === 2 ? " was" : "s were"} skipped too.` : ""}` : null,
           ]
             .filter(Boolean)
             .join(" ") || undefined,

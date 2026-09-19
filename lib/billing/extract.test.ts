@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type Stripe from "stripe";
-import { isTaggedPlan, memberIdFrom, servicePeriod, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
+import { isTaggedPlan, memberIdFrom, servicePeriod, skipNote, toInvoiceRow, toPlanRow, toSubscriptionRow } from "./extract";
 
 const EVENT = { id: "evt_1", created: 1_790_000_000 };
 const MEMBER = "3f2b8c1e-4d5a-4b6c-8d7e-9f0a1b2c3d4e";
@@ -189,6 +189,21 @@ describe("plans", () => {
     expect(isTaggedPlan(price({ metadata: {} }) as unknown as Stripe.Price)).toBe(false);
     expect(isTaggedPlan(price({ metadata: { hub_plan_slug: "  " } }) as unknown as Stripe.Price)).toBe(false);
     expect(isTaggedPlan(price({ metadata: {}, product: "prod_1" }) as unknown as Stripe.Price)).toBe(false);
+  });
+
+  it("asks only for the archive when the product already sells a plan", () => {
+    const tagged = { id: "prod_1", name: "Resident desk", description: null, active: true, metadata: { hub_plan_slug: "resident" } };
+    const oneOff = price({ id: "price_once", metadata: {}, recurring: null, product: tagged }) as unknown as Stripe.Price;
+    const reason = "fallback reason";
+    expect(skipNote(oneOff, reason, [{ stripe_product_id: "prod_1" }])).toMatch(/^“Resident desk” also has a one-off price.*Archive it in Stripe/);
+    expect(skipNote(oneOff, reason, [{ stripe_product_id: "prod_other" }])).toBe(reason);
+    expect(skipNote(oneOff, reason, [])).toBe(reason);
+  });
+
+  it("stays quiet about archived prices, so archiving one clears its note", () => {
+    const tagged = { id: "prod_1", name: "Resident desk", description: null, active: true, metadata: { hub_plan_slug: "resident" } };
+    expect(skipNote(price({ active: false, metadata: {}, recurring: null, product: tagged }) as unknown as Stripe.Price, "r", [])).toBeNull();
+    expect(skipNote(price({ metadata: {}, recurring: null, product: { ...tagged, active: false } }) as unknown as Stripe.Price, "r", [])).toBeNull();
   });
 
   it("switches a plan off when its price or product has been archived", () => {
