@@ -17,6 +17,9 @@ const FILES = [
   "app/(public)/enquire.css",
   "app/(admin)/admin.css",
   "features/booking-map/floorplan.css",
+  // Emails and the PDF invoice are the hub too: they had drifted to olive and cream.
+  "lib/email/components/email-layout.tsx",
+  "lib/email/pdf/booking-invoice.tsx",
 ];
 // #276b45 is the success green darkened so 9px badge text stays readable on its tint.
 const SEMANTIC_GREENS = new Set(["#2f7d52", "#276b45", "#6fcf97"]);
