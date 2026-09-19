@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowLeft, MailCheck } from "lucide-react";
 import { sendPasswordReset } from "../actions";
 import { AuthAlert } from "../AuthAlert";
+import { safeNotice } from "@/lib/auth-notices";
 import { SubmitButton, TextField } from "../AuthUi";
 
 export const metadata: Metadata = { title: "Reset your password | Inspire9 Hub" };
@@ -37,7 +38,7 @@ export default async function ForgotPasswordPage(props: { searchParams: SearchPa
         <h1>Forgot your password<span className="auth-red">?</span></h1>
         <p>Enter the email you signed up with and we&apos;ll send you a link to set a new one.</p>
       </header>
-      {error && <div className="auth-notices"><AuthAlert type="error" message={error} /></div>}
+      {error && <div className="auth-notices"><AuthAlert type="error" message={safeNotice(error)!} /></div>}
       <form action={sendPasswordReset} className="auth-form">
         <TextField id="reset-email" name="email" type="email" label="Email" icon="mail" autoComplete="email" placeholder="you@company.com" required />
         <SubmitButton pendingLabel="Sending your link…">Send reset link</SubmitButton>

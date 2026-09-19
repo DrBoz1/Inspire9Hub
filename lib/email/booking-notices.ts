@@ -3,7 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { hubLongDay, hubTime } from "./format";
 import { siteUrl, teamInbox } from "./links";
 import { getLogoUrl } from "./logo";
-import { sendQuietly } from "./once";
+import { sendOnce, sendQuietly } from "./once";
 import BookingCancelled, { type CancelRefund } from "./templates/booking-cancelled";
 import RefundIssued from "./templates/refund-issued";
 
@@ -54,6 +54,34 @@ export async function emailBookingCancelled(bookingId: string, cancelledBy: "mem
       endTime: hubTime(booking.end),
       cancelledBy,
       refund,
+      bookingsUrl: siteUrl("/bookings"),
+      logoDataUrl: getLogoUrl(),
+    }),
+  });
+}
+
+/**
+ * Payment went through for a slot another member had just taken, so it was
+ * refunded in full. Sent once per checkout: Stripe may deliver the event twice.
+ */
+export async function emailSlotTaken(bookingId: string, amountAUD: number, checkoutSessionId: string) {
+  const booking = await bookingFacts(bookingId);
+  if (!booking) return;
+  const bookingDate = hubLongDay(booking.start);
+  await sendOnce(`booking.slot_taken:${checkoutSessionId}`, "booking.slot_taken", {
+    to: booking.memberEmail,
+    replyTo: teamInbox(),
+    subject: `We couldn’t hold ${booking.roomName} for you, refunded in full`,
+    react: createElement(BookingCancelled, {
+      memberName: booking.memberName,
+      memberEmail: booking.memberEmail,
+      roomName: booking.roomName,
+      bookingDate,
+      startTime: hubTime(booking.start),
+      endTime: hubTime(booking.end),
+      cancelledBy: "team",
+      refund: { kind: "refunded", amountAUD, percent: 100 },
+      reason: "someone else booked this room in the moments before your payment went through, so we couldn’t confirm it. We’ve refunded you in full; sorry about that.",
       bookingsUrl: siteUrl("/bookings"),
       logoDataUrl: getLogoUrl(),
     }),

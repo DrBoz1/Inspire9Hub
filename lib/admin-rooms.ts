@@ -108,3 +108,18 @@ export function checkImage(file: { type: string; size: number }) {
   if (file.size > MAX_IMAGE_BYTES) return "The photo must be smaller than 5MB.";
   return null;
 }
+
+/**
+ * Whether the file really is the image it says it is. The type comes from the
+ * browser and can say anything; the first few bytes of a PNG, JPEG, GIF or WEBP
+ * can't. The photo is stored in a public bucket, so it should be an image.
+ */
+export function looksLikeImage(bytes: Uint8Array, type: string): boolean {
+  const starts = (...sig: number[]) => sig.every((b, i) => bytes[i] === b);
+  const text = (at: number, s: string) => [...s].every((c, i) => bytes[at + i] === c.charCodeAt(0));
+  if (type === "image/png") return starts(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+  if (type === "image/jpeg") return starts(0xff, 0xd8, 0xff);
+  if (type === "image/gif") return text(0, "GIF87a") || text(0, "GIF89a");
+  if (type === "image/webp") return text(0, "RIFF") && text(8, "WEBP");
+  return false;
+}

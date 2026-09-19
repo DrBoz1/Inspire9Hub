@@ -8,6 +8,11 @@ import { summarizePayments } from "@/lib/member-stats";
 import { createElement } from "react";
 import { validateLead } from "@/lib/admin-leads";
 import { captureLead } from "@/lib/leads-capture";
+import { WindowLimiter } from "@/lib/enquiry-guard";
+
+// Each message emails the team, so one member can send a handful every ten minutes.
+// Held per server instance: see WindowLimiter for what that does and doesn't stop.
+const perMember = new WindowLimiter(5, 10 * 60_000);
 
 const VALID_TOPICS = [
   "Booking Issue",
@@ -32,6 +37,13 @@ export async function sendSupportRequest(formData: FormData) {
     return { error: "Tell us a little more — at least 10 characters." };
   if (message.length > 2000)
     return { error: "Message is too long (max 2000 characters)." };
+
+  // Counted after the checks above, so fixing a typo doesn't use up an attempt.
+  const allowed = perMember.take(user.id, Date.now());
+  if (!allowed.ok) {
+    const minutes = Math.max(1, Math.ceil(allowed.retryAfterMs / 60_000));
+    return { error: `That's a few messages in a row. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}, or email hello@inspire9.com.` };
+  }
 
   const { data: member } = await supabase
     .from("members")

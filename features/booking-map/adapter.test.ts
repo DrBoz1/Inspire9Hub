@@ -13,6 +13,7 @@ import {
   type WorkspaceRow,
 } from './adapter';
 import { SPACES } from './data/spaces';
+import { MIN_MINUTES } from '@/lib/booking-rules';
 import { availabilityOf, bookingsOnDay } from './booking/time';
 
 const MEL = 'Australia/Melbourne';
@@ -306,8 +307,9 @@ describe('booking from the map', () => {
   });
 
   it('matches the minimum the checkout server action actually enforces', () => {
+    // The checkout enforces lib/booking-rules; the map has to agree with it.
     const src = readFileSync(join(import.meta.dirname, '../../app/(dashboard)/bookings/actions.ts'), 'utf8');
-    expect(src).toContain('endMs - startMs < 3600000');
-    expect(SERVER_MIN_MINUTES * 60_000).toBe(3600000);
+    expect(src).toContain('checkBookingWindow(');
+    expect(SERVER_MIN_MINUTES).toBe(MIN_MINUTES);
   });
 });

@@ -23,11 +23,13 @@ export type BookingCancelledProps = {
   endTime: string;
   cancelledBy: "member" | "team";
   refund: CancelRefund;
+  /** Replaces the opening line when the usual two don't fit, as when a slot was taken mid-payment. */
+  reason?: string;
   bookingsUrl: string;
   logoDataUrl?: string;
 };
 
-export default function BookingCancelled({ memberName, memberEmail, roomName, bookingDate, startTime, endTime, cancelledBy, refund, bookingsUrl, logoDataUrl }: BookingCancelledProps) {
+export default function BookingCancelled({ memberName, memberEmail, roomName, bookingDate, startTime, endTime, cancelledBy, refund, reason, bookingsUrl, logoDataUrl }: BookingCancelledProps) {
   const byTeam = cancelledBy === "team";
   return <EmailLayout
     preview={`Cancelled: ${roomName}, ${bookingDate}.`}
@@ -37,9 +39,11 @@ export default function BookingCancelled({ memberName, memberEmail, roomName, bo
     recipient={memberEmail}
   >
     <Text style={emailStyles.body}>
-      {byTeam
-        ? <>Hi {firstName(memberName)}, the Inspire9 team has cancelled the booking below. We’re sorry for the change of plans.</>
-        : <>Hi {firstName(memberName)}, we’ve cancelled your booking as you asked, so the room is free for someone else.</>}
+      {reason
+        ? <>Hi {firstName(memberName)}, {reason}</>
+        : byTeam
+          ? <>Hi {firstName(memberName)}, the Inspire9 team has cancelled the booking below. We’re sorry for the change of plans.</>
+          : <>Hi {firstName(memberName)}, we’ve cancelled your booking as you asked, so the room is free for someone else.</>}
     </Text>
     <EmailDetail label="Room">{roomName}</EmailDetail>
     <EmailDetail label="Date">{bookingDate}</EmailDetail>

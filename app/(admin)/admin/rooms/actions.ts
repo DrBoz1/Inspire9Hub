@@ -4,7 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { requireAdmin } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
-import { IMAGE_TYPES, checkImage, cleanAmenities, parsePrice } from "@/lib/admin-rooms";
+import { IMAGE_TYPES, checkImage, cleanAmenities, looksLikeImage, parsePrice } from "@/lib/admin-rooms";
 import { recordAudit } from "@/lib/audit";
 
 export type RoomSaveResult = {
@@ -60,6 +60,7 @@ export async function updateRoomDetails(formData: FormData): Promise<RoomSaveRes
 
     const path = `${roomId}-${Date.now()}.${IMAGE_TYPES[file.type]}`;
     const buffer = Buffer.from(await file.arrayBuffer());
+    if (!looksLikeImage(buffer, file.type)) return { error: "That file isn't a real PNG, JPEG, WEBP or GIF image." };
     const { error: uploadError } = await adminDb.storage
       .from("room-images")
       .upload(path, buffer, { contentType: file.type, upsert: true });

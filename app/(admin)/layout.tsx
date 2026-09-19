@@ -29,6 +29,11 @@ export default async function AdminLayout({ children }: { children: React.ReactN
     createAdminClient().from("leads").select("id", { count: "exact", head: true }).eq("stage", "new"),
   ]);
 
+  // The proxy already turns non-staff away; this is the second lock. Admin pages
+  // load member data with the service-role client, so if the proxy were ever
+  // bypassed or misconfigured, nothing here should render for a member.
+  if (admin?.role !== "admin" && admin?.role !== "super_admin") redirect("/dashboard");
+
   return (
     <TooltipProvider>
       <SidebarProvider style={{ "--sidebar-width": "15rem", "--sidebar-width-icon": "3.5rem" } as React.CSSProperties}>

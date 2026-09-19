@@ -18,38 +18,9 @@ import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import InductionSubmitted from "@/lib/email/templates/induction-submitted";
 import { createElement } from "react";
+import { friendlyAccountError, friendlyLoginError, friendlySignupError, NOTICES } from "@/lib/auth-notices";
 
-// ── Friendly error helpers ────────────────────────────────────────────────────
-
-function friendlyLoginError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("invalid login credentials") || m.includes("invalid credentials"))
-    return "Incorrect email or password. Double-check your details or reset your password below.";
-  if (m.includes("email not confirmed"))
-    return "Your email isn't verified yet. Check your inbox for a confirmation link.";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "Too many sign-in attempts. Please wait a few minutes and try again.";
-  if (m.includes("user not found") || m.includes("no user found"))
-    return "No account found with that email. Did you mean to sign up?";
-  if (m.includes("network") || m.includes("fetch"))
-    return "Connection issue. Check your internet and try again.";
-  return "Sign in failed. Please try again or contact support.";
-}
-
-function friendlySignupError(message: string): string {
-  const m = message.toLowerCase();
-  if (m.includes("already registered") || m.includes("already exists") || m.includes("user already"))
-    return "An account with this email already exists. Try signing in instead.";
-  if (m.includes("password") && (m.includes("weak") || m.includes("short")))
-    return "Password is too weak. Use at least 8 characters with a mix of letters and numbers.";
-  if (m.includes("invalid email") || (m.includes("email") && m.includes("invalid")))
-    return "Please enter a valid email address.";
-  if (m.includes("rate limit") || m.includes("too many"))
-    return "Too many attempts. Please wait a few minutes before trying again.";
-  if (m.includes("network") || m.includes("fetch"))
-    return "Connection issue. Check your internet and try again.";
-  return message; // Supabase signup messages are usually user-safe as-is
-}
+const to = (path: string, key: "error" | "message", text: string) => `${path}?${key}=${encodeURIComponent(text)}`;
 
 export async function logout() {
   const supabase = await createClient();
@@ -90,8 +61,7 @@ export async function login(formData: FormData) {
     });
 
   if (authError || !authData.user) {
-    const msg = friendlyLoginError(authError?.message ?? "");
-    return redirect(`/login?error=${encodeURIComponent(msg)}`);
+    return redirect(to("/login", "error", friendlyLoginError(authError?.message ?? "")));
   }
 
   const { data: adminRecord } = await supabase
@@ -108,27 +78,24 @@ export async function login(formData: FormData) {
 }
 
 export async function signUp(formData: FormData) {
-  const supabase = await createClient();
-  const data = {
-    email: formData.get("email") as string,
-    password: formData.get("password") as string,
-    options: {
-      data: { full_name: formData.get("name") as string },
-    },
-  };
+  // Checked here as well as in the browser: this is a public endpoint.
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!name || name.length > 100) return redirect(to("/signup", "error", NOTICES.badName));
+  if (email.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return redirect(to("/signup", "error", NOTICES.badEmail));
+  if (password.length < 8 || password.length > 128) return redirect(to("/signup", "error", NOTICES.shortPassword));
 
-  const { error } = await supabase.auth.signUp(data);
-  if (error) {
-    const msg = friendlySignupError(error.message);
-    return redirect(`/signup?error=${encodeURIComponent(msg)}`);
-  }
-  return redirect("/login?message=Account created! Check your email to confirm before signing in.");
+  const supabase = await createClient();
+  const { error } = await supabase.auth.signUp({ email, password, options: { data: { full_name: name } } });
+  if (error) return redirect(to("/signup", "error", friendlySignupError(error.message)));
+  return redirect(to("/login", "message", NOTICES.created));
 }
 
 export async function sendPasswordReset(formData: FormData) {
   const email = (formData.get("email") as string)?.trim();
   if (!email)
-    return redirect("/forgot-password?error=Please enter your email address.");
+    return redirect(to("/forgot-password", "error", NOTICES.noEmail));
 
   const supabase = await createClient();
   await supabase.auth.resetPasswordForEmail(email, {
@@ -144,24 +111,17 @@ export async function updatePassword(formData: FormData) {
   const confirm = formData.get("confirm_password") as string;
 
   if (!password || password.length < 8)
-    return redirect(
-      "/reset-password?error=Password must be at least 8 characters.",
-    );
+    return redirect(to("/reset-password", "error", NOTICES.shortPassword));
   if (password !== confirm)
-    return redirect("/reset-password?error=Passwords do not match.");
+    return redirect(to("/reset-password", "error", NOTICES.mismatch));
 
   const supabase = await createClient();
   const { error } = await supabase.auth.updateUser({ password });
 
-  if (error)
-    return redirect(
-      `/reset-password?error=${encodeURIComponent(error.message)}`,
-    );
+  if (error) return redirect(to("/reset-password", "error", friendlyAccountError(error.message)));
 
   await supabase.auth.signOut();
-  return redirect(
-    "/login?message=Password updated successfully. Please sign in.",
-  );
+  return redirect(to("/login", "message", NOTICES.passwordUpdated));
 }
 
 export async function submitInduction(_prev: FormState, formData: FormData): Promise<FormState> {

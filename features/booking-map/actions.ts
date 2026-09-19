@@ -7,6 +7,7 @@ import { dayBoundsUtc, isDateKey } from './zoned-time';
 import { unstable_rethrow } from 'next/navigation';
 import { createCheckoutSession } from '@/app/(dashboard)/bookings/actions';
 import { buildCheckout, parseBookRequest, type DayBookingRow } from './adapter';
+import { staleHoldCutoff } from '@/lib/booking-rules';
 
 export type DayResult =
   | { ok: true; day: string; rows: DayBookingRow[] }
@@ -44,6 +45,9 @@ export async function getMapDay(day: string): Promise<DayResult> {
     // The same two statuses the bookings_no_overlap constraint treats as occupying
     // a room. Cancelled bookings free their slot.
     .in('booking_status', ['confirmed', 'pending'])
+    // A hold older than any checkout can last is left over; the next checkout for
+    // that slot releases it, so it isn't shown as taken (see lib/booking-rules.ts).
+    .or(`booking_status.eq.confirmed,created_at.gte.${staleHoldCutoff(new Date())}`)
     // Overlap, not containment: a booking that started yesterday and runs into
     // today still occupies today.
     .lt('start_date_time', new Date(end).toISOString())

@@ -1,6 +1,7 @@
+import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireAdmin } from "@/lib/admin-guard";
 import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import ReviewReminder from "@/lib/email/templates/review-reminder";
@@ -148,7 +149,7 @@ export async function GET(request: NextRequest) {
   const cronSecret = process.env.CRON_SECRET;
   const authHeader = request.headers.get("authorization");
 
-  if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret || !sameSecret(authHeader, `Bearer ${cronSecret}`)) {
     console.warn("[review-reminder] Unauthorized GET attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -158,53 +159,23 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(result);
 }
 
-// ── POST — Manual admin trigger ──────────────────────────────────────────────
+// ── POST: an admin sends them now, from the Members page ────────────────────
+// Staff only, like every admin action. The old ?reset=true testing helper is
+// gone: it cleared every cooldown, so any admin could email every member again
+// and again.
 export async function POST(request: NextRequest) {
-  // Validate admin session
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const guard = await requireAdmin();
+  if ("error" in guard) return NextResponse.json({ error: guard.error }, { status: 403 });
 
-  if (!user) {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
-  }
-
-  const { data: admin } = await supabase
-    .from("admins")
-    .select("role")
-    .eq("id", user.id)
-    .single();
-
-  if (!admin) {
-    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
-  }
-
-  const { searchParams } = new URL(request.url);
-  const dryRun = searchParams.get("dryRun") === "true";
-  const resetCooldowns = searchParams.get("reset") === "true";
-
-  // Dev/demo helper — wipes all review_reminder cooldown records so everyone is eligible again
-  if (resetCooldowns) {
-    const adminDb = createAdminClient();
-    const { error } = await adminDb
-      .from("notifications")
-      .delete()
-      .eq("type", "review_reminder");
-    console.log("[review-reminder] Cooldowns reset by admin:", user.id);
-    return NextResponse.json({
-      reset: true,
-      error: error?.message ?? null,
-      message: error
-        ? `Reset failed: ${error.message}`
-        : "All review reminder cooldowns cleared. Everyone is eligible for the next send.",
-    });
-  }
-
-  console.log(
-    `[review-reminder] Manual trigger by admin ${user.id} (dryRun=${dryRun})`,
-  );
-
+  const dryRun = new URL(request.url).searchParams.get("dryRun") === "true";
   const result = await runReviewReminders(dryRun);
   return NextResponse.json(result);
+}
+
+/** Compares without leaking, through timing, how much of a guess was right. */
+function sameSecret(given: string | null, expected: string): boolean {
+  if (!given) return false;
+  const a = Buffer.from(given);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { AuthAlert } from "../AuthAlert";
+import { safeNotice } from "@/lib/auth-notices";
 import { ResetPasswordForm } from "./ResetPasswordForm";
 
 export const metadata: Metadata = { title: "Set a new password | Inspire9 Hub" };
@@ -23,7 +24,7 @@ export default async function ResetPasswordPage(props: { searchParams: SearchPar
         <h1>{fromProfile ? "Change your password" : "Set a new password"}<span className="auth-red">.</span></h1>
         <p>Pick one you don&apos;t use anywhere else. You&apos;ll sign in again once it&apos;s saved.</p>
       </header>
-      {error && <div className="auth-notices"><AuthAlert type="error" message={error} /></div>}
+      {error && <div className="auth-notices"><AuthAlert type="error" message={safeNotice(error)!} /></div>}
       <ResetPasswordForm />
     </div>
   );

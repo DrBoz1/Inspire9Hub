@@ -13,6 +13,7 @@ import { recordInvoice, syncSubscription, type SyncOutcome } from "@/lib/billing
 import { shouldRetryUnresolved } from "@/lib/billing/state";
 import { memberRate } from "@/lib/billing/discount";
 import { deliverBillingNews } from "@/lib/billing/notify";
+import { emailSlotTaken } from "@/lib/email/booking-notices";
 
 export const dynamic = "force-dynamic";
 // PDF invoices and the Stripe SDK need Node, not the edge runtime.
@@ -165,6 +166,35 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       .single();
 
     if (error) {
+      // Paid for a slot someone else now holds: this member's hold was released
+      // (they backed out of Stripe, then paid anyway) and another member booked
+      // it. No retry can confirm it, and failing here had Stripe retrying for
+      // three days while the member was charged for nothing. Refund in full,
+      // record it, tell them, and acknowledge.
+      if (error.code === "23P01" && paymentIntentId) {
+        try {
+          await stripe.refunds.create({ payment_intent: paymentIntentId }, { idempotencyKey: `slot-taken-${session.id}` });
+        } catch (refundErr) {
+          console.error("[webhook] Slot taken, and the refund failed; Stripe will retry:", session.id, refundErr);
+          return NextResponse.json({ error: "Refund failed" }, { status: 500 });
+        }
+        console.error("[webhook] Paid for a slot someone else holds; refunded in full:", session.id);
+        // Recorded like any payment, so the booking shows what happened and a
+        // repeat of this event is caught by the check above.
+        const { error: recordError } = await supabase.from("payments").insert({
+          member_id: userId,
+          booking_id: bookingId,
+          amount,
+          payment_method: "card",
+          payment_date: hubDateKey(new Date()),
+          payment_status: "refunded",
+          refunded_amount: amount,
+          stripe_payment_intent_id: paymentIntentId,
+        });
+        if (recordError) console.error("[webhook] Slot-taken refund record:", JSON.stringify(recordError));
+        after(() => emailSlotTaken(bookingId, amount, session.id));
+        return NextResponse.json({ received: true });
+      }
       console.error("[webhook] Failed to confirm booking:", JSON.stringify(error));
       return NextResponse.json({ error: "Failed to confirm booking" }, { status: 500 });
     }
@@ -196,7 +226,8 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
     booking_id: confirmedBooking?.id,
     amount,
     payment_method: "card",
-    payment_date: new Date().toISOString().split("T")[0],
+    // The Melbourne day: UTC's date is still yesterday until 10 or 11am.
+    payment_date: hubDateKey(new Date()),
     payment_status: "paid",
     stripe_payment_intent_id: paymentIntentId,
   });

@@ -11,6 +11,14 @@ const securityHeaders = [
   { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
   // Opt out of cross-origin window references
   { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
+  // What a page may do beyond itself. Scripts aren't locked down here (Next's
+  // inline scripts would need a nonce on every page, making them all dynamic);
+  // these close the other doors: no plugins, no <base> hijack, no framing, and
+  // forms post only here or to Stripe's checkout and billing pages.
+  {
+    key: "Content-Security-Policy",
+    value: "base-uri 'self'; object-src 'none'; frame-ancestors 'none'; form-action 'self' https://checkout.stripe.com https://billing.stripe.com",
+  },
 ];
 
 const nextConfig: NextConfig = {

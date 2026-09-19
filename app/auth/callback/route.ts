@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
+import { safeNextPath } from "@/lib/safe-redirect";
+import { friendlyAccountError, NOTICES } from "@/lib/auth-notices";
 
 // Handles both email confirmation (after signup) and password reset links.
 // Supabase sends users here with a `code` param — we exchange it for a session
@@ -8,14 +10,15 @@ import { cookies } from "next/headers";
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");
-  const next = searchParams.get("next") ?? "/dashboard";
+  // Anyone can edit the link, so only a path on this site is followed.
+  const next = safeNextPath(searchParams.get("next"));
   const error = searchParams.get("error");
   const errorDescription = searchParams.get("error_description");
 
   // Supabase can redirect here with an error (e.g. expired link)
   if (error) {
     return NextResponse.redirect(
-      `${origin}/login?error=${encodeURIComponent(errorDescription ?? error)}`,
+      `${origin}/login?error=${encodeURIComponent(friendlyAccountError(errorDescription ?? error))}`,
     );
   }
 
@@ -53,6 +56,6 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.redirect(
-    `${origin}/login?error=${encodeURIComponent("Invalid or expired link. Please request a new one.")}`,
+    `${origin}/login?error=${encodeURIComponent(NOTICES.linkExpired)}`,
   );
 }

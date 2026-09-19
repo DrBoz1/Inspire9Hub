@@ -13,14 +13,21 @@ import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { stampRow } from "@/lib/audit";
 import { emailBookingCancelled } from "@/lib/email/booking-notices";
 import type { CancelRefund } from "@/lib/email/templates/booking-cancelled";
+import { checkBookingWindow, checkLookupWindow, isUuidLike, MAX_ACTIVE_HOLDS, staleHoldCutoff } from "@/lib/booking-rules";
+import { hubLongDay, hubTime } from "@/lib/email/format";
 
 export async function checkRoomAvailability(
   workspaceId: string,
   startISO: string,
   endISO: string,
-) {
+): Promise<{ available: boolean; error?: string }> {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  // A public endpoint like every server action: members only, one room, one day at most.
+  if (!user) return { available: false, error: "Sign in to check availability." };
+  const window = checkLookupWindow(startISO, endISO);
+  if (!isUuidLike(workspaceId) || !window.ok) return { available: false, error: "That time can’t be checked." };
+
   // Admin client so we see ALL bookings, not just the current user's (RLS would hide others).
   const adminDb = createAdminClient();
 
@@ -30,27 +37,28 @@ export async function checkRoomAvailability(
     .select("id")
     .eq("workspace_id", workspaceId)
     .eq("booking_status", "confirmed")
-    .lt("start_date_time", endISO)
-    .gt("end_date_time", startISO);
+    .lt("start_date_time", window.endISO)
+    .gt("end_date_time", window.startISO)
+    .limit(1);
 
-  if (e1) return { error: "Database error during availability check." };
+  if (e1) return { available: false, error: "Database error during availability check." };
   if (confirmed && confirmed.length > 0) return { available: false };
 
-  // 2. Pending holds from OTHER users block (their checkout is in progress).
-  //    The current user's own pending is ignored — they can re-initiate checkout.
-  //    Stale-pending cleanup relies on Stripe's checkout.session.expired webhook.
-  let pendingQuery = adminDb
+  // 2. Pending holds from OTHER members block while their checkout is in progress.
+  //    The current member's own hold is ignored, so they can start checkout again.
+  //    A hold older than a checkout can last is left over and doesn't count; the
+  //    next checkout for this slot releases it (see createCheckoutSession).
+  const { data: pending, error: e2 } = await adminDb
     .from("bookings")
     .select("id")
     .eq("workspace_id", workspaceId)
     .eq("booking_status", "pending")
-    .lt("start_date_time", endISO)
-    .gt("end_date_time", startISO);
-
-  if (user?.id) pendingQuery = pendingQuery.neq("member_id", user.id);
-
-  const { data: pending, error: e2 } = await pendingQuery;
-  if (e2) return { error: "Database error during availability check." };
+    .neq("member_id", user.id)
+    .gte("created_at", staleHoldCutoff(new Date()))
+    .lt("start_date_time", window.endISO)
+    .gt("end_date_time", window.startISO)
+    .limit(1);
+  if (e2) return { available: false, error: "Database error during availability check." };
 
   return { available: (pending ?? []).length === 0 };
 }
@@ -61,6 +69,15 @@ export async function checkRoomAvailability(
 // bounces the user's browser back to it after a real payment.
 const SAFE_RETURN_PATHS = new Set(["/dashboard", "/support"]);
 
+/**
+ * Starts a room booking: holds the slot, then sends the member to Stripe.
+ *
+ * Everything that decides what happens is worked out here, never taken from the
+ * browser: the room and its price from the database, the times checked against
+ * opening hours (lib/booking-rules.ts), the text on the Stripe receipt written
+ * from those. The browser's roomName, amount, date and times are only what it
+ * showed the member.
+ */
 export async function createCheckoutSession(bookingData: {
   workspaceId: string;
   roomName: string;
@@ -93,56 +110,72 @@ export async function createCheckoutSession(bookingData: {
     );
   }
 
-  // Use the timezone-correct UTC ISOs built by the browser
-  const { startISO, endISO } = bookingData;
+  const now = new Date();
+  const checked = checkBookingWindow(bookingData.startISO, bookingData.endISO, now);
+  if (!checked.ok) throw new Error(checked.error);
+  const { startISO, endISO, hours: durationHours } = checked.value;
 
-  // Server-side validation
-  const startMs = new Date(startISO).getTime();
-  const endMs = new Date(endISO).getTime();
-  if (startMs >= endMs) throw new Error("Start time must be before end time.");
-  if (endMs - startMs < 3600000) throw new Error("Minimum booking is 1 hour.");
-  if (startMs < Date.now()) throw new Error("Cannot book a time that has already passed.");
-
+  if (!isUuidLike(bookingData.workspaceId)) throw new Error("Workspace not found.");
   // Price is read server-side from the workspace's stored price_per_hour —
   // the client's amount is display-only and never trusted for the actual charge.
+  // select("*") because active and bookable only exist once the floor plan migration has run.
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("price_per_hour")
+    .select("*")
     .eq("id", bookingData.workspaceId)
     .single();
   if (!workspace) throw new Error("Workspace not found.");
+  if (workspace.active === false || workspace.bookable === false) throw new Error("This room isn’t open for booking.");
+  const pricePerHour = Number(workspace.price_per_hour);
+  if (!Number.isFinite(pricePerHour) || pricePerHour <= 0) throw new Error("This room doesn’t have a price yet. Ask the team.");
 
-  const durationHours = (endMs - startMs) / 3600000;
   // A member's plan can take a percentage off, looked up here like the price and
   // never taken from the browser. Without one, the charge is worked out exactly
   // as it always was.
   const discountPercent = await memberDiscountPercent(user.id);
-  const serverAmount = discountPercent > 0 ? memberTotal(workspace.price_per_hour, durationHours, discountPercent) : workspace.price_per_hour * durationHours;
+  const serverAmount = discountPercent > 0 ? memberTotal(pricePerHour, durationHours, discountPercent) : pricePerHour * durationHours;
+
+  const adminDb = createAdminClient();
+  const staleCutoff = staleHoldCutoff(now);
+
+  // Release this member's own earlier hold on the same slot (an abandoned checkout),
+  // and any hold on it old enough to be left over from a checkout that ended
+  // without Stripe telling us: otherwise that slot would stay blocked for good.
+  const released = await adminDb
+    .from("bookings")
+    .update({ booking_status: "cancelled" })
+    .eq("workspace_id", bookingData.workspaceId)
+    .eq("booking_status", "pending")
+    .lt("start_date_time", endISO)
+    .gt("end_date_time", startISO)
+    .or(`member_id.eq.${user.id},created_at.lt.${staleCutoff},created_at.is.null`)
+    .select("id, member_id");
+  for (const hold of released.data ?? []) {
+    await stampRow("bookings", hold.id, {
+      cancelled_at: now.toISOString(),
+      cancel_reason: hold.member_id === user.id ? "Replaced by a new checkout for the same slot" : "Checkout hold expired",
+    });
+  }
+
+  // One member can't hold the whole building: a few checkouts in progress at most.
+  const { count: holding } = await adminDb
+    .from("bookings")
+    .select("id", { count: "exact", head: true })
+    .eq("member_id", user.id)
+    .eq("booking_status", "pending")
+    .gte("created_at", staleCutoff);
+  if ((holding ?? 0) >= MAX_ACTIVE_HOLDS) {
+    throw new Error(`You have ${MAX_ACTIVE_HOLDS} checkouts in progress. Finish or cancel one before starting another.`);
+  }
 
   // Final server-side conflict check
-  const { available } = await checkRoomAvailability(
-    bookingData.workspaceId,
-    startISO,
-    endISO,
-  );
+  const { available } = await checkRoomAvailability(bookingData.workspaceId, startISO, endISO);
   if (!available) throw new Error("This time slot is no longer available.");
 
   // Cinema-style: reserve the slot with a pending booking BEFORE Stripe redirect.
   // Uses the admin client to bypass RLS — the member_id is explicitly set to the
-  // authenticated user so this is safe and auditable.
-  const adminDb = createAdminClient();
-
-  // Cancel any previous pending hold this user has on the same slot (e.g. from an
-  // abandoned checkout) before inserting a fresh one, so we don't hit a DB constraint.
-  await adminDb
-    .from("bookings")
-    .update({ booking_status: "cancelled" })
-    .eq("member_id", user.id)
-    .eq("workspace_id", bookingData.workspaceId)
-    .eq("booking_status", "pending")
-    .lt("start_date_time", endISO)
-    .gt("end_date_time", startISO);
-
+  // authenticated user so this is safe and auditable. Two members racing for the
+  // same slot both get here; the bookings_no_overlap constraint lets exactly one in.
   const { data: booking, error: bookingError } = await adminDb
     .from("bookings")
     .insert({
@@ -169,6 +202,7 @@ export async function createCheckoutSession(bookingData: {
   const returnPath = SAFE_RETURN_PATHS.has(bookingData.returnTo ?? "")
     ? bookingData.returnTo!
     : "/dashboard";
+  const roomName = String(workspace.name ?? "").trim() || "Meeting room";
 
   let session: Stripe.Checkout.Session;
   try {
@@ -179,8 +213,8 @@ export async function createCheckoutSession(bookingData: {
           price_data: {
             currency: "aud",
             product_data: {
-              name: `${bookingData.roomName} Booking`,
-              description: `Date: ${bookingData.date} | ${bookingData.startTime} - ${bookingData.endTime}${discountPercent ? ` | Member rate, ${discountPercent}% off` : ""}`,
+              name: `${roomName} Booking`,
+              description: `Date: ${hubLongDay(startISO)} | ${hubTime(startISO)} - ${hubTime(endISO)}${discountPercent ? ` | Member rate, ${discountPercent}% off` : ""}`,
             },
             unit_amount: unitAmount,
           },
@@ -202,16 +236,20 @@ export async function createCheckoutSession(bookingData: {
       },
     });
   } catch {
-    // Stripe failed — release the reserved slot
-    await supabase
+    // Stripe failed: release the slot. The admin client, because members can't
+    // update bookings: with their own client this silently did nothing, and with
+    // no Stripe session there's no expiry to release it either, so it stayed held.
+    await adminDb
       .from("bookings")
       .update({ booking_status: "cancelled" })
       .eq("id", booking.id);
+    await stampRow("bookings", booking.id, { cancelled_at: new Date().toISOString(), cancel_reason: "Stripe couldn’t start the checkout" });
     throw new Error("Payment system unavailable. Please try again.");
   }
 
   return redirect(session.url!);
 }
+
 
 // Called when Stripe cancel URL is hit — releases the reserved pending slot
 export async function cancelPendingBooking(bookingId: string) {
@@ -378,55 +416,31 @@ export async function getBookingConfirmation(
   return data;
 }
 
-// Batched availability check across every room for one time window — powers
-// the assistant's "here's what's free then" suggestion when a member hasn't
-// named a specific room yet. Same conflict rules as checkRoomAvailability
-// (confirmed always blocks; pending blocks unless it's the current user's
-// own hold), just aggregated in two queries instead of one per room.
-export async function getBusyRoomIds(startISO: string, endISO: string) {
-  const supabase = await createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const adminDb = createAdminClient();
-
-  const { data: confirmed } = await adminDb
-    .from("bookings")
-    .select("workspace_id")
-    .eq("booking_status", "confirmed")
-    .lt("start_date_time", endISO)
-    .gt("end_date_time", startISO);
-
-  let pendingQuery = adminDb
-    .from("bookings")
-    .select("workspace_id")
-    .eq("booking_status", "pending")
-    .lt("start_date_time", endISO)
-    .gt("end_date_time", startISO);
-  if (user?.id) pendingQuery = pendingQuery.neq("member_id", user.id);
-  const { data: pending } = await pendingQuery;
-
-  const busy = new Set<string>();
-  for (const b of confirmed ?? []) busy.add(b.workspace_id);
-  for (const b of pending ?? []) busy.add(b.workspace_id);
-  return Array.from(busy);
-}
-
-// Returns booked time ranges for a room within a UTC day window.
-// dayStartUTC and dayEndUTC are computed in the browser so they're timezone-correct.
+// Booked time ranges for a room within one hub day, for the booking form's time
+// list. Members only, one room, one day. Leftover holds (see createCheckoutSession)
+// don't show as taken, because the next checkout releases them.
 export async function getBookedSlotsForDate(
   roomId: string,
   dayStartUTC: string,
   dayEndUTC: string,
 ) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const window = checkLookupWindow(dayStartUTC, dayEndUTC);
+  if (!user || !isUuidLike(roomId) || !window.ok) return [];
+
   const adminDb = createAdminClient();
   const { data } = await adminDb
     .from("bookings")
     .select("start_date_time, end_date_time")
     .eq("workspace_id", roomId)
-    .neq("booking_status", "cancelled")
-    .gte("start_date_time", dayStartUTC)
-    .lte("start_date_time", dayEndUTC)
-    .order("start_date_time");
+    .in("booking_status", ["confirmed", "pending"])
+    .or(`booking_status.eq.confirmed,created_at.gte.${staleHoldCutoff(new Date())}`)
+    .gte("start_date_time", window.startISO)
+    .lte("start_date_time", window.endISO)
+    .order("start_date_time")
+    .limit(200);
   return data ?? [];
 }
