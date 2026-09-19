@@ -14,7 +14,7 @@
 [![Stripe](https://img.shields.io/badge/Stripe-Payments_%26_Billing-635BFF?style=flat-square&logo=stripe&logoColor=white)](https://stripe.com)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-v4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 [![Tests](https://img.shields.io/badge/tests-500%2B-2f7d52?style=flat-square)](#testing-and-quality)
-[![License: MIT](https://img.shields.io/badge/License-MIT-lightgrey?style=flat-square)](LICENSE)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-lightgrey?style=flat-square)](LICENSE)
 
 [**Live site**](https://inspire9-hub.vercel.app) · [**Report an issue**](https://github.com/Dr-Boz/inspire9-hub/issues)
 
@@ -427,4 +427,4 @@ The app deploys to **Vercel**; every push to `main` goes to production.
 
 Designed and built by **Hesam Zoveidavian Poor** as a final-year project, academic session 2025/2026.
 
-Released under the [MIT License](LICENSE).
+Proprietary software. All rights reserved; see [LICENSE](LICENSE). For licensing enquiries, contact the author.
