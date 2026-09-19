@@ -1,6 +1,8 @@
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import BookingClient from "./BookingClient";
+import { withMemberRates } from "@/lib/billing/discount";
+import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { cancelPendingBooking } from "./actions";
 import { INDUCTION_STATUS } from "@/lib/constants";
 import { Clock, ArrowRight, Lock } from "lucide-react";
@@ -77,7 +79,9 @@ export default async function BookingsPage(props: {
     (todayBookingsRes.data ?? []).map((b) => b.workspace_id),
   );
 
-  const rooms = (roomsRes.data ?? []).map((room) => ({
+  // Shown at the member's rate if their plan has one; checkout works the charge out again itself.
+  const discount = user ? await memberDiscountPercent(user.id) : 0;
+  const rooms = withMemberRates(roomsRes.data ?? [], discount).map((room) => ({
     ...room,
     busyToday: busyRoomIds.has(room.id),
   }));

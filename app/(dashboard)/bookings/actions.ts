@@ -7,6 +7,8 @@ import { revalidatePath } from "next/cache";
 import type Stripe from "stripe";
 import { stripe } from "@/lib/stripe";
 import { getRefundPolicy, calcRefundCents } from "@/lib/refund-policy";
+import { memberTotal } from "@/lib/billing/discount";
+import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { stampRow } from "@/lib/audit";
 
 export async function checkRoomAvailability(
@@ -108,7 +110,11 @@ export async function createCheckoutSession(bookingData: {
   if (!workspace) throw new Error("Workspace not found.");
 
   const durationHours = (endMs - startMs) / 3600000;
-  const serverAmount = workspace.price_per_hour * durationHours;
+  // A member's plan can take a percentage off, looked up here like the price and
+  // never taken from the browser. Without one, the charge is worked out exactly
+  // as it always was.
+  const discountPercent = await memberDiscountPercent(user.id);
+  const serverAmount = discountPercent > 0 ? memberTotal(workspace.price_per_hour, durationHours, discountPercent) : workspace.price_per_hour * durationHours;
 
   // Final server-side conflict check
   const { available } = await checkRoomAvailability(
@@ -171,7 +177,7 @@ export async function createCheckoutSession(bookingData: {
             currency: "aud",
             product_data: {
               name: `${bookingData.roomName} Booking`,
-              description: `Date: ${bookingData.date} | ${bookingData.startTime} - ${bookingData.endTime}`,
+              description: `Date: ${bookingData.date} | ${bookingData.startTime} - ${bookingData.endTime}${discountPercent ? ` | Member rate, ${discountPercent}% off` : ""}`,
             },
             unit_amount: unitAmount,
           },
@@ -188,6 +194,8 @@ export async function createCheckoutSession(bookingData: {
         bookingId: booking.id,
         startTime: startISO,
         endTime: endISO,
+        // Only when there's a discount, so the invoice can show the rate that was charged.
+        ...(discountPercent ? { discountPercent: String(discountPercent) } : {}),
       },
     });
   } catch {

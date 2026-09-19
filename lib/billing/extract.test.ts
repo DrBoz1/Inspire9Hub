@@ -147,6 +147,7 @@ describe("plans", () => {
       interval_count: 1,
       active: true,
       sort_order: 0,
+      booking_discount_percent: 0,
     });
   });
 
@@ -155,6 +156,13 @@ describe("plans", () => {
     expect(toPlanRow(price({ recurring: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/monthly or yearly/) });
     expect(toPlanRow(price({ unit_amount: null }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/fixed amount/) });
     expect(toPlanRow(price({ product: "prod_1" }) as unknown as Stripe.Price)).toMatchObject({ skip: expect.stringMatching(/expand/) });
+  });
+
+  it("reads the member discount on bookings from the price, and ignores a silly one", () => {
+    const r = toPlanRow(price({ metadata: { hub_plan_slug: "resident", hub_booking_discount: "20" } }) as unknown as Stripe.Price);
+    expect("row" in r && r.row.booking_discount_percent).toBe(20);
+    const silly = toPlanRow(price({ metadata: { hub_plan_slug: "resident", hub_booking_discount: "all of it" } }) as unknown as Stripe.Price);
+    expect("row" in silly && silly.row.booking_discount_percent).toBe(0);
   });
 
   it("switches a plan off when its price or product has been archived", () => {

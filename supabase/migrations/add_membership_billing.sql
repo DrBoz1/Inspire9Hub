@@ -46,6 +46,10 @@ create table if not exists plans (
   -- Hidden from the join page, but kept: members may still be on it.
   active            boolean not null default true,
   sort_order        integer not null default 0,
+  -- Off room bookings for members on this plan, from the price's
+  -- metadata.hub_booking_discount. A plain percentage rather than room credits:
+  -- every booking is still paid for, so refunds work exactly as before.
+  booking_discount_percent integer not null default 0 check (booking_discount_percent between 0 and 100),
   created_at        timestamptz not null default now(),
   updated_at        timestamptz not null default now()
 );

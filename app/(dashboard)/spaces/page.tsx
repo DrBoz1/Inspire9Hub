@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import BookingMap from "@/features/booking-map/BookingMapClient";
 import type { WorkspaceRow } from "@/features/booking-map/adapter";
 import { createClient, getCurrentUser } from "@/lib/supabase/server";
+import { withMemberRates } from "@/lib/billing/discount";
+import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 
@@ -27,6 +29,8 @@ export default async function SpacesPage() {
   }
 
   const memberName: string = memberRes?.data?.full_name?.trim() || "you";
+  // The map shows the member's rate if their plan has one; checkout works the charge out again itself.
+  const discount = user ? await memberDiscountPercent(user.id) : 0;
 
   return (
     <div className="hub-spaces-page">
@@ -41,7 +45,7 @@ export default async function SpacesPage() {
       {/* The map fills the remaining member-area height, including on mobile. */}
       <div className="hub-spaces-map">
         <BookingMap
-          workspaces={(roomsRes.data ?? []) as WorkspaceRow[]}
+          workspaces={withMemberRates((roomsRes.data ?? []) as WorkspaceRow[], discount)}
           memberName={memberName}
           roomsError={roomsRes.error ? "Couldn’t load the rooms. Refresh the page to try again." : null}
         />

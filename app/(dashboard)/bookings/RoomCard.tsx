@@ -9,6 +9,8 @@ export type BookingRoom = {
   id: string; name: string; location: string | null; capacity: number;
   price_per_hour: number; regular_price_per_hour?: number | null;
   amenities?: string[] | null; image_url?: string | null; busyToday?: boolean;
+  /** Set when the price shown is the member's rate. */
+  member_discount_percent?: number;
 };
 
 export default function RoomCard({ room }: { room: BookingRoom }) {
@@ -17,7 +19,7 @@ export default function RoomCard({ room }: { room: BookingRoom }) {
   return <article className="hub-room-card hub-surface">
     <div className="hub-room-photo" role="img" aria-label={room.name} style={{ backgroundImage: `url("${room.image_url || DEFAULT_ROOM_IMAGE}")` }}>
       <span className="hub-room-seats"><Users size={13} /> Up to {room.capacity}</span>
-      {priceDrop && <span className="hub-room-offer">{priceDrop.percentOff}% lower rate</span>}
+      {room.member_discount_percent ? <span className="hub-room-offer">Member rate, {room.member_discount_percent}% off</span> : priceDrop && <span className="hub-room-offer">{priceDrop.percentOff}% lower rate</span>}
     </div>
     <div className="hub-room-body">
       <p className="hub-room-location"><MapPin size={12} />{room.location || "Inspire9 · Level 1"}</p>

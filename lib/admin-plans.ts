@@ -2,7 +2,7 @@ import { hasHubAccess, membershipState, monthlyCents, mrrCents, type StripeSubsc
 
 /** The admin memberships page: plans on sale, and who's on them. Pure; `now` passed in. */
 
-export const PLAN_COLUMNS = "id, slug, name, description, stripe_price_id, amount_cents, currency, billing_interval, interval_count, active, sort_order";
+export const PLAN_COLUMNS = "id, slug, name, description, stripe_price_id, amount_cents, currency, billing_interval, interval_count, active, sort_order, booking_discount_percent";
 export const SUBSCRIPTION_COLUMNS = "plan_id, status, cancel_at_period_end, current_period_end, ended_at, unit_amount_cents, quantity, currency, billing_interval, interval_count";
 
 export type RawPlan = {
@@ -17,6 +17,7 @@ export type RawPlan = {
   interval_count?: number | null;
   active?: boolean | null;
   sort_order?: number | null;
+  booking_discount_percent?: number | null;
 };
 export type Plan = {
   id: string;
@@ -30,6 +31,8 @@ export type Plan = {
   intervalCount: number;
   active: boolean;
   sortOrder: number;
+  /** Off room bookings while on this plan. */
+  bookingDiscountPercent: number;
 };
 
 export type RawSubscription = {
@@ -61,6 +64,7 @@ export function toPlan(raw: RawPlan): Plan {
     intervalCount: Math.max(1, raw.interval_count ?? 1),
     active: raw.active !== false,
     sortOrder: raw.sort_order ?? 0,
+    bookingDiscountPercent: Math.min(100, Math.max(0, raw.booking_discount_percent ?? 0)),
   };
 }
 

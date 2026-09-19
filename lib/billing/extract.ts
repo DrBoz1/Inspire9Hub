@@ -1,4 +1,5 @@
 import type Stripe from "stripe";
+import { parseDiscount } from "./discount";
 
 /**
  * Stripe objects to database rows. Pure, so the fiddly parts are pinned by
@@ -162,6 +163,7 @@ export type PlanRow = {
   interval_count: number;
   active: boolean;
   sort_order: number;
+  booking_discount_percent: number;
 };
 
 /**
@@ -193,6 +195,8 @@ export function toPlanRow(price: Stripe.Price): Extracted<PlanRow> {
       ...cycle,
       active: price.active && product.active,
       sort_order: Number.isFinite(order) ? order : 0,
+      // Staff set this in Stripe too, as metadata.hub_booking_discount (a percentage).
+      booking_discount_percent: parseDiscount(price.metadata?.hub_booking_discount),
     },
     warnings: [],
   };

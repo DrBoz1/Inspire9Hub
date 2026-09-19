@@ -10,6 +10,7 @@ import { createElement } from "react";
 import { webhookRoute } from "@/lib/billing/events";
 import { recordInvoice, syncSubscription, type SyncOutcome } from "@/lib/billing/sync";
 import { shouldRetryUnresolved } from "@/lib/billing/state";
+import { memberRate } from "@/lib/billing/discount";
 
 export const dynamic = "force-dynamic";
 // PDF invoices and the Stripe SDK need Node, not the edge runtime.
@@ -260,7 +261,9 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       const durationHours = (end.getTime() - start.getTime()) / 3_600_000;
       const roomName = workspace?.name ?? "Meeting Room";
       const location = "Inspire9 Hub · Richmond";
-      const hourlyRate = workspace?.price_per_hour ?? amount / durationHours;
+      // A member rate shows as the rate charged; every other booking is exactly as before.
+      const memberDiscount = Number(session.metadata?.discountPercent ?? 0);
+      const hourlyRate = memberDiscount > 0 && workspace ? memberRate(Number(workspace.price_per_hour), memberDiscount) : (workspace?.price_per_hour ?? amount / durationHours);
 
       const bookingDateFormatted = start.toLocaleDateString("en-AU", {
         weekday: "long",
