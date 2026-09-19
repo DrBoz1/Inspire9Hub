@@ -107,6 +107,8 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
 .admin-panel-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; padding: 20px 22px 16px; border-bottom: 1px solid var(--hub-line); }
 .admin-panel-head h2 { margin-top: 5px; font-size: 18px; font-weight: 500; letter-spacing: -.035em; line-height: 1.3; }
 .admin-panel-head .admin-nav-count { margin: 0 0 4px; }
+/* A panel's action link ("Manage spaces") stays on one line beside the title. */
+.admin-panel-head .hub-text-link { flex-shrink: 0; white-space: nowrap; }
 .admin-panel-foot { padding: 14px 22px; border-top: 1px solid var(--hub-line); background: var(--hub-bg); }
 .admin-panel-foot .hub-button { width: 100%; justify-content: center; gap: 10px; }
 :is(.admin-schedule-what, .admin-upcoming-what, .admin-queue-who) strong { display: block; overflow: hidden; font-size: 12px; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
@@ -547,6 +549,7 @@ textarea.admin-text-input { display: block; height: auto; min-height: 128px; pad
   .admin-page-actions { width: 100%; }
   .admin-page-actions > .hub-button { flex: 1; justify-content: center; }
   .admin-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .admin-stats > :last-child:nth-child(odd) { grid-column: 1 / -1; }
   .admin-stat { gap: 10px; padding: 14px; }
   .admin-stat-value { font-size: 24px; }
   .admin-toolbar > .hub-search { flex-basis: 100%; max-width: none; }

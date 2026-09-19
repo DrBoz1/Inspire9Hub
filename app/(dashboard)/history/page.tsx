@@ -208,7 +208,7 @@ export default async function HistoryPage(props: { searchParams: Promise<SearchP
   return <div className="hub-page hub-history">
     <HistoryHero />
     <div className="hub-journal-stats hub-surface">
-      {[{ label: "Bookings made", value: totalBookings, kind: "booking" }, { label: "Payments", value: totalPayments, kind: "payment" }, { label: "Access passes", value: allPasses.length, kind: "pass" }, { label: "Net spend · AUD", value: `$${netSpend.toFixed(2)}`, kind: "spend" }].map(stat =>
+      {[{ label: "Bookings made", value: totalBookings, kind: "booking" }, { label: "Payments", value: totalPayments, kind: "payment" }, { label: "Access passes", value: allPasses.length, kind: "pass" }, { label: "Net spend · AUD", value: netSpend.toLocaleString("en-AU", { style: "currency", currency: "AUD" }), kind: "spend" }].map(stat =>
         <div key={stat.label}><ActivityMark kind={stat.kind} /><div><span className="hub-eyebrow">{stat.label}</span><strong>{stat.value}</strong></div></div>)}
     </div>
     <nav className="hub-tabs" aria-label="Account records">{TABS.map(({ id, label, icon: Icon }) => <Link key={id} href={historyHref(current, { tab: id })} scroll={false} aria-current={tab === id ? "page" : undefined} data-active={tab === id}><Icon size={16} />{label}</Link>)}</nav>

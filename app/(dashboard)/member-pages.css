@@ -56,7 +56,7 @@
 .hub-filters a { display: flex; align-items: center; gap: 9px; border: 1px solid transparent; padding: 7px 11px; border-radius: 7px; color: var(--hub-muted); font-size: 10px; text-transform: capitalize; }
 .hub-filters a[data-active="true"] { color: var(--hub-ink); background: var(--hub-soft); border-color: var(--hub-line); }
 .hub-filters a:hover { color: var(--hub-ink); }
-.hub-filters a > span { font-size: 9px; opacity: .7; }
+.hub-filters a > span { font-size: 9px; font-variant-numeric: tabular-nums; }
 .hub-record-row { display: flex; align-items: center; gap: 17px; padding: 21px 26px; border-top: 1px solid var(--hub-line); }
 .hub-record-copy { flex: 1; min-width: 0; }
 .hub-record-copy h3 { font-size: 12px; font-weight: 500; }
@@ -134,7 +134,8 @@
 .hub-reservation-total small { color: var(--hub-muted); font-size: 9px; letter-spacing: .04em; font-weight: 400; }
 .hub-checkout-button { width: 100%; margin-top: 23px; min-height: 46px; font-size: 12px; }
 .hub-checkout-note { display: flex; align-items: center; justify-content: center; gap: 6px; font-size: 9px; color: var(--hub-muted); margin-top: 13px; line-height: 1.7; }
-.hub-inline-error { font-size: 11px; line-height: 1.7; padding: 12px; color: var(--hub-red); background: #bc444409; border: 1px solid #bd59591f; border-radius: 8px; margin-top: 15px; }
+/* Red pulled a little toward the text colour: pure brand red on this tint was 4.45:1, just under 4.5. Darker in light mode, lighter in dark. */
+.hub-inline-error { font-size: 11px; line-height: 1.7; padding: 12px; color: color-mix(in srgb, var(--hub-red) 85%, var(--hub-ink)); background: #bc444409; border: 1px solid #bd59591f; border-radius: 8px; margin-top: 15px; }
 .hub-inline-error button { display: block; margin-top: 6px; text-decoration: underline; cursor: pointer; }
 .hub-dialog :where(button, select, input, a):focus-visible { outline: 2px solid var(--hub-red); outline-offset: 3px; }
 @media (max-width: 1250px) { .hub-room-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }.hub-journal-stats > div { padding: 0 16px; gap: 7px; }.hub-journal-stats .hub-activity-icon { display: none; } }

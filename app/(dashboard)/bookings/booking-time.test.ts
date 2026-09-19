@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bookingInstant, rangeUnavailable } from "./booking-time";
+import { bookingInstant, firstBookableDay, rangeUnavailable } from "./booking-time";
 
 describe("booking selection time", () => {
   it("uses Melbourne time on both sides of daylight saving", () => {
@@ -20,5 +20,23 @@ describe("booking selection time", () => {
   it("rejects a passed start and reversed ranges", () => {
     expect(rangeUnavailable("2026-09-20", 10, 11, [], Date.parse(bookingInstant("2026-09-20", 10)))).toBe(true);
     expect(rangeUnavailable("2026-09-20", 11, 10, [], 0)).toBe(true);
+  });
+});
+
+describe("the day the booking form opens on", () => {
+  // Melbourne is AEST (UTC+10) in September.
+  const at = (iso: string) => Date.parse(iso);
+
+  it("is today while an hour can still be booked", () => {
+    expect(firstBookableDay(at("2026-09-24T23:00:00Z"))).toBe("2026-09-25"); // Fri 9am
+  });
+
+  it("moves on once today's last start has gone", () => {
+    expect(firstBookableDay(at("2026-09-25T10:30:00Z"))).toBe("2026-09-26"); // Fri 8:30pm, last start 8pm
+  });
+
+  it("skips the Sunday the hub is closed", () => {
+    expect(firstBookableDay(at("2026-09-19T23:00:00Z"))).toBe("2026-09-21"); // Sun 9am -> Mon
+    expect(firstBookableDay(at("2026-09-26T08:00:00Z"))).toBe("2026-09-28"); // Sat 6pm, after closing -> Mon
   });
 });

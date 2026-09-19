@@ -8,10 +8,10 @@
 .auth-input > select { height: 48px; padding: 0 38px 0 43px; appearance: none; cursor: pointer; }
 .enquire-no-icon > select { padding-left: 14px; }
 /* Nothing chosen yet reads like a placeholder, not like an answer. */
-.auth-input > select:has(> option[value=""]:checked) { color: color-mix(in srgb, var(--hub-muted) 70%, transparent); }
+.auth-input > select:has(> option[value=""]:checked) { color: var(--hub-muted); }
 .auth-input > select option { color: var(--hub-ink); }
 .auth-input > textarea { min-height: 116px; padding: 13px 14px; line-height: 1.6; resize: vertical; }
-.auth-input > textarea::placeholder { color: var(--hub-muted); opacity: .7; }
+.auth-input > textarea::placeholder { color: var(--hub-muted); opacity: 1; }
 .auth-input > :is(select, textarea):hover { border-color: var(--hub-hover-line); }
 .auth-input > :is(select, textarea):focus-visible { border-color: color-mix(in srgb, var(--hub-red) 45%, var(--hub-line)); box-shadow: 0 0 0 4px color-mix(in srgb, var(--hub-red) 11%, transparent); }
 .auth-input > .enquire-chevron { position: absolute; right: 14px; left: auto; color: var(--hub-muted); pointer-events: none; }

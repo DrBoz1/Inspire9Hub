@@ -12,7 +12,7 @@ import { HUB_TIMEZONE } from "@/lib/datetime";
 import { addDaysToKey, dayBoundsUtc, todayIn } from "@/features/booking-map/zoned-time";
 import { closingHour, wholeHourStarts } from "@/features/booking-map/booking/time";
 import { useHubClock } from "@/components/use-hub-clock";
-import { bookingInstant, rangeUnavailable, type BookedSlot } from "./booking-time";
+import { bookingInstant, firstBookableDay, rangeUnavailable, type BookedSlot } from "./booking-time";
 import type { BookingRoom } from "./RoomCard";
 
 type Availability = { date: string; slots: BookedSlot[]; error?: string };
@@ -21,7 +21,7 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
   const dateFieldId = useId();
   const [open, setOpen] = useState(false);
   const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const [date, setDate] = useState(() => todayIn(HUB_TIMEZONE));
+  const [date, setDate] = useState(() => firstBookableDay(Date.now()));
   const [range, setRange] = useState<[number, number] | null>(null);
   const [availability, setAvailability] = useState<Availability | null>(null);
   const [refresh, setRefresh] = useState(0);
@@ -80,7 +80,7 @@ export default function BookingModal({ room }: { room: BookingRoom }) {
     if (checkoutLock.current) return;
     setOpen(value);
     if (!value) setDatePickerOpen(false);
-    if (value) { if (date < todayIn(HUB_TIMEZONE)) { setDate(todayIn(HUB_TIMEZONE)); setRange(null); } refreshSlots(); setError(""); }
+    if (value) { const first = firstBookableDay(Date.now()); if (date < first) { setDate(first); setRange(null); } refreshSlots(); setError(""); }
   }}>
     <DialogTrigger asChild><button className="hub-button hub-room-book">Find a time<ArrowUpRight size={16} /></button></DialogTrigger>
     <DialogContent className="hub-dialog hub-booking-dialog" overlayClassName="hub-booking-overlay">

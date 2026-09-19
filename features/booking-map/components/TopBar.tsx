@@ -2,7 +2,6 @@
 
 import { CalendarDays, ChevronLeft, ChevronRight, LayoutGrid, Map as MapIcon, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -68,7 +67,7 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
         )}
 
         {/* Which floor — genuine context, not branding */}
-        <span className="hidden truncate text-[13px] font-medium text-slate-400 @4xl:block dark:text-slate-500">
+        <span className="hidden truncate text-[13px] font-medium text-slate-500 @4xl:block dark:text-slate-400">
           Level 1
         </span>
       </div>
@@ -138,7 +137,7 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
           variant="ghost"
           disabled={isToday}
           onClick={() => onDateChange(todayKey())}
-          className={`ml-1 hidden h-8 rounded-lg px-2.5 text-[12px] font-bold text-[#E31E24] hover:text-[#E31E24] @3xl:block ${
+          className={`ml-1 hidden h-8 rounded-lg px-2.5 text-[12px] font-bold text-[#E31E24] hover:text-[#E31E24] dark:text-[#ff5a5f] dark:hover:text-[#ff5a5f] @3xl:block ${
             isToday ? "invisible" : ""
           }`}
         >
@@ -148,18 +147,27 @@ export function TopBar({ date, onDateChange, view, onViewChange, sidebarOpen, on
 
       {/* View switch */}
       <div className="flex min-w-fit flex-1 items-center justify-end">
-        <Tabs value={view} onValueChange={(v) => onViewChange(v as ViewMode)}>
-          <TabsList className="h-9 rounded-lg">
-            <TabsTrigger value="map" aria-label="Map view" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
-              <MapIcon className="h-3.5 w-3.5" />
-              <span className="hidden @xl:inline">Map</span>
-            </TabsTrigger>
-            <TabsTrigger value="schedule" aria-label="Schedule view" className="gap-1.5 rounded-md px-3 text-[13px] font-semibold">
-              <LayoutGrid className="h-3.5 w-3.5" />
-              <span className="hidden @xl:inline">Schedule</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+        {/* A two-way switch, not tabs: tabs promise tab panels, and the map and
+            schedule are drawn elsewhere, so screen readers were pointed at a
+            panel that didn't exist. Same look as before. */}
+        <div role="group" aria-label="View" className="inline-flex h-9 w-fit items-center rounded-lg bg-muted p-0.75 text-muted-foreground">
+          {([
+            { value: "map", label: "Map", Icon: MapIcon },
+            { value: "schedule", label: "Schedule", Icon: LayoutGrid },
+          ] as const).map(({ value, label, Icon }) => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={view === value}
+              aria-label={`${label} view`}
+              onClick={() => onViewChange(value as ViewMode)}
+              className="inline-flex h-full items-center justify-center gap-1.5 rounded-md border border-transparent px-3 text-[13px] font-semibold whitespace-nowrap text-foreground/60 transition-all hover:text-foreground focus-visible:outline-1 focus-visible:outline-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 aria-pressed:bg-background aria-pressed:text-foreground aria-pressed:shadow-sm dark:text-muted-foreground dark:hover:text-foreground dark:aria-pressed:border-input dark:aria-pressed:bg-input/30 dark:aria-pressed:text-foreground"
+            >
+              <Icon className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden @xl:inline">{label}</span>
+            </button>
+          ))}
+        </div>
       </div>
     </header>
     </TooltipProvider>

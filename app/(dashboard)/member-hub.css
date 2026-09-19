@@ -103,3 +103,6 @@
 .hub-header > button[aria-label="Toggle theme"] { border-color: var(--hub-line); background: var(--hub-paper); color: var(--hub-muted); }
 .hub-header > button[aria-label="Toggle theme"]:hover { color: var(--hub-ink); }
 .hub-header > div.rounded-xl:last-child { background: var(--hub-soft); }
+/* Placed last so it outranks the 900px rule above that makes this card two columns. */
+/* On a phone the two-column card squeezed "Book a space" beside the text; stack it under, as on desktop. */
+@media (max-width: 560px) { .hub-next-booking { grid-template-columns: minmax(0, 1fr); }.hub-next-booking .hub-booking-link { align-self: stretch; } }

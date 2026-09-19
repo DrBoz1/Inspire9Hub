@@ -37,6 +37,9 @@ export function MembershipClient({
   const [error, setError] = useState<string | null>(null);
   const notice = renewalNotice(current, new Date(nowIso));
   const live = notice.kind !== "inactive";
+  // Stripe keeps a customer from the first time someone opens checkout, even if they
+  // never paid. Billing is only worth opening once there is a plan or a receipt in it.
+  const canManage = hasCustomer && (current !== null || invoices.length > 0);
 
   /** Both actions end at a Stripe page; the browser goes there, or the problem is shown here. */
   const go = (label: string, work: () => Promise<RedirectResult>) => {
@@ -83,13 +86,13 @@ export function MembershipClient({
               <div><dt>Status</dt><dd>{notice.kind === "overdue" ? "Needs attention" : "In good standing"}</dd></div>
             </dl>
           )}
-          {hasCustomer && (
+          {canManage && (
             <button type="button" className="hub-button hub-button-outline" onClick={() => go("portal", actions.portal)} disabled={pending}>
               {busy === "portal" ? <Loader2 size={14} className="hub-spin" aria-hidden /> : <CreditCard size={14} aria-hidden />}
               Manage billing
             </button>
           )}
-          {hasCustomer && <p className="hub-membership-small">Change your card, see receipts, or cancel. Handled securely by Stripe.</p>}
+          {canManage && <p className="hub-membership-small">Change your card, see receipts, or cancel. Handled securely by Stripe.</p>}
         </section>
 
         {!live && (

@@ -157,11 +157,12 @@ export function TimeRail({ date, from, to, onChange, onJumpNow, summary }: Props
             </SliderPrimitive.Track>
 
             {(['Start time', 'End time'] as const).map((label) => (
+              // 24px wide to touch (WCAG 2.2 target size), drawn as the same slim
+              // 12px handle: the visible handle is the ::before, the rest is reach.
               <SliderPrimitive.Thumb
                 key={label}
                 aria-label={label}
-                className="block h-8 w-3 cursor-ew-resize rounded-sm border shadow-sm focus-visible:ring-2 focus-visible:outline-none"
-                style={{ background: 'var(--color-surface-0)', borderColor: 'var(--color-brand)' }}
+                className="relative block h-8 w-6 cursor-ew-resize rounded-sm focus-visible:outline-none focus-visible:before:ring-2 before:absolute before:inset-y-0 before:left-1/2 before:w-3 before:-translate-x-1/2 before:rounded-sm before:border before:border-(--color-brand) before:bg-(--color-surface-0) before:shadow-sm before:content-['']"
               />
             ))}
           </SliderPrimitive.Root>
