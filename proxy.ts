@@ -40,9 +40,14 @@ export async function proxy(request: NextRequest) {
     return redirect;
   };
 
+  // Every path this runs on is for signed-in people only. Turning visitors away
+  // here means a signed-out request never renders a page or queries the database:
+  // under load (or from a bot) that was the difference between ~1,200 and ~120
+  // requests a second, and every one of the slow ones hit Supabase.
+  if (!user) return redirectTo("/login");
+
   // Protect all Admin routes
   if (pathname.startsWith("/admin")) {
-    if (!user) return redirectTo("/login");
 
     const { data: adminData } = await supabase
       .from("admins")
@@ -79,5 +84,7 @@ export const config = {
     "/history/:path*",
     "/bookings/:path*",
     "/membership/:path*",
+    "/spaces/:path*",
+    "/support/:path*",
   ],
 };

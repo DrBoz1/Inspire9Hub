@@ -191,8 +191,12 @@ export async function createCheckoutSession(bookingData: {
   if (bookingError || !booking) {
     // Surface the real DB error so it's debuggable, not a misleading "slot taken"
     console.error("[booking] Insert failed:", JSON.stringify(bookingError));
+    // 23P01 is the overlap rule turning this one away. 40P01 is two members'
+    // holds for the same slot waiting on each other at the same instant: Postgres
+    // cancels one, the other wins, so for this member the slot has gone too.
+    // (Both seen in the booking-rush test: 100 members, one slot, at once.)
     throw new Error(
-      bookingError?.code === "23P01"
+      bookingError?.code === "23P01" || bookingError?.code === "40P01"
         ? "This slot was just reserved by someone else. Pick a different time."
         : "Could not reserve the slot. Please try again.",
     );
