@@ -13,7 +13,10 @@ import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { stampRow } from "@/lib/audit";
 import { emailBookingCancelled } from "@/lib/email/booking-notices";
 import type { CancelRefund } from "@/lib/email/templates/booking-cancelled";
-import { checkBookingWindow, checkLookupWindow, isUuidLike, MAX_ACTIVE_HOLDS, staleHoldCutoff } from "@/lib/booking-rules";
+import { checkBookingWindow, checkLookupWindow, dayPassWindow, isUuidLike, MAX_ACTIVE_HOLDS, SLOT_GONE, SLOT_TAKEN, staleHoldCutoff } from "@/lib/booking-rules";
+import { dayPrice, isDeskRow } from "@/lib/spaces";
+import { wallClockAt } from "@/features/booking-map/zoned-time";
+import { HUB_TIMEZONE } from "@/lib/datetime";
 import { hubLongDay, hubTime } from "@/lib/email/format";
 
 export async function checkRoomAvailability(
@@ -63,6 +66,13 @@ export async function checkRoomAvailability(
   return { available: (pending ?? []).length === 0 };
 }
 
+/** The Melbourne day an instant falls on, or undefined for nonsense. */
+function hubDayOf(iso: unknown): string | undefined {
+  if (typeof iso !== "string") return undefined;
+  const ms = Date.parse(iso);
+  return Number.isFinite(ms) ? wallClockAt(ms, HUB_TIMEZONE).date : undefined;
+}
+
 // Exact-match allowlist for the post-payment redirect destination — NEVER
 // interpolate a caller-supplied path directly into the Stripe success_url.
 // An unvalidated path here would be an open-redirect vector once Stripe
@@ -77,6 +87,10 @@ const SAFE_RETURN_PATHS = new Set(["/dashboard", "/support"]);
  * opening hours (lib/booking-rules.ts), the text on the Stripe receipt written
  * from those. The browser's roomName, amount, date and times are only what it
  * showed the member.
+ *
+ * A desk is a day pass: it books the day's opening hours at the desk's day
+ * price, whatever times the browser sent. Everything else (the hold, the
+ * overlap rule, the webhook, refunds, receipts) is the same as for a room.
  */
 export async function createCheckoutSession(bookingData: {
   workspaceId: string;
@@ -87,6 +101,8 @@ export async function createCheckoutSession(bookingData: {
   endTime: string;
   startISO: string; // pre-computed UTC ISO from the browser (timezone-correct)
   endISO: string;
+  /** For a desk: the hub day the pass is for (YYYY-MM-DD). Rooms ignore it. */
+  day?: string;
   returnTo?: string; // validated against SAFE_RETURN_PATHS below; defaults to /dashboard
 }) {
   const supabase = await createClient();
@@ -111,12 +127,8 @@ export async function createCheckoutSession(bookingData: {
   }
 
   const now = new Date();
-  const checked = checkBookingWindow(bookingData.startISO, bookingData.endISO, now);
-  if (!checked.ok) throw new Error(checked.error);
-  const { startISO, endISO, hours: durationHours } = checked.value;
-
   if (!isUuidLike(bookingData.workspaceId)) throw new Error("Workspace not found.");
-  // Price is read server-side from the workspace's stored price_per_hour —
+  // Price is read server-side from the workspace's stored price —
   // the client's amount is display-only and never trusted for the actual charge.
   // select("*") because active and bookable only exist once the floor plan migration has run.
   const { data: workspace } = await supabase
@@ -125,15 +137,26 @@ export async function createCheckoutSession(bookingData: {
     .eq("id", bookingData.workspaceId)
     .single();
   if (!workspace) throw new Error("Workspace not found.");
-  if (workspace.active === false || workspace.bookable === false) throw new Error("This room isn’t open for booking.");
-  const pricePerHour = Number(workspace.price_per_hour);
-  if (!Number.isFinite(pricePerHour) || pricePerHour <= 0) throw new Error("This room doesn’t have a price yet. Ask the team.");
+  const isDesk = isDeskRow(workspace);
+  if (workspace.active === false || workspace.bookable === false) throw new Error(isDesk ? "This desk isn’t open for booking." : "This room isn’t open for booking.");
+
+  // A desk takes the whole day it's booked for; a room takes the times asked for.
+  const checked = isDesk
+    ? dayPassWindow(bookingData.day ?? hubDayOf(bookingData.startISO), now)
+    : checkBookingWindow(bookingData.startISO, bookingData.endISO, now);
+  if (!checked.ok) throw new Error(checked.error);
+  const { startISO, endISO, hours: durationHours } = checked.value;
+
+  const unitPrice = isDesk ? dayPrice(workspace.price_per_day) : dayPrice(workspace.price_per_hour);
+  if (unitPrice === null) throw new Error(isDesk ? "Day passes aren’t on sale yet. Ask the team." : "This room doesn’t have a price yet. Ask the team.");
+  // One day for a desk, the hours booked for a room.
+  const units = isDesk ? 1 : durationHours;
 
   // A member's plan can take a percentage off, looked up here like the price and
   // never taken from the browser. Without one, the charge is worked out exactly
   // as it always was.
   const discountPercent = await memberDiscountPercent(user.id);
-  const serverAmount = discountPercent > 0 ? memberTotal(pricePerHour, durationHours, discountPercent) : pricePerHour * durationHours;
+  const serverAmount = discountPercent > 0 ? memberTotal(unitPrice, units, discountPercent) : unitPrice * units;
 
   const adminDb = createAdminClient();
   const staleCutoff = staleHoldCutoff(now);
@@ -170,7 +193,7 @@ export async function createCheckoutSession(bookingData: {
 
   // Final server-side conflict check
   const { available } = await checkRoomAvailability(bookingData.workspaceId, startISO, endISO);
-  if (!available) throw new Error("This time slot is no longer available.");
+  if (!available) throw new Error(SLOT_GONE);
 
   // Cinema-style: reserve the slot with a pending booking BEFORE Stripe redirect.
   // Uses the admin client to bypass RLS — the member_id is explicitly set to the
@@ -197,7 +220,7 @@ export async function createCheckoutSession(bookingData: {
     // (Both seen in the booking-rush test: 100 members, one slot, at once.)
     throw new Error(
       bookingError?.code === "23P01" || bookingError?.code === "40P01"
-        ? "This slot was just reserved by someone else. Pick a different time."
+        ? SLOT_TAKEN
         : "Could not reserve the slot. Please try again.",
     );
   }
@@ -206,7 +229,7 @@ export async function createCheckoutSession(bookingData: {
   const returnPath = SAFE_RETURN_PATHS.has(bookingData.returnTo ?? "")
     ? bookingData.returnTo!
     : "/dashboard";
-  const roomName = String(workspace.name ?? "").trim() || "Meeting room";
+  const roomName = String(workspace.name ?? "").trim() || (isDesk ? "Hot desk" : "Meeting room");
 
   let session: Stripe.Checkout.Session;
   try {
@@ -217,7 +240,7 @@ export async function createCheckoutSession(bookingData: {
           price_data: {
             currency: "aud",
             product_data: {
-              name: `${roomName} Booking`,
+              name: isDesk ? `Day pass · ${roomName}` : `${roomName} Booking`,
               description: `Date: ${hubLongDay(startISO)} | ${hubTime(startISO)} - ${hubTime(endISO)}${discountPercent ? ` | Member rate, ${discountPercent}% off` : ""}`,
             },
             unit_amount: unitAmount,
@@ -237,6 +260,8 @@ export async function createCheckoutSession(bookingData: {
         endTime: endISO,
         // Only when there's a discount, so the invoice can show the rate that was charged.
         ...(discountPercent ? { discountPercent: String(discountPercent) } : {}),
+        // So the receipt says "day pass" without the webhook having to work it out.
+        ...(isDesk ? { dayPass: "1" } : {}),
       },
     });
   } catch {
