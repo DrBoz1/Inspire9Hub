@@ -10,6 +10,7 @@ import {
   type RawInsightBooking,
 } from "@/lib/admin-insights";
 import { LEAD_COLUMNS, toLead, type Lead, type RawLead } from "@/lib/admin-leads";
+import { roomsOnly } from "@/lib/spaces";
 
 /**
  * Read-only. The admin proxy guards the page; the export route checks its caller
@@ -98,10 +99,12 @@ export async function loadInsights(params: { range?: string; room?: string }, no
   const range = resolveRange(params.range, now);
   const db = createAdminClient();
 
-  const { data: roomRows, error: roomError } = await db.from("workspaces").select("id, name, active, bookable").order("name", { ascending: true });
+  const { data: roomRows, error: roomError } = await db.from("workspaces").select("id, name, kind, space_group, active, bookable").order("name", { ascending: true });
   // Thrown so the page shows its error screen, not an empty report that looks real.
   if (roomError) throw new Error(`[insights] rooms: ${roomError.message}`);
-  const rooms: InsightRoom[] = (roomRows ?? []).map((r) => ({
+  // Rooms only: a desk sells one day pass a day, so counting it as a room would
+  // drag utilisation down and tell an operator nothing about either.
+  const rooms: InsightRoom[] = roomsOnly(roomRows ?? []).map((r) => ({
     id: r.id as string,
     name: (r.name as string | null)?.trim() || "Unnamed space",
     sellable: r.active !== false && r.bookable !== false,

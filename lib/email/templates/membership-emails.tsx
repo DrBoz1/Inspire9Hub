@@ -22,9 +22,9 @@ export function MembershipWelcome({ memberName, memberEmail, planName, membershi
     <EmailDetail label="Plan">{planName}</EmailDetail>
     <EmailDetail label="Price" last={!renewsOn && discountPercent <= 0}>{priceLabel}</EmailDetail>
     {renewsOn && <EmailDetail label="Next payment" last={discountPercent <= 0}>{renewsOn}</EmailDetail>}
-    {discountPercent > 0 && <EmailDetail label="Member rate" last>{discountPercent}% off every meeting room booking</EmailDetail>}
+    {discountPercent > 0 && <EmailDetail label="Member rate" last>{discountPercent}% off every room booking and day pass</EmailDetail>}
     {discountPercent > 0
-      ? <EmailAction href={spacesUrl}>Book a room at your member rate</EmailAction>
+      ? <EmailAction href={spacesUrl}>Book at your member rate</EmailAction>
       : <EmailAction href={membershipUrl}>See your membership</EmailAction>}
     <EmailNote label="Your plan, your way">Change your card, download receipts or cancel any time from Plan &amp; billing in the hub.</EmailNote>
     <Text style={{ ...emailStyles.muted, marginBottom: "20px" }}>{FOOT}</Text>
@@ -79,7 +79,7 @@ export function MembershipCancelling({ memberName, memberEmail, planName, member
 export function MembershipEnded({ memberName, memberEmail, planName, membershipUrl, logoDataUrl }: Member) {
   return <EmailLayout preview={`Your ${planName} membership has ended. You can rejoin any time.`} category="Your membership · Ended" title="Your membership has ended." logoDataUrl={logoDataUrl} recipient={memberEmail}>
     <Text style={emailStyles.body}>Hi {firstName(memberName)}, your {planName} membership has now ended. Thanks for being part of Inspire9.</Text>
-    <EmailNote label="Still welcome">You can keep booking meeting rooms at the standard rate, and rejoin whenever suits you.</EmailNote>
+    <EmailNote label="Still welcome">You can keep booking rooms and desks at the standard rate, and rejoin whenever suits you.</EmailNote>
     <EmailAction href={membershipUrl}>See the plans</EmailAction>
     <Text style={{ ...emailStyles.muted, marginBottom: "20px" }}>{FOOT}</Text>
   </EmailLayout>;

@@ -14,6 +14,7 @@ export type AuditAction =
   | "booking.cancel_refund"
   | "booking.refund"
   | "room.update"
+  | "desks.day_price"
   | "staff.add"
   | "staff.role_change"
   | "staff.remove"

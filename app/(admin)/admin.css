@@ -272,6 +272,23 @@ a.admin-stat:hover { border-color: color-mix(in srgb, var(--hub-ink) 16%, var(--
 
 /* Space management */
 .admin-rooms-bar .admin-toolbar { justify-content: space-between; margin-bottom: 18px; }
+/* Desks: sold as day passes, all at one price, so one panel does the lot. */
+.admin-desks { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 18px 28px; margin-bottom: 18px; padding: 20px 22px; }
+.admin-desks-copy { min-width: 0; flex: 1 1 280px; }
+.admin-desks .hub-eyebrow { display: inline-flex; align-items: center; gap: 6px; }
+.admin-desks .hub-eyebrow svg { color: var(--hub-amber); }
+.admin-desks h2 { margin-top: 7px; font-size: 19px; font-weight: 500; letter-spacing: -.035em; }
+.admin-desks-note { margin-top: 6px; color: var(--hub-muted); font-size: 11px; line-height: 1.7; }
+.admin-desks-form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.admin-desks-field { display: grid; gap: 7px; font-size: 11px; }
+.admin-desks-input { display: flex; align-items: center; gap: 2px; width: 124px; min-height: 38px; padding: 0 12px; border: 1px solid var(--hub-line); border-radius: 8px; background: var(--hub-paper); }
+.admin-desks-input:focus-within { border-color: color-mix(in srgb, var(--hub-ink) 30%, var(--hub-line)); }
+.admin-desks-input i { color: var(--hub-muted); font-size: 12px; font-style: normal; }
+.admin-desks-input input { width: 100%; border: 0; background: none; color: var(--hub-ink); font-size: 13px; font-variant-numeric: tabular-nums; outline: none; }
+.admin-desks-buttons { display: flex; flex-wrap: wrap; gap: 8px; }
+.admin-desks-buttons .hub-button { gap: 8px; min-height: 38px; font-size: 11px; }
+.admin-desks .hub-inline-error { flex-basis: 100%; margin-top: 0; }
+@media (max-width: 720px) { .admin-desks-form, .admin-desks-buttons { width: 100%; }.admin-desks-buttons .hub-button { flex: 1 1 auto; justify-content: center; } }
 .admin-room-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 290px), 1fr)); gap: 16px; }
 .admin-room-grid > li { min-width: 0; }
 .admin-room-tile { display: flex; flex-direction: column; height: 100%; overflow: hidden; transition: border-color .2s, box-shadow .2s; }

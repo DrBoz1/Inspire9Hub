@@ -63,7 +63,7 @@ export function MembershipsView({ data, now }: { data: MembershipsData; now: Dat
                     <>
                       {priceLabel(r.plan)}
                       {r.plan.billingInterval === "year" || r.plan.intervalCount > 1 ? <span className="admin-cell-sub">{formatCentsAmount(Math.round(perMonth(r.plan)))} a month</span> : null}
-                      {r.plan.bookingDiscountPercent > 0 && <span className="admin-cell-sub">{r.plan.bookingDiscountPercent}% off room bookings</span>}
+                      {r.plan.bookingDiscountPercent > 0 && <span className="admin-cell-sub">{r.plan.bookingDiscountPercent}% off rooms and day passes</span>}
                     </>
                   ),
                 },

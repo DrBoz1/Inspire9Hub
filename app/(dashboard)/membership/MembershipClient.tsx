@@ -110,7 +110,7 @@ export function MembershipClient({
                     {plan.description && <p>{plan.description}</p>}
                     <strong className="hub-plan-price">{priceLabel(plan)}</strong>
                     {plan.billingInterval === "year" && <span className="hub-plan-sub">{formatCentsAmount(Math.round(perMonth(plan)))} a month</span>}
-                    {plan.bookingDiscountPercent > 0 && <span className="hub-plan-perk">{plan.bookingDiscountPercent}% off meeting room bookings</span>}
+                    {plan.bookingDiscountPercent > 0 && <span className="hub-plan-perk">{plan.bookingDiscountPercent}% off rooms and day passes</span>}
                     <button type="button" className="hub-button hub-button-primary" onClick={() => go(plan.slug, () => actions.start(plan.slug))} disabled={pending} aria-label={`Choose ${plan.name}, ${priceLabel(plan)}`}>
                       {busy === plan.slug ? <Loader2 size={14} className="hub-spin" aria-hidden /> : <Check size={14} aria-hidden />}
                       Choose {plan.name}
