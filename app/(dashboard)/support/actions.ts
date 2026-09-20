@@ -9,6 +9,7 @@ import { createElement } from "react";
 import { validateLead } from "@/lib/admin-leads";
 import { captureLead } from "@/lib/leads-capture";
 import { WindowLimiter } from "@/lib/enquiry-guard";
+import { roomsOnly } from "@/lib/spaces";
 
 // Each message emails the team, so one member can send a handful every ten minutes.
 // Held per server instance: see WindowLimiter for what that does and doesn't stop.
@@ -117,14 +118,15 @@ export async function getAssistantContext() {
     // round-trip per message.
     supabase
       .from("workspaces")
-      .select("id, name, location, capacity, price_per_hour, amenities")
+      .select("id, name, kind, space_group, location, capacity, price_per_hour, amenities")
       .order("capacity", { ascending: true }),
   ]);
 
   const member = memberRes.data;
   const payments = paymentsRes.data ?? [];
   const bookings = bookingsRes.data ?? [];
-  const rooms = (roomsRes.data ?? []).map((r) => ({
+  // Rooms only: desks are sold as day passes from the Bookings page, by the day.
+  const rooms = roomsOnly(roomsRes.data ?? []).map((r) => ({
     id: r.id,
     name: r.name,
     location: r.location,

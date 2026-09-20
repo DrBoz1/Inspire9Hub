@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { generateInvoicePDF } from "@/lib/email/pdf/generate";
 import { getLogoDataUrl } from "@/lib/email/logo";
 import { hubIssueDate, hubLongDay, hubTime } from "@/lib/email/format";
+import { isDeskRow } from "@/lib/spaces";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs"; // fs module needed for the logo, same as the webhook's PDF path
@@ -28,7 +29,7 @@ export async function GET(
   const adminDb = createAdminClient();
   const { data: booking } = await adminDb
     .from("bookings")
-    .select("id, member_id, start_date_time, end_date_time, booking_status, workspaces(name, price_per_hour)")
+    .select("id, member_id, start_date_time, end_date_time, booking_status, workspaces(name, price_per_hour, kind, space_group)")
     .eq("id", bookingId)
     .single();
 
@@ -53,7 +54,7 @@ export async function GET(
     .single();
 
   const workspace = booking.workspaces as unknown as
-    | { name: string; price_per_hour: number }
+    | { name: string; price_per_hour: number; kind?: string | null; space_group?: string | null }
     | null;
 
   const start = new Date(booking.start_date_time);
@@ -82,6 +83,8 @@ export async function GET(
       // The rate actually paid, not today's price: a member rate or a price
       // changed since would otherwise not add up to the total.
       hourlyRate: payment?.amount && durationHours > 0 ? totalAUD / durationHours : (workspace?.price_per_hour ?? 0),
+      // A desk is billed as a day pass: one day at the price paid.
+      dayPass: workspace ? isDeskRow(workspace) : false,
       totalAUD,
       logoDataUrl: getLogoDataUrl(),
     });

@@ -39,6 +39,23 @@ describe("member discounts", () => {
     expect(withMemberRates(rooms, 0)).toEqual([{ id: "r1", price_per_hour: 45, regular_price_per_hour: 50, member_discount_percent: 0 }]);
   });
 
+  it("takes the same percentage off a desk's day price", () => {
+    const desks = [{ id: "d1", price_per_hour: 0, price_per_day: 35 }];
+    expect(withMemberRates(desks, 20)).toEqual([
+      { id: "d1", price_per_hour: 0, regular_price_per_hour: 0, price_per_day: 28, regular_price_per_day: 35, member_discount_percent: 20 },
+    ]);
+  });
+
+  it("prices a desk even though it has no hourly rate", () => {
+    expect(withMemberRates([{ id: "d1", price_per_hour: null, price_per_day: "35.00" }], 10)[0]).toEqual({
+      id: "d1",
+      price_per_hour: null,
+      price_per_day: 31.5,
+      regular_price_per_day: 35,
+      member_discount_percent: 10,
+    });
+  });
+
   it("doesn't invent a price for a room that has none", () => {
     expect(withMemberRates([{ id: "r1", price_per_hour: null }], 20)[0]).toEqual({ id: "r1", price_per_hour: null, member_discount_percent: 0 });
   });

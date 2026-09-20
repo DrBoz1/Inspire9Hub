@@ -8,6 +8,7 @@ import {
   windowToUtcRange,
   buildCheckout,
   parseBookRequest,
+  parseDayPassRequest,
   SERVER_MIN_MINUTES,
   type DayBookingRow,
   type WorkspaceRow,
@@ -149,6 +150,93 @@ describe('mergeSpaces: rows that must not become bookable', () => {
     const a = find(row({ min_minutes: 60, max_minutes: 30 })).spaces.find((s) => s.id === 'meeting-a')!;
     expect(a.minMinutes).toBe(60);
     expect(a.maxMinutes).toBeUndefined();
+  });
+});
+
+describe('mergeSpaces: a desk is sold by the day', () => {
+  const desk = (o: Partial<WorkspaceRow> = {}): WorkspaceRow => ({
+    id: 'ws-desk-a1',
+    name: 'Desk A1',
+    capacity: 1,
+    location: 'Level 1',
+    // What the migration leaves behind: desks never charge by the hour.
+    price_per_hour: 0,
+    price_per_day: 35,
+    amenities: ['monitor', 'power'],
+    floorplan_id: 'desk-A1',
+    code: 'A1',
+    kind: 'desk',
+    space_group: 'desks',
+    active: true,
+    ...o,
+  });
+  const a1 = (row: WorkspaceRow) => {
+    const m = mergeSpaces(SPACES, [row]);
+    return { m, s: m.spaces.find((x) => x.id === 'desk-A1')! };
+  };
+
+  it('prices the desk by the day, never by the hour', () => {
+    const { s } = a1(desk());
+    expect(s.ratePerDay).toBe(35);
+    expect(s.ratePerHour).toBeUndefined();
+    expect(s.bookable).toBe(true);
+    expect(s.workspaceId).toBe('ws-desk-a1');
+  });
+
+  it('accepts a day price that arrives as a string', () => {
+    expect(a1(desk({ price_per_day: '35.00' })).s.ratePerDay).toBe(35);
+  });
+
+  it('is simply not on sale until staff set a day price, which is no error', () => {
+    for (const p of [null, undefined, 0, 'free', -5]) {
+      const { m, s } = a1(desk({ price_per_day: p as never }));
+      expect(s.bookable, String(p)).toBe(false);
+      expect(s.ratePerDay, String(p)).toBeUndefined();
+      expect(m.problems, String(p)).toEqual([]);
+    }
+  });
+
+  it('ignores the hourly price on a desk row even when one is set', () => {
+    const { s } = a1(desk({ price_per_hour: 12 }));
+    expect(s.ratePerHour).toBeUndefined();
+    expect(s.ratePerDay).toBe(35);
+  });
+
+  it('leaves rooms on their hourly price', () => {
+    const meeting = mergeSpaces(SPACES, [row()]).spaces.find((s) => s.id === 'meeting-a')!;
+    expect(meeting.ratePerHour).toBe(12);
+    expect(meeting.ratePerDay).toBeUndefined();
+  });
+
+  it('still refuses a desk an admin has switched off', () => {
+    expect(a1(desk({ bookable: false })).s.bookable).toBe(false);
+  });
+});
+
+describe('buying a day pass from the map', () => {
+  const DESK = '2d5fdf80-a9dc-456a-b040-ac660f1ee6b2';
+
+  it('accepts a desk and a day', () => {
+    expect(parseDayPassRequest({ workspaceId: DESK, day: '2026-08-26' })).toEqual({
+      ok: true,
+      value: { workspaceId: DESK, day: '2026-08-26' },
+    });
+  });
+
+  it.each([
+    ['a desk id that isn’t one', { workspaceId: 'desk-A1', day: '2026-08-26' }],
+    ['a date that doesn’t exist', { workspaceId: DESK, day: '2026-02-30' }],
+    ['a day in the wrong shape', { workspaceId: DESK, day: '26/08/2026' }],
+    ['no day at all', { workspaceId: DESK }],
+    ['nothing', null],
+    ['a string', 'book it'],
+  ])('rejects %s', (_, input) => {
+    expect(parseDayPassRequest(input).ok).toBe(false);
+  });
+
+  it('ignores a window sent alongside: a pass is always the whole day', () => {
+    const r = parseDayPassRequest({ workspaceId: DESK, day: '2026-08-26', from: 600, to: 660 });
+    expect(r).toEqual({ ok: true, value: { workspaceId: DESK, day: '2026-08-26' } });
   });
 });
 

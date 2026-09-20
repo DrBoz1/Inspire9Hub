@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkBookingWindow, checkLookupWindow, HORIZON_DAYS, isUuidLike } from "./booking-rules";
+import { checkBookingWindow, checkLookupWindow, dayPassWindow, HORIZON_DAYS, isUuidLike } from "./booking-rules";
 
 // Friday 25 September 2026, 8:00 am Melbourne (AEST, UTC+10).
 const NOW = new Date("2026-09-24T22:00:00Z");
@@ -61,6 +61,40 @@ describe("what the server lets anyone book", () => {
     // Monday 5 October 2026 is AEDT: 7am there is 8pm UTC the day before.
     expect(check(aedt("2026-10-05", "07:00"), aedt("2026-10-05", "08:00")).ok).toBe(true);
     expect(errorOf(aedt("2026-10-05", "06:00"), aedt("2026-10-05", "07:00"))).toMatch(/opening hours/);
+  });
+});
+
+describe("a day pass's window", () => {
+  const pass = (date: unknown, now = NOW) => dayPassWindow(date, now);
+
+  it("covers the whole day's opening hours when bought ahead", () => {
+    // Monday 28 September: 7am to 9pm.
+    const r = pass("2026-09-28");
+    expect(r).toEqual({ ok: true, value: { startISO: aest("2026-09-28", "07:00"), endISO: aest("2026-09-28", "21:00"), date: "2026-09-28", from: 420, to: 1260, hours: 14 } });
+    // Saturday 26 September: 9am to 5pm.
+    expect(pass("2026-09-26").ok && (pass("2026-09-26") as { value: { from: number; to: number } }).value).toMatchObject({ from: 540, to: 1020 });
+  });
+
+  it("bought on the day, starts at the next 15-minute slot", () => {
+    // NOW is Friday 25 September, 8:00 am: the pass runs 8:15 to 9pm.
+    const r = pass("2026-09-25");
+    expect(r.ok && r.value).toMatchObject({ startISO: aest("2026-09-25", "08:15"), from: 495, to: 1260 });
+    // Before opening, it starts at opening.
+    const early = pass("2026-09-25", new Date(aest("2026-09-25", "06:10")));
+    expect(early.ok && early.value.from).toBe(420);
+  });
+
+  it("isn't sold with less than an hour left, on a closed day, in the past or too far ahead", () => {
+    expect(pass("2026-09-25", new Date(aest("2026-09-25", "20:10")))).toMatchObject({ ok: false, error: expect.stringMatching(/nearly over/) });
+    expect(pass("2026-09-27")).toMatchObject({ ok: false, error: expect.stringMatching(/closed/) });
+    expect(pass("2026-09-24")).toMatchObject({ ok: false, error: expect.stringMatching(/passed/) });
+    expect(pass("2027-03-25")).toMatchObject({ ok: false, error: expect.stringMatching(/180 days/) });
+    expect(pass("not a date")).toMatchObject({ ok: false });
+  });
+
+  it("follows daylight saving: 7am on Monday 5 October is AEDT", () => {
+    const r = pass("2026-10-05");
+    expect(r.ok && r.value.startISO).toBe(aedt("2026-10-05", "07:00"));
   });
 });
 

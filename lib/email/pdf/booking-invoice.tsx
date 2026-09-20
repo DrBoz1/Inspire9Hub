@@ -13,6 +13,8 @@ export type BookingInvoiceData = {
   durationHours: number;
   hourlyRate: number;
   totalAUD: number;
+  /** A day pass is billed as one day at the price paid, not hours at a rate. */
+  dayPass?: boolean;
   logoDataUrl?: string;
 };
 
@@ -54,7 +56,7 @@ const s = StyleSheet.create({
   footer: { position: "absolute", left: 48, right: 48, bottom: 36, height: 45, borderTopWidth: 1, borderTopColor: line, paddingTop: 14, flexDirection: "row", justifyContent: "space-between" },
 });
 
-export function BookingInvoice({ bookingRef, invoiceDate, memberName, memberEmail, roomName, location, bookingDate, startTime, endTime, durationHours, hourlyRate, totalAUD, logoDataUrl }: BookingInvoiceData) {
+export function BookingInvoice({ bookingRef, invoiceDate, memberName, memberEmail, roomName, location, bookingDate, startTime, endTime, durationHours, hourlyRate, totalAUD, dayPass = false, logoDataUrl }: BookingInvoiceData) {
   const gst = +(totalAUD * (1 / 11)).toFixed(2);
   const exGst = +(totalAUD - gst).toFixed(2);
   const money = (amount: number) => `$${amount.toFixed(2)}`;
@@ -88,11 +90,11 @@ export function BookingInvoice({ bookingRef, invoiceDate, memberName, memberEmai
       </View>
       <View wrap={false}>
         <View style={s.tableHead}>
-          <Text style={[s.eyebrow, s.description]}>Workspace</Text><Text style={[s.eyebrow, s.qty]}>Hours</Text><Text style={[s.eyebrow, s.rate]}>Rate</Text><Text style={[s.eyebrow, s.amount]}>Amount</Text>
+          <Text style={[s.eyebrow, s.description]}>Workspace</Text><Text style={[s.eyebrow, s.qty]}>{dayPass ? "Days" : "Hours"}</Text><Text style={[s.eyebrow, s.rate]}>Rate</Text><Text style={[s.eyebrow, s.amount]}>Amount</Text>
         </View>
         <View style={s.tableBody}>
           <View style={s.description}><Text style={s.room}>{roomName}</Text><Text style={s.sub}>{location}</Text><Text style={s.sub}>{bookingDate}</Text><Text style={s.sub}>{startTime} – {endTime}</Text><Text style={{ ...s.sub, fontSize: 8 }}>Melbourne time</Text></View>
-          <Text style={s.qty}>{durationHours}</Text><Text style={s.rate}>{money(hourlyRate)}</Text><Text style={s.amount}>{money(totalAUD)}</Text>
+          <Text style={s.qty}>{dayPass ? 1 : durationHours}</Text><Text style={s.rate}>{money(dayPass ? totalAUD : hourlyRate)}</Text><Text style={s.amount}>{money(totalAUD)}</Text>
         </View>
       </View>
       <View style={s.totals} wrap={false}>

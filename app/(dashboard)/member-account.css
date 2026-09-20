@@ -175,21 +175,24 @@ a.hub-account-row:hover > svg:last-child { color: var(--hub-red); transform: tra
 }
 
 /* Membership: the member's plan, plans to choose from, and receipts. */
-.hub-membership-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 20px; align-items: start; }
+.hub-membership-grid { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 22px 24px; align-items: start; }
+/* Every column is a label and then its card, so the cards start on the same line. */
+.hub-membership-col { display: grid; align-content: start; gap: 11px; min-width: 0; }
 .hub-membership-current { display: grid; justify-items: start; gap: 10px; padding: 24px; }
-.hub-membership-current h2 { font-size: 22px; font-weight: 500; letter-spacing: -.04em; line-height: 1.2; }
+.hub-membership-name { font-size: 22px; font-weight: 500; letter-spacing: -.04em; line-height: 1.2; }
 .hub-membership-current .hub-id-stats { width: 100%; margin-top: 8px; }
 .hub-membership-current .hub-id-stats dd { font-size: 13px; letter-spacing: -.01em; }
 .hub-membership-current .hub-button { gap: 8px; margin-top: 8px; }
 .hub-membership-lede { color: var(--hub-muted); font-size: 12px; line-height: 1.7; }
-.hub-membership-small { color: var(--hub-muted); font-size: 10px; line-height: 1.7; }
+.hub-membership-small { max-width: 52ch; color: var(--hub-muted); font-size: 10px; line-height: 1.7; }
 .hub-membership-note { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 18px; padding: 12px 16px; border-radius: 12px; background: color-mix(in srgb, var(--hub-green) 9%, var(--hub-paper)); font-size: 12px; line-height: 1.6; }
 .hub-membership-note svg { flex-shrink: 0; margin-top: 2px; color: var(--hub-green); }
 .hub-membership > .hub-inline-error { margin-bottom: 18px; }
 .hub-membership-empty { padding: 24px; color: var(--hub-muted); font-size: 12px; line-height: 1.7; }
-.hub-membership-plans { display: grid; gap: 14px; min-width: 0; }
-.hub-membership-plans > ul { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
-.hub-plan { display: flex; flex-direction: column; gap: 8px; padding: 22px; }
+/* Cards share the row and grow into it, but never stretch into a banner. */
+.hub-membership-plans > ul { display: flex; flex-wrap: wrap; gap: 14px; }
+.hub-membership-plans > .hub-membership-small { margin-top: 3px; }
+.hub-plan { display: flex; flex: 1 1 210px; flex-direction: column; gap: 8px; max-width: 320px; padding: 22px; }
 .hub-plan h3 { font-size: 15px; font-weight: 500; letter-spacing: -.02em; }
 .hub-plan > p { flex: 1; color: var(--hub-muted); font-size: 11px; line-height: 1.7; }
 .hub-plan-price { margin-top: 6px; font-size: 20px; font-weight: 500; letter-spacing: -.04em; }
@@ -197,13 +200,16 @@ a.hub-account-row:hover > svg:last-child { color: var(--hub-red); transform: tra
 .hub-plan .hub-button { justify-content: center; gap: 8px; margin-top: 10px; }
 /* Receipts sit under everything, full width. */
 .hub-membership-invoices { grid-column: 1 / -1; }
-.hub-membership-invoices > h2 { padding: 16px 20px 0; }
 .hub-membership-invoices .hub-account-row > div > span { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .hub-membership-invoices .hub-text-link { display: inline-flex; flex-shrink: 0; align-items: center; gap: 4px; font-size: 11px; }
 /* Already a member: no plan picker, so receipts sit beside the plan instead of below an empty column. */
 .hub-membership-grid:not(:has(.hub-membership-plans)) .hub-membership-invoices { grid-column: auto; }
 @media (max-width: 860px) {
   .hub-membership-grid { grid-template-columns: minmax(0, 1fr); }
+}
+/* One card to a row: it matches the card above it instead of stopping short. */
+@media (max-width: 560px) {
+  .hub-plan { max-width: none; }
 }
 
 .hub-plan-perk { display: inline-flex; align-self: flex-start; padding: 3px 8px; border-radius: 999px; background: #2f7d5214; color: #276b45; font-size: 10px; font-weight: 500; }

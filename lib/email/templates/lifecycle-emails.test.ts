@@ -92,7 +92,7 @@ describe("membership emails", () => {
   it("welcomes with the price, the next payment and the member rate", async () => {
     const element = createElement(MembershipWelcome, { ...common, priceLabel: "$75 a month", renewsOn: "20 October 2026", discountPercent: 20, spacesUrl: "https://hub.example.test/spaces" });
     const text = await textOf(element);
-    for (const value of ["welcome to resident desk", "$75 a month", "20 october 2026", "20% off every meeting room booking"]) expect(text).toContain(value);
+    for (const value of ["welcome to resident desk", "$75 a month", "20 october 2026", "20% off every room booking and day pass"]) expect(text).toContain(value);
     expect(await render(element)).toContain('href="https://hub.example.test/spaces"');
   });
 

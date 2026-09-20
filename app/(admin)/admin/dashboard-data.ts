@@ -3,6 +3,7 @@ import { getLocalDayBoundsUTC, HUB_TIMEZONE } from "@/lib/datetime";
 import { BOOKING_STATUS, INDUCTION_STATUS, MEMBER_STATUS } from "@/lib/constants";
 import { sortPending, toDashBooking, toDashPending, type DashboardData, type RawBooking, type RawPending } from "@/lib/admin-dashboard";
 import { SUBSCRIPTION_COLUMNS, membershipTotals, toPlanSubscription, type RawSubscription } from "@/lib/admin-plans";
+import { roomsOnly } from "@/lib/spaces";
 
 const BOOKING_FIELDS = "id, workspace_id, start_date_time, end_date_time, booking_status, workspaces(name), members(full_name)";
 
@@ -43,7 +44,8 @@ export async function loadDashboardData(now = new Date()): Promise<DashboardData
       .select("id, full_name, company_name, induction_records(completion_date)")
       .eq("induction_status", INDUCTION_STATUS.SUBMITTED)
       .limit(50),
-    supabase.from("workspaces").select("id, name, active, bookable").order("name"),
+    // Desks are day passes, not rooms on a timeline, so they're left out below.
+    supabase.from("workspaces").select("id, name, kind, space_group, active, bookable").order("name"),
     supabase.from("subscriptions").select(SUBSCRIPTION_COLUMNS).limit(5000),
   ]);
 
@@ -60,7 +62,7 @@ export async function loadDashboardData(now = new Date()): Promise<DashboardData
     today: ((today.data ?? []) as unknown as RawBooking[]).map(toDashBooking),
     upcoming: ((upcoming.data ?? []) as unknown as RawBooking[]).map(toDashBooking),
     pending: sortPending(((pending.data ?? []) as unknown as RawPending[]).map(toDashPending)),
-    rooms: ((rooms.data ?? []) as { id: string; name: string; active?: boolean | null; bookable?: boolean | null }[])
+    rooms: roomsOnly((rooms.data ?? []) as { id: string; name: string; kind?: string | null; space_group?: string | null; active?: boolean | null; bookable?: boolean | null }[])
       .filter((room) => room.active !== false && room.bookable !== false)
       .map((room) => ({ id: room.id, name: room.name })),
     // Billing is optional: before its migration the table isn't there, and the tile just stays away.

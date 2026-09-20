@@ -14,6 +14,7 @@ import { shouldRetryUnresolved } from "@/lib/billing/state";
 import { memberRate } from "@/lib/billing/discount";
 import { deliverBillingNews } from "@/lib/billing/notify";
 import { emailSlotTaken } from "@/lib/email/booking-notices";
+import { isDeskRow } from "@/lib/spaces";
 
 export const dynamic = "force-dynamic";
 // PDF invoices and the Stripe SDK need Node, not the edge runtime.
@@ -234,24 +235,22 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   if (paymentError)
     console.error("[webhook] Payment insert error:", JSON.stringify(paymentError));
 
-  // 3. Access pass (expires on booking day)
-  const expiryDate = new Date(endTime).toISOString().split("T")[0];
-  const { error: passError } = await supabase.from("access_passes").insert({
-    member_id: userId,
-    issued_date: new Date().toISOString().split("T")[0],
-    expiry_date: expiryDate,
-    pass_type: "room_booking",
-    pass_status: "active",
-  });
-  if (passError)
-    console.error("[webhook] Access pass error:", JSON.stringify(passError));
-
-  // 4. Workspace details for the activity log + invoice email
+  // 3. Workspace details for the access pass, activity log and invoice email.
+  // select("*"): kind and space_group arrive with the floor plan migration.
   const { data: workspace } = await supabase
     .from("workspaces")
-    .select("name, price_per_hour")
+    .select("*")
     .eq("id", workspaceId)
     .single();
+  const dayPass = session.metadata?.dayPass === "1" || (workspace ? isDeskRow(workspace) : false);
+
+  // 4. Access pass, dated in Melbourne (UTC's date is yesterday until 10 or 11am).
+  const pass = { member_id: userId, issued_date: hubDateKey(new Date()), expiry_date: hubDateKey(endTime), pass_status: "active" };
+  let { error: passError } = await supabase.from("access_passes").insert({ ...pass, pass_type: dayPass ? "day_pass" : "room_booking" });
+  // If the table only allows the older type, a day pass still gets its pass.
+  if (passError?.code === "23514" && dayPass) ({ error: passError } = await supabase.from("access_passes").insert({ ...pass, pass_type: "room_booking" }));
+  if (passError)
+    console.error("[webhook] Access pass error:", JSON.stringify(passError));
 
   const bookingDate = hubShortDay(startTime);
 
@@ -259,7 +258,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
   const { error: entryError } = await supabase.from("community_entries").insert({
     member_id: userId,
     entry_type: "Room Booking",
-    entry_description: `Booked ${workspace?.name ?? "a room"} for ${bookingDate}.`,
+    entry_description: dayPass ? `Day pass: ${workspace?.name ?? "a desk"} for ${bookingDate}.` : `Booked ${workspace?.name ?? "a room"} for ${bookingDate}.`,
     entry_date: hubDateKey(startTime),
     tags: "Approved",
   });
@@ -306,6 +305,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
         totalAUD: amount,
         bookingRef: shortRef,
         dashboardUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/bookings`,
+        dayPass,
         logoDataUrl: getLogoUrl(),
       };
 
@@ -332,7 +332,7 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
       // Send confirmation email — always attempted whether or not PDF succeeded
       await sendEmail({
         to: member.email,
-        subject: `Booking Confirmed — ${roomName} · ${bookingDateFormatted}`,
+        subject: dayPass ? `Day pass confirmed — ${roomName} · ${bookingDateFormatted}` : `Booking Confirmed — ${roomName} · ${bookingDateFormatted}`,
         react: createElement(BookingConfirmation, emailData),
         attachments: pdfAttachment ? [pdfAttachment] : undefined,
       });

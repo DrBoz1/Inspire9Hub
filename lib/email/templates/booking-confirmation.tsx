@@ -13,18 +13,30 @@ export type BookingConfirmationProps = {
   totalAUD: number;
   bookingRef: string;
   dashboardUrl: string;
+  /** A hot desk for the day rather than a room by the hour. */
+  dayPass?: boolean;
   logoDataUrl?: string;
 };
 
-export default function BookingConfirmation({ memberName, memberEmail, roomName, location, bookingDate, startTime, endTime, durationHours, totalAUD, bookingRef, dashboardUrl, logoDataUrl }: BookingConfirmationProps) {
-  return <EmailLayout preview={`Confirmed: ${roomName}, ${bookingDate}, ${startTime}–${endTime}.`} category="Your booking · Confirmed" title="Consider it reserved." logoDataUrl={logoDataUrl} recipient={memberEmail}>
-    <Text style={emailStyles.body}>Hi {firstName(memberName)}, your space is ready for the calendar. Here are the details for your next visit.</Text>
+export default function BookingConfirmation({ memberName, memberEmail, roomName, location, bookingDate, startTime, endTime, durationHours, totalAUD, bookingRef, dashboardUrl, dayPass = false, logoDataUrl }: BookingConfirmationProps) {
+  return <EmailLayout
+    preview={dayPass ? `Day pass confirmed: ${roomName}, ${bookingDate}.` : `Confirmed: ${roomName}, ${bookingDate}, ${startTime}–${endTime}.`}
+    category={dayPass ? "Your day pass · Confirmed" : "Your booking · Confirmed"}
+    title={dayPass ? "Your desk is ready." : "Consider it reserved."}
+    logoDataUrl={logoDataUrl}
+    recipient={memberEmail}
+  >
+    <Text style={emailStyles.body}>
+      {dayPass
+        ? <>Hi {firstName(memberName)}, your desk is yours for the day. Settle in, plug in and make it home.</>
+        : <>Hi {firstName(memberName)}, your space is ready for the calendar. Here are the details for your next visit.</>}
+    </Text>
     <Section style={{ margin: "28px 0 0", borderTop: `2px solid ${colors.red}`, paddingTop: "23px" }}>
-      <Text style={emailStyles.label}>Your space</Text>
+      <Text style={emailStyles.label}>{dayPass ? "Your desk" : "Your space"}</Text>
       <Heading as="h2" style={{ margin: "0 0 5px", fontFamily: fontStack, fontSize: "24px", lineHeight: "32px", fontWeight: 500, letterSpacing: "-.6px", color: colors.ink }}>{roomName}</Heading>
       <Text style={{ ...emailStyles.muted, marginBottom: "18px" }}>{location}</Text>
       <EmailDetail label="Date">{bookingDate}</EmailDetail>
-      <EmailDetail label="Time">{startTime} – {endTime}<br /><span style={{ color: colors.muted }}>Melbourne time · {durationHours} {durationHours === 1 ? "hour" : "hours"}</span></EmailDetail>
+      <EmailDetail label="Time">{startTime} – {endTime}<br /><span style={{ color: colors.muted }}>{dayPass ? "Melbourne time · the whole day" : <>Melbourne time · {durationHours} {durationHours === 1 ? "hour" : "hours"}</>}</span></EmailDetail>
       <EmailDetail label="Booked for">{memberName}</EmailDetail>
       <EmailDetail label="Reference" last><span style={{ fontFamily: "'Courier New', monospace", letterSpacing: ".5px" }}>{bookingRef}</span></EmailDetail>
     </Section>

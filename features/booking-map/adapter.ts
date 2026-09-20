@@ -21,6 +21,7 @@
 import type { Booking, Space, SpaceGroup, SpaceKind } from './booking/types';
 import { makeISO, SLOT } from './booking/time';
 import { toAmenityKeys } from '@/lib/amenities';
+import { dayPrice, isDeskRow } from '@/lib/spaces';
 import { wallClockAt, wallClockToUtc, isDateKey } from './zoned-time';
 
 /** createCheckoutSession refuses bookings under an hour; the map uses the same floor. */
@@ -36,6 +37,8 @@ export interface WorkspaceRow {
   capacity: number | null;
   location?: string | null;
   price_per_hour: number | string | null;
+  /** A desk's day price. Arrives with the day pass migration; null until staff put desks on sale. */
+  price_per_day?: number | string | null;
   amenities: string[] | null;
   floorplan_id?: string | null;
   code?: string | null;
@@ -127,8 +130,12 @@ export function mergeSpaces(plan: readonly Space[], rows: readonly WorkspaceRow[
       return { ...s, bookable: false, unlinked: true, ratePerHour: undefined, minMinutes: undefined, maxMinutes: undefined };
     }
 
-    const rate = price(row.price_per_hour);
-    if (rate === undefined) {
+    // A desk is sold by the day, a room by the hour. A desk with no day price
+    // isn't on sale yet, which is ordinary rather than a problem to report.
+    const desk = isDeskRow(row);
+    // A day price of zero means not on sale, where an hourly zero means included.
+    const rate = desk ? dayPrice(row.price_per_day) ?? undefined : price(row.price_per_hour);
+    if (rate === undefined && !desk) {
       problems.push(`"${row.name}" has no valid hourly price, so it can't be booked.`);
     }
     // Limits come from the room, never the drawing, and never below the server's floor.
@@ -153,7 +160,8 @@ export function mergeSpaces(plan: readonly Space[], rows: readonly WorkspaceRow[
       description: row.description?.trim() || s.description,
       minMinutes: min,
       maxMinutes: max,
-      ratePerHour: rate,
+      ratePerHour: desk ? undefined : rate,
+      ratePerDay: desk ? rate : undefined,
       bookable,
       workspaceId: row.id,
       unlinked: false,
@@ -271,6 +279,23 @@ export function parseBookRequest(
   if (!onSlot(from) || !onSlot(to)) return { ok: false, error: `Times must be on a ${SLOT}-minute slot.` };
   if (to <= from) return { ok: false, error: 'End time must be after the start time.' };
   return { ok: true, value: { workspaceId, day, from, to } };
+}
+
+/** What the map sends to buy a day pass for one desk it has picked. */
+export interface DayPassRequest {
+  workspaceId: string;
+  day: string;
+}
+
+/** Validate a day pass request: a Server Function is a public endpoint. */
+export function parseDayPassRequest(
+  input: unknown,
+): { ok: true; value: DayPassRequest } | { ok: false; error: string } {
+  if (!input || typeof input !== 'object') return { ok: false, error: 'Nothing to book.' };
+  const { workspaceId, day } = input as Record<string, unknown>;
+  if (typeof workspaceId !== 'string' || !UUID.test(workspaceId)) return { ok: false, error: 'Unknown desk.' };
+  if (typeof day !== 'string' || !isDateKey(day)) return { ok: false, error: 'That isn’t a valid date.' };
+  return { ok: true, value: { workspaceId, day } };
 }
 
 const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;

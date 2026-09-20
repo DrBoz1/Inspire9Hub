@@ -6,6 +6,61 @@ import { requireAdmin } from "@/lib/admin-guard";
 import { isUuid } from "@/lib/admin-compliance";
 import { IMAGE_TYPES, checkImage, cleanAmenities, looksLikeImage, parsePrice } from "@/lib/admin-rooms";
 import { recordAudit } from "@/lib/audit";
+import { parseDayPrice } from "@/lib/admin-desks";
+
+export type DeskPriceResult = { error?: string; saved?: { price: number | null; desks: number } };
+
+/**
+ * Puts every desk on sale at one price a day, or takes them all off sale.
+ *
+ * One price for all of them on purpose: a day pass is "a desk", not a particular
+ * desk, so members would have no way to choose a cheaper one. Selling stops by
+ * clearing the price rather than by deleting anything, so the desks stay on the
+ * floor plan and the bookings already sold are untouched.
+ */
+export async function setDeskDayPrice(formData: FormData): Promise<DeskPriceResult> {
+  const guard = await requireAdmin();
+  if ("error" in guard) return { error: guard.error };
+
+  const offSale = formData.get("offSale") === "true";
+  let price: number | null = null;
+  if (!offSale) {
+    const parsed = parseDayPrice(formData.get("price_per_day"));
+    if ("error" in parsed) return { error: parsed.error };
+    price = parsed.value;
+  }
+
+  // Admin client bypasses RLS — authorization is already enforced by requireAdmin() above.
+  const { data, error } = await createAdminClient()
+    .from("workspaces")
+    .update({ price_per_day: price })
+    .or("kind.eq.desk,space_group.eq.desks")
+    .select("id");
+  if (error) {
+    // The column arrives with add_desks_and_day_passes.sql.
+    if (error.code === "42703") return { error: "Day passes need their migration run first." };
+    console.error("[desks] day price:", error.message);
+    return { error: "Couldn’t save the day price. Please try again." };
+  }
+
+  const desks = data?.length ?? 0;
+  if (desks === 0) return { error: "There are no desks yet. Run the day pass migration to add them." };
+
+  await recordAudit({
+    actor: { id: guard.user.id, email: guard.user.email },
+    action: "desks.day_price",
+    entity: "room",
+    entityId: null,
+    summary: price === null ? `Took ${desks} desks off sale` : `Put ${desks} desks on sale at $${price.toFixed(2)} a day`,
+    meta: { price, desks },
+  });
+
+  revalidatePath("/admin", "layout");
+  revalidatePath("/bookings");
+  revalidatePath("/spaces");
+
+  return { saved: { price, desks } };
+}
 
 export type RoomSaveResult = {
   error?: string;
