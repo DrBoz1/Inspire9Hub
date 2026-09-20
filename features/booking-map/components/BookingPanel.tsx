@@ -7,7 +7,7 @@ import type { Availability, Booking, Space, SpaceKind } from '../booking/types';
 import { AMENITY_LABELS } from '../data/spaces';
 import {
   bookingsOnDay, formatDateLong, formatDuration, formatRange, formatTime, nextAvailableStart,
-  splitISO, todayKey, validateBooking, SLOT,
+  openingFor, splitISO, todayKey, validateBooking, SLOT,
 } from '../booking/time';
 import { Button, StatusPill } from './ui';
 
@@ -59,26 +59,45 @@ export function BookingPanel({
   variant = 'rail',
 }: Props) {
   const Icon = KIND_ICON[space.kind];
+  // A desk is sold as a day pass: opening to closing, one price, nothing to choose.
+  const dayPass = space.ratePerDay !== undefined;
+  const hours = openingFor(date);
 
   const dayBookings = useMemo(
     () => bookingsOnDay(bookings, space.id, date),
     [bookings, date, space.id],
   );
 
-  const error = useMemo(
-    () => (space.bookable ? validateBooking(space, bookings, { date, from, to }) : null),
-    [bookings, date, from, space, to],
+  /** Whoever has the desk that day. One pass fills the day, so one is enough. */
+  const takenBy = useMemo(
+    () => (dayPass ? dayBookings.find((b) => !b.mine) ?? null : null),
+    [dayBookings, dayPass],
   );
 
+  const error = useMemo(() => {
+    if (!space.bookable) return null;
+    // A day pass has no window to check: either the desk is free that day or it isn't.
+    if (dayPass) {
+      return takenBy
+        ? ({ code: 'conflict', message: 'Someone has this desk for the day. Pick another.', conflict: takenBy } as const)
+        : null;
+    }
+    return validateBooking(space, bookings, { date, from, to });
+  }, [bookings, date, dayPass, from, space, takenBy, to]);
+
   const nextStart = useMemo(() => {
-    if (!space.bookable || !error) return null;
+    if (!space.bookable || !error || dayPass) return null;
     return nextAvailableStart(space, bookings, date, to - from, from);
-  }, [bookings, date, error, from, space, to]);
+  }, [bookings, date, dayPass, error, from, space, to]);
 
   const myBooking = dayBookings.find((b) => b.mine && b.from < to && from < b.to);
 
   const duration = to - from;
-  const cost = space.ratePerHour === undefined ? null : Math.round(space.ratePerHour * (duration / 60) * 100) / 100;
+  const cost = dayPass
+    ? space.ratePerDay!
+    : space.ratePerHour === undefined
+      ? null
+      : Math.round(space.ratePerHour * (duration / 60) * 100) / 100;
   const costLabel = cost === null ? '' : ` · $${Number.isInteger(cost) ? cost : cost.toFixed(2)}`;
   const step = space.minMinutes && space.minMinutes >= 60 ? 30 : SLOT;
 
@@ -192,7 +211,15 @@ export function BookingPanel({
             {!space.unlinked && (
               <Meta
                 label="Rate"
-                value={space.ratePerHour ? `$${space.ratePerHour}/hr` : 'Included'}
+                value={
+                  dayPass
+                    ? `$${space.ratePerDay} a day`
+                    : space.kind === 'desk'
+                      ? 'Not on sale'
+                      : space.ratePerHour
+                        ? `$${space.ratePerHour}/hr`
+                        : 'Included'
+                }
               />
             )}
           </dl>
@@ -215,7 +242,22 @@ export function BookingPanel({
           </div>
         )}
 
-        {space.bookable && (
+        {space.bookable && dayPass && (
+          <div className="border-t px-4 py-3" style={{ borderColor: 'var(--color-border-subtle)' }}>
+            <p className="eyebrow">When</p>
+            <div className="mt-1.5 flex items-center gap-2">
+              <Clock size={15} aria-hidden style={{ color: 'var(--color-ink-500)' }} />
+              <span className="tnum text-[15px] font-semibold" style={{ color: 'var(--color-ink-900)' }}>
+                {hours.open === null || hours.close === null ? 'Closed that day' : `All day · ${formatRange(hours.open, hours.close)}`}
+              </span>
+            </div>
+            <p className="mt-1.5 text-[13px]" style={{ color: 'var(--color-ink-500)' }}>
+              A day pass runs from opening to closing. Bought on the day itself, it starts from now.
+            </p>
+          </div>
+        )}
+
+        {space.bookable && !dayPass && (
           <div className="border-t px-4 py-3" style={{ borderColor: 'var(--color-border-subtle)' }}>
             <p className="eyebrow">When</p>
             <div className="mt-1.5 flex items-center gap-2">
@@ -316,6 +358,24 @@ export function BookingPanel({
         </div>
       )}
 
+      {/* Linked to a real space, but not for sale: a desk with no day price yet,
+          or a room an admin has switched off. */}
+      {!space.bookable && !space.unlinked && (
+        <div
+          className="shrink-0 border-t p-3"
+          style={{ borderColor: 'var(--color-border)', background: 'var(--color-surface-0)' }}
+        >
+          <p className="text-[12.5px] leading-5" style={{ color: 'var(--color-ink-600)' }}>
+            {space.kind === 'desk'
+              ? 'Day passes aren’t on sale yet.'
+              : `${space.name} isn’t open for booking right now.`}{' '}
+            <a href="/bookings" className="font-semibold underline underline-offset-2" style={{ color: 'var(--color-brand)' }}>
+              See what you can book
+            </a>
+          </p>
+        </div>
+      )}
+
       {space.bookable && (
         <div
           className="shrink-0 border-t p-3"
@@ -376,7 +436,9 @@ export function BookingPanel({
                       ? 'Can’t check availability'
                       : error
                         ? 'Unavailable'
-                        : `Book · ${formatDuration(duration)}${costLabel}`}
+                        : dayPass
+                          ? `Day pass · $${space.ratePerDay}`
+                          : `Book · ${formatDuration(duration)}${costLabel}`}
               </Button>
             </>
           )}

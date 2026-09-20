@@ -54,6 +54,9 @@ export interface Space {
   maxMinutes?: number;
   /** Cost per hour in AUD; 0 = included with membership. */
   ratePerHour?: number;
+  /** A desk's price for one day in AUD. Set instead of ratePerHour, and only on
+   *  desks that are on sale as day passes. */
+  ratePerDay?: number;
   /** The `workspaces` row this space books. Absent = no room is linked to it yet. */
   workspaceId?: string;
   /** Drawn on the plan but not linked to a room an admin has set up, so it can't be

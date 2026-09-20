@@ -9,7 +9,7 @@ import { List, Maximize2, Minus, Plus, X } from 'lucide-react';
 import type { Availability, Booking, Space } from './booking/types';
 import { SPACES } from './data/spaces';
 import { mergeSpaces, planIdByWorkspace, toMapBookings, type DayBookingRow, type WorkspaceRow } from './adapter';
-import { bookFromMap, getMapDay } from './actions';
+import { bookDeskDayPass, bookFromMap, getMapDay } from './actions';
 import { HUB_TIMEZONE } from '@/lib/datetime';
 import { addDays } from './booking/time';
 import {
@@ -318,7 +318,10 @@ export default function App({ workspaces, memberName, roomsError }: MapProps) {
         setBookingFor(null);
       };
       try {
-        const r = await bookFromMap({ workspaceId: space.workspaceId, day: date, from, to });
+        // A desk is a day pass: the whole day, so there is no window to send.
+        const r = space.ratePerDay === undefined
+          ? await bookFromMap({ workspaceId: space.workspaceId, day: date, from, to })
+          : await bookDeskDayPass({ workspaceId: space.workspaceId, day: date });
         fail(r.error);
       } catch (err) {
         // The redirect to Stripe arrives as a thrown NEXT_REDIRECT; let Next handle it.

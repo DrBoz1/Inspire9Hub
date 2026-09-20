@@ -6,8 +6,10 @@ import { HUB_TIMEZONE } from '@/lib/datetime';
 import { dayBoundsUtc, isDateKey } from './zoned-time';
 import { unstable_rethrow } from 'next/navigation';
 import { createCheckoutSession } from '@/app/(dashboard)/bookings/actions';
-import { buildCheckout, parseBookRequest, type DayBookingRow } from './adapter';
-import { staleHoldCutoff } from '@/lib/booking-rules';
+import { buildCheckout, parseBookRequest, parseDayPassRequest, type DayBookingRow } from './adapter';
+import { dayPassWindow, staleHoldCutoff } from '@/lib/booking-rules';
+import { dayPrice, isDeskRow } from '@/lib/spaces';
+import { hubTime } from '@/lib/email/format';
 
 export type DayResult =
   | { ok: true; day: string; rows: DayBookingRow[] }
@@ -83,6 +85,55 @@ export async function getMapDay(day: string): Promise<DayResult> {
  * Next docs advise) so the member sees the real reason. On success it redirects to
  * Stripe and never returns.
  */
+/**
+ * Buy a day pass for one desk, the one the member picked on the plan.
+ *
+ * A desk is sold for the day, not by the hour, so there is no window to send: the
+ * hours come from `dayPassWindow` here rather than from the browser. Everything
+ * else is the room path -- the same induction gate, the same overlap constraint
+ * that stops the desk being sold twice. On success it redirects to Stripe.
+ */
+export async function bookDeskDayPass(input: unknown): Promise<{ ok: false; error: string }> {
+  const parsed = parseDayPassRequest(input);
+  if (!parsed.ok) return parsed;
+  const { workspaceId, day } = parsed.value;
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { ok: false, error: 'Sign in to book.' };
+
+  const { data: desk } = await supabase.from('workspaces').select('*').eq('id', workspaceId).maybeSingle();
+  if (!desk) return { ok: false, error: 'That desk no longer exists.' };
+  if (desk.active === false || desk.bookable === false) return { ok: false, error: 'This desk isn’t open for booking.' };
+  if (!isDeskRow(desk)) return { ok: false, error: 'That isn’t a desk.' };
+  if (dayPrice(desk.price_per_day) === null) return { ok: false, error: 'Day passes aren’t on sale yet.' };
+
+  const window = dayPassWindow(day, new Date());
+  if (!window.ok) return { ok: false, error: window.error };
+  const { startISO, endISO } = window.value;
+
+  try {
+    await createCheckoutSession({
+      workspaceId: desk.id,
+      roomName: desk.name ?? 'Hot desk',
+      amount: 0, // display only; checkout works the charge out from the stored price
+      date: day,
+      startTime: hubTime(startISO),
+      endTime: hubTime(endISO),
+      startISO,
+      endISO,
+      day,
+    });
+  } catch (err) {
+    unstable_rethrow(err); // the redirect to Stripe
+    const message = err instanceof Error && err.message ? err.message : '';
+    return { ok: false, error: message || 'Couldn’t start checkout. Try again.' };
+  }
+  return { ok: false, error: 'Couldn’t start checkout. Try again.' };
+}
+
 export async function bookFromMap(input: unknown): Promise<{ ok: false; error: string }> {
   const parsed = parseBookRequest(input);
   if (!parsed.ok) return parsed;

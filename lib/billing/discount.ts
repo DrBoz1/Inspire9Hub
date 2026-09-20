@@ -30,10 +30,23 @@ export function memberTotal(pricePerHour: number, hours: number, percent: number
   return Math.max(0, cents(pricePerHour * hours * (1 - p / 100)));
 }
 
-type PricedRow = { price_per_hour: number | string | null; regular_price_per_hour?: number | string | null };
+type PricedRow = {
+  price_per_hour: number | string | null;
+  regular_price_per_hour?: number | string | null;
+  /** Desks are sold by the day, and the same discount applies to a day pass. */
+  price_per_day?: number | string | null;
+  regular_price_per_day?: number | string | null;
+};
+
+/** Number(null) is 0, not "no number": a space with no price must stay unpriced, not become free. */
+function priceOf(raw: unknown): number | null {
+  if (raw === null || raw === undefined || (typeof raw === "string" && raw.trim() === "")) return null;
+  const n = Number(raw);
+  return Number.isFinite(n) ? n : null;
+}
 
 /**
- * Rooms as a member should see them: the member rate as the price, the full
+ * Spaces as a member should see them: the member rate as the price, the full
  * price kept as the "regular" one it's compared against, and the percentage for
  * labelling. Display only; checkout works the charge out again from the database.
  */
@@ -41,10 +54,14 @@ export function withMemberRates<T extends PricedRow>(rows: T[], percent: number)
   const p = parseDiscount(percent);
   if (p === 0) return rows.map((row) => ({ ...row, member_discount_percent: 0 }));
   return rows.map((row) => {
-    // Number(null) is 0, not "no number": a room with no price must stay unpriced, not become free.
-    const raw = row.price_per_hour;
-    const full = raw === null || raw === undefined || (typeof raw === "string" && raw.trim() === "") ? NaN : Number(raw);
-    if (!Number.isFinite(full)) return { ...row, member_discount_percent: 0 };
-    return { ...row, price_per_hour: memberRate(full, p), regular_price_per_hour: full, member_discount_percent: p };
+    const hour = priceOf(row.price_per_hour);
+    const day = priceOf(row.price_per_day);
+    if (hour === null && day === null) return { ...row, member_discount_percent: 0 };
+    return {
+      ...row,
+      ...(hour === null ? {} : { price_per_hour: memberRate(hour, p), regular_price_per_hour: hour }),
+      ...(day === null ? {} : { price_per_day: memberRate(day, p), regular_price_per_day: day }),
+      member_discount_percent: p,
+    };
   });
 }

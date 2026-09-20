@@ -9,6 +9,10 @@ import { Clock, ArrowRight, Lock } from "lucide-react";
 import Link from "next/link";
 import { getLocalDayBoundsUTC, HUB_TIMEZONE } from "@/lib/datetime";
 import BookingsHero from "./BookingsHero";
+import { DayPassCard } from "./DayPassCard";
+import { getDayPassOffer } from "./day-passes";
+import { roomsOnly } from "@/lib/spaces";
+import { todayIn } from "@/features/booking-map/zoned-time";
 
 export default async function BookingsPage(props: {
   searchParams: Promise<{ status?: string; bookingId?: string }>;
@@ -81,14 +85,20 @@ export default async function BookingsPage(props: {
 
   // Shown at the member's rate if their plan has one; checkout works the charge out again itself.
   const discount = user ? await memberDiscountPercent(user.id) : 0;
-  const rooms = withMemberRates(roomsRes.data ?? [], discount).map((room) => ({
+  // Desks are sold as day passes, by the card above, not as room cards.
+  const rooms = withMemberRates(roomsOnly(roomsRes.data ?? []), discount).map((room) => ({
     ...room,
     busyToday: busyRoomIds.has(room.id),
   }));
 
+  // Only shown once staff have put desks on sale.
+  const dayPass = await getDayPassOffer();
+
   return (
     <div className="hub-page hub-bookings">
       <BookingsHero roomCount={rooms.length} />
+
+      {dayPass.ok && <DayPassCard offer={dayPass} today={todayIn(HUB_TIMEZONE)} />}
 
       <BookingClient
         initialBookings={bookingsRes.data || []}

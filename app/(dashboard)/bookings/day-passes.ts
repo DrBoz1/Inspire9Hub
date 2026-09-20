@@ -8,6 +8,7 @@ import { dayPrice, desksOnly, freeDesks } from "@/lib/spaces";
 import { memberTotal } from "@/lib/billing/discount";
 import { memberDiscountPercent } from "@/lib/billing/member-discount";
 import { hubTime } from "@/lib/email/format";
+import { firstBookableDay } from "./booking-time";
 import { createCheckoutSession } from "./actions";
 
 /**
@@ -58,8 +59,12 @@ async function desksFor(day: string, memberId: string) {
   return { desks, free: freeDesks(desks, taken), window: window.value } as const;
 }
 
-/** How many desks are free on a day, and what a pass costs this member. */
-export async function getDayPassOffer(day: string): Promise<DayPassOffer> {
+/**
+ * How many desks are free on a day, and what a pass costs this member. With no
+ * day it answers for the first one still bookable, which is what the page wants.
+ */
+export async function getDayPassOffer(dayWanted?: string): Promise<DayPassOffer> {
+  const day = dayWanted ?? firstBookableDay(Date.now());
   const supabase = await createClient();
   const {
     data: { user },

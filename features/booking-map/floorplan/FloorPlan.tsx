@@ -268,7 +268,9 @@ export function FloorPlan({
           <g role="group" aria-label="Bookable spaces">
             {spaces.map((s) => {
               const isVisible = visible.has(s.id);
-              const canSelect = s.bookable || !!s.unlinked;
+              // Anything backed by a real space can be opened and read about, even when
+              // it can't be booked: a desk with no day price yet, or a room switched off.
+              const canSelect = s.bookable || !!s.unlinked || !!s.workspaceId;
               const st = s.bookable ? status.get(s.id) ?? 'unknown' : 'closed';
               const selected = selectedId === s.id;
               const hovered = hoveredId === s.id;
