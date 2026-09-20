@@ -75,28 +75,30 @@ export function MembershipClient({
       {error && <p className="hub-inline-error" role="alert">{error}</p>}
 
       <div className="hub-membership-grid">
-        <section className="hub-surface hub-membership-current" aria-labelledby="membership-now">
-          <p className="hub-eyebrow">Your plan</p>
-          <h2 id="membership-now">{current?.planName ?? (live ? "Membership" : "Not a member yet")}</h2>
-          <span className="hub-status-badge" data-status={TONE_BADGE[notice.tone]}>{notice.label}</span>
-          <p className="hub-membership-lede">{notice.description}</p>
-          {current && live && (
-            <dl className="hub-id-stats">
-              <div><dt>Price</dt><dd>{priceLabel({ amountCents: current.unitAmountCents * current.quantity, billingInterval: current.billingInterval, intervalCount: current.intervalCount })}</dd></div>
-              <div><dt>Status</dt><dd>{notice.kind === "overdue" ? "Needs attention" : "In good standing"}</dd></div>
-            </dl>
-          )}
-          {canManage && (
-            <button type="button" className="hub-button hub-button-outline" onClick={() => go("portal", actions.portal)} disabled={pending}>
-              {busy === "portal" ? <Loader2 size={14} className="hub-spin" aria-hidden /> : <CreditCard size={14} aria-hidden />}
-              Manage billing
-            </button>
-          )}
-          {canManage && <p className="hub-membership-small">Change your card, see receipts, or cancel. Handled securely by Stripe.</p>}
+        <section className="hub-membership-col" aria-labelledby="membership-now">
+          <h2 className="hub-eyebrow" id="membership-now">Your plan</h2>
+          <div className="hub-surface hub-membership-current">
+            <p className="hub-membership-name">{current?.planName ?? (live ? "Membership" : "Not a member yet")}</p>
+            <span className="hub-status-badge" data-status={TONE_BADGE[notice.tone]}>{notice.label}</span>
+            <p className="hub-membership-lede">{notice.description}</p>
+            {current && live && (
+              <dl className="hub-id-stats">
+                <div><dt>Price</dt><dd>{priceLabel({ amountCents: current.unitAmountCents * current.quantity, billingInterval: current.billingInterval, intervalCount: current.intervalCount })}</dd></div>
+                <div><dt>Status</dt><dd>{notice.kind === "overdue" ? "Needs attention" : "In good standing"}</dd></div>
+              </dl>
+            )}
+            {canManage && (
+              <button type="button" className="hub-button hub-button-outline" onClick={() => go("portal", actions.portal)} disabled={pending}>
+                {busy === "portal" ? <Loader2 size={14} className="hub-spin" aria-hidden /> : <CreditCard size={14} aria-hidden />}
+                Manage billing
+              </button>
+            )}
+            {canManage && <p className="hub-membership-small">Change your card, see receipts, or cancel. Handled securely by Stripe.</p>}
+          </div>
         </section>
 
         {!live && (
-          <section className="hub-membership-plans" aria-labelledby="membership-plans">
+          <section className="hub-membership-col hub-membership-plans" aria-labelledby="membership-plans">
             <h2 id="membership-plans" className="hub-eyebrow">Choose a plan</h2>
             {plans.length === 0 ? (
               <p className="hub-surface hub-membership-empty">No plans are on sale right now. Ask the team about membership.</p>
@@ -122,28 +124,30 @@ export function MembershipClient({
         )}
 
         {invoices.length > 0 && (
-          <section className="hub-surface hub-account-list hub-membership-invoices" aria-labelledby="membership-invoices">
-            <h2 id="membership-invoices" className="hub-eyebrow">Receipts</h2>
-            <ul>
-              {invoices.map((invoice) => {
-                const [label, tone] = INVOICE_LABELS[invoice.status] ?? [invoice.status, "inactive"];
-                const amount = invoice.status === "paid" ? invoice.amountPaidCents : invoice.amountDueCents;
-                return (
-                  <li key={invoice.id} className="hub-account-row">
-                    <span className="hub-row-icon"><ReceiptText size={16} aria-hidden /></span>
-                    <div>
-                      <strong>{periodLabel(invoice.periodStart, invoice.periodEnd)}</strong>
-                      <span>{formatCentsAmount(amount)} · <span className="hub-status-badge" data-status={tone}>{label}</span></span>
-                    </div>
-                    {invoice.url && (
-                      <a href={invoice.url} target="_blank" rel="noreferrer" className="hub-text-link" aria-label={`Receipt for ${periodLabel(invoice.periodStart, invoice.periodEnd)}, opens Stripe`}>
-                        Receipt<ArrowUpRight size={14} aria-hidden />
-                      </a>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
+          <section className="hub-membership-col hub-membership-invoices" aria-labelledby="membership-invoices">
+            <h2 className="hub-eyebrow" id="membership-invoices">Receipts</h2>
+            <div className="hub-surface hub-account-list">
+              <ul>
+                {invoices.map((invoice) => {
+                  const [label, tone] = INVOICE_LABELS[invoice.status] ?? [invoice.status, "inactive"];
+                  const amount = invoice.status === "paid" ? invoice.amountPaidCents : invoice.amountDueCents;
+                  return (
+                    <li key={invoice.id} className="hub-account-row">
+                      <span className="hub-row-icon"><ReceiptText size={16} aria-hidden /></span>
+                      <div>
+                        <strong>{periodLabel(invoice.periodStart, invoice.periodEnd)}</strong>
+                        <span>{formatCentsAmount(amount)} · <span className="hub-status-badge" data-status={tone}>{label}</span></span>
+                      </div>
+                      {invoice.url && (
+                        <a href={invoice.url} target="_blank" rel="noreferrer" className="hub-text-link" aria-label={`Receipt for ${periodLabel(invoice.periodStart, invoice.periodEnd)}, opens Stripe`}>
+                          Receipt<ArrowUpRight size={14} aria-hidden />
+                        </a>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           </section>
         )}
       </div>
