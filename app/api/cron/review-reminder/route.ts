@@ -1,7 +1,7 @@
-import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-guard";
+import { cronAuthorised } from "@/lib/cron-auth";
 import { sendEmail } from "@/lib/email/send";
 import { getLogoUrl } from "@/lib/email/logo";
 import ReviewReminder from "@/lib/email/templates/review-reminder";
@@ -146,10 +146,7 @@ async function runReviewReminders(dryRun = false) {
 
 // ── GET — Vercel Cron Job (authenticated via CRON_SECRET) ───────────────────
 export async function GET(request: NextRequest) {
-  const cronSecret = process.env.CRON_SECRET;
-  const authHeader = request.headers.get("authorization");
-
-  if (!cronSecret || !sameSecret(authHeader, `Bearer ${cronSecret}`)) {
+  if (!cronAuthorised(request.headers.get("authorization"))) {
     console.warn("[review-reminder] Unauthorized GET attempt");
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -170,12 +167,4 @@ export async function POST(request: NextRequest) {
   const dryRun = new URL(request.url).searchParams.get("dryRun") === "true";
   const result = await runReviewReminders(dryRun);
   return NextResponse.json(result);
-}
-
-/** Compares without leaking, through timing, how much of a guess was right. */
-function sameSecret(given: string | null, expected: string): boolean {
-  if (!given) return false;
-  const a = Buffer.from(given);
-  const b = Buffer.from(expected);
-  return a.length === b.length && timingSafeEqual(a, b);
 }

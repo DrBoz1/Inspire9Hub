@@ -1,0 +1,41 @@
+name: Smoke
+
+# CI proves the code is right. This proves the site members actually visit is up:
+# it runs against production, writes nothing, and needs no secrets.
+on:
+  # Vercel reports its deploys to GitHub, so a finished production deploy checks
+  # itself. If that integration is ever turned off, the schedule below still covers it.
+  deployment_status:
+  # Every half hour. GitHub runs scheduled jobs late when it's busy, and switches
+  # them off after 60 days with no commits, so treat this as a safety net rather
+  # than real uptime monitoring.
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+    inputs:
+      url:
+        description: The site to check
+        required: false
+        default: https://inspire9-hub.vercel.app
+
+concurrency:
+  group: smoke
+  cancel-in-progress: true
+
+jobs:
+  smoke:
+    name: Production smoke test
+    # A deployment_status fires for every state; only a finished production deploy is worth checking.
+    if: github.event_name != 'deployment_status' || (github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production')
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      # No npm install: the script uses nothing but Node's own fetch, so this
+      # finishes in seconds and can't be broken by a dependency.
+      - name: Check the live site
+        run: node scripts/smoke.mjs "${{ inputs.url || vars.SMOKE_URL || 'https://inspire9-hub.vercel.app' }}"

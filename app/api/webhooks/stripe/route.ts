@@ -15,6 +15,7 @@ import { memberRate } from "@/lib/billing/discount";
 import { deliverBillingNews } from "@/lib/billing/notify";
 import { emailSlotTaken } from "@/lib/email/booking-notices";
 import { isDeskRow } from "@/lib/spaces";
+import { notifyStaff } from "@/lib/notify-staff";
 
 export const dynamic = "force-dynamic";
 // PDF invoices and the Stripe SDK need Node, not the edge runtime.
@@ -83,6 +84,18 @@ async function billing(event: Stripe.Event, work: () => Promise<SyncOutcome>) {
       return NextResponse.json({ error: "Not processed yet" }, { status: 500 });
     }
     console.error(`[billing] ${event.type}, needs a person: ${outcome.detail}`);
+    // Acknowledged so the retry queue drains, which means nothing else will ever
+    // raise this again: the email is the only thing standing between a paying
+    // member and never being marked as one.
+    after(() =>
+      notifyStaff({
+        kind: "billing-unmatched",
+        headline: "A Stripe event couldn’t be matched to a member",
+        ref: event.id,
+        facts: { Event: event.type, "Event id": event.id, Detail: outcome.detail },
+        action: "Open the event in Stripe and find who it belongs to. Usually the customer has no hub member with that email, so setting stripe_customer_id on the right member and resending the event fixes it.",
+      }),
+    );
     return NextResponse.json({ received: true });
   } catch (err) {
     // Unexpected: retry for a while in case it was a blip, then stop, so a bug
@@ -177,6 +190,23 @@ async function handleCheckoutCompleted(event: Stripe.Event) {
           await stripe.refunds.create({ payment_intent: paymentIntentId }, { idempotencyKey: `slot-taken-${session.id}` });
         } catch (refundErr) {
           console.error("[webhook] Slot taken, and the refund failed; Stripe will retry:", session.id, refundErr);
+          // Stripe will retry, and it may well work next time. But someone has paid
+          // for a slot they can't have, so if it doesn't, a person has to know.
+          after(() =>
+            notifyStaff({
+              kind: "refund-failed",
+              headline: "A member paid for a slot that was already taken, and the refund failed",
+              ref: session.id,
+              facts: {
+                "Checkout session": session.id,
+                "Payment intent": paymentIntentId,
+                Amount: `$${amount.toFixed(2)}`,
+                Member: session.customer_details?.email ?? userId,
+                Booking: bookingId,
+              },
+              action: "Refund the payment intent in Stripe by hand, then check the member was told. Stripe is still retrying, so this may already have sorted itself out.",
+            }),
+          );
           return NextResponse.json({ error: "Refund failed" }, { status: 500 });
         }
         console.error("[webhook] Paid for a slot someone else holds; refunded in full:", session.id);
