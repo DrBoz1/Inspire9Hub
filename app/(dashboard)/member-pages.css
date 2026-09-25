@@ -346,3 +346,12 @@
 .hub-toaster .hub-toast[data-type="loading"] [data-content]::after { display: none; }
 @keyframes hub-toast-time { to { transform: scaleX(0); } }
 @media (prefers-reduced-motion: reduce) { .hub-toaster .hub-toast [data-content]::after { display: none; } }
+
+/* Inside the member hub the sidebar stays, so the card sits in the page instead. */
+.hub-error { display: grid; justify-items: start; gap: 11px; max-width: 460px; padding: 30px; }
+.hub-error h1 { font-size: 24px; font-weight: 500; letter-spacing: -.045em; line-height: 1.25; }
+.hub-error > p { color: var(--hub-muted); font-size: 12px; line-height: 1.8; }
+.hub-error-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 9px; }
+.hub-error-actions .hub-button { gap: 9px; }
+.hub-error-ref { color: var(--hub-muted); font-size: 10px; }
+.hub-error-mark { display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: color-mix(in srgb, var(--hub-red) 10%, var(--hub-paper)); color: var(--hub-red); }

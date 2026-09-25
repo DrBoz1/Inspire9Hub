@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
   // Hide the X-Powered-By: Next.js header — no free recon for attackers
   poweredByHeader: false,
 
+  // A build normally lands in .next, which a running dev server is also using.
+  // NEXT_DIST_DIR=.next-build sends it somewhere else, so a production build can
+  // be checked on another port without taking the dev server down.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
+
   // Room photos can be up to 5MB (see lib/admin-rooms.ts); the default 1MB limit rejected most of them.
   experimental: {
     serverActions: {
