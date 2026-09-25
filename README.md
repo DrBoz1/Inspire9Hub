@@ -97,7 +97,7 @@ flowchart LR
       RSC[Server Components<br/>pages and loaders]
       SA[Server Actions<br/>bookings, admin, billing]
       WH["api/webhooks/stripe"]
-      CR["api/cron/review-reminder"]
+      CR["api/cron<br/>review reminder, nightly sweep"]
     end
 
     subgraph Supabase
@@ -177,6 +177,28 @@ An unknown event type is always acknowledged, so an unhandled event can never ge
 
 The hub runs in Melbourne; the servers run in UTC. Every date shown, emailed or printed on an invoice is formatted in `Australia/Melbourne`, including across daylight-saving changes. CI runs the whole test suite a second time under five hostile time zones (UTC, New York, Kolkata, Kiritimati and Santiago), so code that accidentally reads the machine's clock fails before it ships.
 
+### When something breaks, a person hears about it
+
+Every failure used to end in a console line, which is right for Stripe — an endpoint
+that keeps failing gets switched off, and bookings and memberships share one — but
+useless to anyone not reading logs. Three things changed that:
+
+- **Failure screens.** A page that throws shows a hub-branded screen with a working
+  retry and a reference code, not the browser's blank error. There is one for the
+  member area, one for the admin frame, one for a failed layout, and a 404.
+- **Staff alerts** ([`lib/alerts.ts`](lib/alerts.ts)) for the few failures only a person
+  can fix: a Stripe event that can't be matched to a member, a refund that didn't go
+  through, a paid booking left unconfirmed. One email per problem per day — a
+  dedupe key in `sent_emails`, so an event Stripe retries for three days is one email.
+- **A nightly sweep** ([`api/cron/janitor`](app/api/cron/janitor/route.ts)) releases holds
+  left behind by abandoned checkouts, and never touches one that was paid for: those
+  are reported instead. `?dryRun=true` shows what it would do and changes nothing.
+
+`/api/health` answers 200 when the database is reachable and 503 when it isn't, for an
+uptime monitor to watch, and [`scripts/smoke.mjs`](scripts/smoke.mjs) checks the deployed
+site still serves its public pages, still turns signed-out visitors away, and still
+refuses an unsigned webhook.
+
 ### Security
 
 - Anonymous visitors can read nothing but the public plan prices. The service-role key is used only on the server, and only after the caller has been checked.
@@ -247,6 +269,7 @@ stripe listen --forward-to localhost:3000/api/webhooks/stripe
 | `npm run test:watch` | Tests in watch mode |
 | `npm run typecheck` | TypeScript, no output |
 | `npm run lint` | ESLint |
+| `npm run smoke` | Check a running site over HTTP: `npm run smoke -- http://localhost:3000`. Writes nothing, so it is safe against production |
 
 ---
 
@@ -265,7 +288,7 @@ Set these in `.env.local` for development and in **Vercel → Project Settings �
 | `RESEND_API_KEY` | Yes | Sends all email. |
 | `RESEND_FROM_EMAIL` | Production | A sender on a domain verified in Resend, e.g. `Inspire9 Hub <hello@yourdomain.com>`. Without it, Resend's test sender only delivers to your own address. |
 | `SUPPORT_INBOX` | No | The team inbox for enquiries, support messages and staff alerts. Defaults to `hello@inspire9.com`. |
-| `CRON_SECRET` | Production | Protects the weekly review-reminder job. Vercel Cron sends it automatically. |
+| `CRON_SECRET` | Production | Protects the scheduled jobs (review reminder, nightly sweep). Vercel Cron sends it automatically. |
 | `RESEND_TO_OVERRIDE` | Development only | Sends every email to this one address, so you can test without emailing real members. Leave unset in production. |
 
 ---
@@ -343,6 +366,10 @@ npm run lint
   - the test suite, then the suite again under five time zones
   - lint
   - a production build
+- **Smoke test** (`.github/workflows/smoke.yml`) runs against production after each deploy
+  and every half hour: the public pages load, protected pages redirect to login, the
+  Stripe webhook rejects an unsigned payload, the scheduled jobs reject a request with no
+  secret, and an unknown URL returns a designed 404.
 
 ---
 
@@ -362,7 +389,9 @@ inspire9-hub/
 │   ├── api/
 │   │   ├── webhooks/stripe/     payments and subscriptions
 │   │   ├── invoice/[bookingId]/ PDF invoice download
-│   │   └── cron/review-reminder/
+│   │   ├── cron/review-reminder/
+│   │   ├── cron/janitor/
+│   │   └── health/
 │   └── auth/callback/           email link handler
 ├── components/                  shared UI (sidebars, header, admin building blocks, charts)
 ├── features/booking-map/        the interactive floor plan
@@ -399,6 +428,7 @@ inspire9-hub/
 | `/admin/approvals` | Staff | Induction review and audit log |
 | `/admin/rooms`, `/admin/members`, `/admin/memberships`, `/admin/announcements` | Staff | Management |
 | `/admin/management` | Super admins | Staff access |
+| `/api/health` | Everyone | Is the site and its database up? For an uptime monitor |
 
 ---
 
