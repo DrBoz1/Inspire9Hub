@@ -1,0 +1,48 @@
+/*
+ * The screens shown when something has gone wrong: a page that threw, a URL that
+ * doesn't exist, or the root layout itself failing.
+ *
+ * Deliberately self-contained. global-error.tsx replaces the root layout, so it
+ * gets no globals.css, no fonts and no theme provider; these rules must stand on
+ * their own and work in both colour schemes without JavaScript.
+ */
+.fallback {
+  --hub-bg: #f6f5f4;
+  --hub-paper: #ffffff;
+  --hub-ink: #1f1d1d;
+  --hub-muted: #6f6a68;
+  --hub-line: #e8e4e2;
+  --hub-soft: #f3f0ee;
+  --hub-red: #e31e24;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100dvh;
+  margin: 0;
+  padding: 24px;
+  background: radial-gradient(ellipse at 0 0, #ffffff 0, transparent 45%), var(--hub-bg);
+  color: var(--hub-ink);
+  font-family: var(--font-poppins), ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+/* The theme provider sets .dark on <html>; without it, follow the browser. */
+.dark .fallback { --hub-bg: #141313; --hub-paper: #1e1c1c; --hub-ink: #f1edeb; --hub-muted: #a8a19e; --hub-line: #34302f; --hub-soft: #2a2726; --hub-red: #ff5a5f; background: radial-gradient(ellipse at 0 0, #2a2020 0, transparent 45%), var(--hub-bg); }
+@media (prefers-color-scheme: dark) {
+  html:not(.light) .fallback { --hub-bg: #141313; --hub-paper: #1e1c1c; --hub-ink: #f1edeb; --hub-muted: #a8a19e; --hub-line: #34302f; --hub-soft: #2a2726; --hub-red: #ff5a5f; background: radial-gradient(ellipse at 0 0, #2a2020 0, transparent 45%), var(--hub-bg); }
+}
+
+.fallback-card { width: 100%; max-width: 430px; padding: 34px; border: 1px solid var(--hub-line); border-radius: 17px; background: var(--hub-paper); }
+.fallback-mark { display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px; background: color-mix(in srgb, var(--hub-red) 10%, var(--hub-paper)); color: var(--hub-red); }
+.fallback-eyebrow { margin: 20px 0 0; color: var(--hub-muted); font-size: 9px; font-weight: 500; letter-spacing: .14em; line-height: 1.6; text-transform: uppercase; }
+.fallback-card h1 { margin: 7px 0 0; font-size: 27px; font-weight: 500; letter-spacing: -.045em; line-height: 1.25; }
+.fallback-card h1 > span { color: var(--hub-red); }
+.fallback-card > p { margin: 11px 0 0; color: var(--hub-muted); font-size: 12px; line-height: 1.8; }
+.fallback-actions { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 24px; }
+.fallback-button { display: inline-flex; align-items: center; gap: 8px; min-height: 41px; padding: 0 17px; border: 1px solid transparent; border-radius: 8px; font: inherit; font-size: 11px; font-weight: 500; text-decoration: none; cursor: pointer; transition: background .2s, transform .2s, border-color .2s; }
+.fallback-button:hover { transform: translateY(-1px); }
+.fallback-button-primary { background: var(--hub-red); color: #ffffff; }
+.fallback-button-primary:hover { background: color-mix(in srgb, var(--hub-red) 88%, #000000); }
+.fallback-button-outline { border-color: var(--hub-line); background: var(--hub-paper); color: var(--hub-ink); }
+.fallback-button-outline:hover { border-color: color-mix(in srgb, var(--hub-ink) 22%, var(--hub-line)); background: var(--hub-soft); }
+.fallback-button:focus-visible { outline: 2px solid var(--hub-red); outline-offset: 3px; }
+.fallback-ref { margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--hub-line); color: var(--hub-muted); font-size: 10px; line-height: 1.7; }
+.fallback-ref code { font-family: var(--font-geist-mono), ui-monospace, monospace; font-size: 10px; }
